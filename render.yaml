@@ -3,7 +3,10 @@
 # New -> Blueprint, pointed at this repo.
 #
 # One service rather than two keeps it on the free tier and means the browser
-# never makes a cross-origin call, so there is no CORS to configure.
+# never makes a cross-origin call, so there is no CORS to configure for the
+# web frontend. The Android app is a different story: it runs at
+# capacitor://localhost, a genuinely different origin from this API, so it
+# needs the CORS_ORIGINS entry below or every request gets blocked.
 
 services:
   - type: web
@@ -34,6 +37,11 @@ services:
 
       - key: STATIC_DIR
         value: ../xspace-portal-react/dist
+
+      # Lets the Android app (capacitor://localhost) call this API. Not
+      # needed by the web frontend, which is same-origin with it.
+      - key: CORS_ORIGINS
+        value: capacitor://localhost,https://localhost,http://localhost
 
       # No demo accounts in production. Flip to "true" only if you want the
       # five shared-password logins for a walkthrough.
