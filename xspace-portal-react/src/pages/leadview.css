@@ -1,0 +1,183 @@
+/* Ported from leadview.html, scoped under .page-leadview. */
+
+.page-leadview {
+  --bg: #0b0b0b;
+  --panel: #0f1720;
+  --fg: #fff;
+  --muted: #9aa0a6;
+  --border: rgba(255, 255, 255, 0.08);
+  font-family: Inter, system-ui;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.page-leadview .container {
+  padding: 20px;
+  max-width: 1100px;
+  margin: auto;
+}
+
+.page-leadview .section {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.page-leadview .section h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+.page-leadview .muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.page-leadview .header-top {
+  margin-bottom: 12px;
+}
+.page-leadview .client-name {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.page-leadview .status-wrap {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px;
+  border-radius: 10px;
+}
+
+.page-leadview .status-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.page-leadview .new {
+  background: #1f2937;
+}
+.page-leadview .contacted {
+  background: #64748b;
+}
+.page-leadview .presented {
+  background: #2563eb;
+}
+.page-leadview .scheduled {
+  background: #4f46e5;
+}
+.page-leadview .completed {
+  background: #0ea5e9;
+}
+.page-leadview .negotiation {
+  background: #f59e0b;
+}
+.page-leadview .token {
+  background: #a855f7;
+}
+.page-leadview .closed {
+  background: #10b981;
+  color: #000;
+}
+.page-leadview .dropped {
+  background: #374151;
+}
+
+.page-leadview .hot {
+  color: #ef4444;
+}
+.page-leadview .warm {
+  color: #f59e0b;
+}
+.page-leadview .cold {
+  color: #38bdf8;
+}
+
+.page-leadview .grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.page-leadview .box {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px;
+  border-radius: 10px;
+}
+.page-leadview .box strong {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.page-leadview .timeline-item {
+  border-left: 2px solid rgba(255, 255, 255, 0.1);
+  padding-left: 12px;
+  margin-bottom: 10px;
+}
+.page-leadview .time {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.page-leadview .shortlist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.page-leadview .short-item {
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px;
+  border-radius: 10px;
+}
+.page-leadview .short-item strong {
+  display: block;
+  font-size: 14px;
+}
+.page-leadview .short-item span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.page-leadview textarea,
+.page-leadview input[type='datetime-local'],
+.page-leadview select {
+  width: 100%;
+  background: #020617;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 10px;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+.page-leadview button {
+  background: #10b981;
+  color: #000;
+  border: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.page-leadview .action {
+  background: transparent;
+  color: #10b981;
+  border: 1px solid var(--border);
+  margin-top: 6px;
+}
+.page-leadview .actions button {
+  margin-right: 6px;
+  margin-top: 6px;
+}
+
+/* inline-style replacements from the original markup */
+.page-leadview .present-row {
+  margin-top: 6px;
+}
+.page-leadview .present-mode {
+  margin-top: 6px;
+}
+.page-leadview .schedule-block {
+  margin-top: 12px;
+}
+.page-leadview .note-actions {
+  margin-top: 12px;
+}

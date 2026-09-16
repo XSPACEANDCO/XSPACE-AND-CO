@@ -1,0 +1,409 @@
+/* Teams — the account screen.
+
+   Scoped under .page-dashboard so these rules only apply inside the portal
+   shell and inherit its palette (--fg, --muted, --panel, --accent, --danger),
+   the same approach every other ported page uses.
+
+   Borders are neutral grey at low alpha rather than the shell's white-alpha so
+   they stay visible in both the day and night themes. */
+
+.page-dashboard .teams-page {
+  max-width: 1180px;
+}
+
+/* ---- header ---- */
+.page-dashboard .teams-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+
+.page-dashboard .teams-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.page-dashboard .teams-subtitle {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.page-dashboard .teams-add {
+  background: #2563eb;
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.page-dashboard .teams-add:hover {
+  background: #3b82f6;
+}
+
+.page-dashboard .teams-add:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ---- the six counters ---- */
+.page-dashboard .teams-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.page-dashboard .tstat {
+  background: var(--panel);
+  border: 1px solid rgba(128, 128, 128, 0.18);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.page-dashboard .tstat-label {
+  font-size: 14px;
+  color: var(--fg);
+  opacity: 0.85;
+}
+
+.page-dashboard .tstat-value {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 6px 0 2px;
+}
+
+.page-dashboard .tstat-value.is-green { color: #34d399; }
+.page-dashboard .tstat-value.is-blue { color: #60a5fa; }
+.page-dashboard .tstat-value.is-orange { color: #fb923c; }
+.page-dashboard .tstat-value.is-pink { color: #f472b6; }
+.page-dashboard .tstat-value.is-purple { color: #a78bfa; }
+
+.page-dashboard .tstat-sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ---- tabs + search ---- */
+.page-dashboard .teams-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.page-dashboard .teams-tabs {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.page-dashboard .teams-tab {
+  background: var(--glass);
+  border: 1px solid rgba(128, 128, 128, 0.18);
+  color: var(--fg);
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.page-dashboard .teams-tab:hover {
+  border-color: rgba(128, 128, 128, 0.4);
+}
+
+.page-dashboard .teams-tab.is-active {
+  background: rgba(96, 165, 250, 0.16);
+  border-color: rgba(96, 165, 250, 0.45);
+  font-weight: 600;
+}
+
+.page-dashboard .teams-search {
+  width: 330px;
+  max-width: 100%;
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(128, 128, 128, 0.22);
+  background: var(--panel);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+/* ---- notices ---- */
+.page-dashboard .teams-error {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.page-dashboard .teams-note,
+.page-dashboard .teams-empty {
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.page-dashboard .teams-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--accent);
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+/* ---- member cards ---- */
+.page-dashboard .teams-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 16px;
+}
+
+.page-dashboard .tcard {
+  background: var(--panel);
+  border: 1px solid rgba(128, 128, 128, 0.18);
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.page-dashboard .tcard.is-off {
+  opacity: 0.6;
+}
+
+.page-dashboard .tcard-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.page-dashboard .tcard-avatar {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  border-radius: 12px;
+  background: rgba(128, 128, 128, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.page-dashboard .tcard-id {
+  flex: 1;
+  min-width: 0;
+}
+
+.page-dashboard .tcard-name {
+  font-size: 17px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.page-dashboard .tcard-role {
+  margin-top: 2px;
+  font-size: 14px;
+  color: #60a5fa;
+}
+
+.page-dashboard .tcard-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.page-dashboard .tcard-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.page-dashboard .tcard-status.is-on { color: #34d399; }
+.page-dashboard .tcard-status.is-away { color: #fbbf24; }
+.page-dashboard .tcard-status.is-idle { color: var(--muted); }
+.page-dashboard .tcard-status.is-off { color: var(--danger); }
+
+/* Label/value list: full name and role live in the header above, the login
+   details and contact fields here. */
+.page-dashboard .tcard-fields {
+  margin: 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.page-dashboard .tcard-fields > div {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.page-dashboard .tcard-fields dt {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.page-dashboard .tcard-fields dd {
+  margin: 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.page-dashboard .tcard-mono,
+.page-dashboard .tcard-pw {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Only ever on screen in the moment it is issued — nothing readable is stored. */
+.page-dashboard .tcard-pw {
+  color: var(--accent);
+  letter-spacing: 0.5px;
+  user-select: all;
+}
+
+.page-dashboard .tcard-pwrow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.page-dashboard .tcard-hidden {
+  color: var(--muted);
+}
+
+.page-dashboard .tcard-actions {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.page-dashboard .teams-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #60a5fa;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.page-dashboard .teams-link:hover {
+  text-decoration: underline;
+}
+
+/* ---- add member form, inside the shell's modal ---- */
+.page-dashboard .teams-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.page-dashboard .teams-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+}
+
+.page-dashboard .teams-form label > span {
+  color: var(--muted);
+}
+
+.page-dashboard .teams-form input,
+.page-dashboard .teams-form select {
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(128, 128, 128, 0.28);
+  background: var(--glass);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.page-dashboard .teams-form-wide {
+  grid-column: 1 / -1;
+}
+
+.page-dashboard .teams-form-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.page-dashboard .teams-form-hint {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.page-dashboard .teams-form-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.page-dashboard .teams-cancel {
+  background: rgba(128, 128, 128, 0.18);
+  color: var(--fg);
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+@media (max-width: 1100px) {
+  .page-dashboard .teams-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .page-dashboard .teams-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .page-dashboard .teams-search {
+    width: 100%;
+  }
+  .page-dashboard .teams-grid {
+    grid-template-columns: 1fr;
+  }
+}

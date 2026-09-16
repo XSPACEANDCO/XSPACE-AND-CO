@@ -1,0 +1,93 @@
+/* Ported from listings.html, scoped under .page-listings. */
+
+.page-listings {
+  --bg: #0b0b0b;
+  --panel: #0f1720;
+  --fg: #fff;
+  --muted: #9aa0a6;
+  --accent: #10b981;
+  --border: rgba(255, 255, 255, 0.08);
+  font-family: Inter, system-ui;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.page-listings .container {
+  padding: 20px;
+}
+.page-listings h1 {
+  margin: 0 0 6px;
+}
+
+.page-listings .top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.page-listings button {
+  background: var(--accent);
+  color: #000;
+  border: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.page-listings table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--panel);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.page-listings th,
+.page-listings td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.page-listings th {
+  color: var(--muted);
+  font-weight: 500;
+}
+.page-listings tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* badges */
+.page-listings .badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.page-listings .unverified {
+  background: #64748b;
+}
+.page-listings .verified {
+  background: #22c55e;
+  color: #000;
+}
+.page-listings .rejected {
+  background: #ef4444;
+}
+
+.page-listings .small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.page-listings .action-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 400;
+}
+.page-listings .title-cell {
+  cursor: pointer;
+}

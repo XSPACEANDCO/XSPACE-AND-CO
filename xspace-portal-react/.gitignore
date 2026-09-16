@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-mobile
+.vite
+*.local
+
+# Points the mobile build at this machine's LAN address — not portable, and
+# rebuilt from scratch whenever the Android app needs a fresh API URL.
+.env.mobile

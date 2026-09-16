@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Xspace & Co | Site Visits</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+:root{
+  --bg:#0b0b0b;
+  --panel:#0f1720;
+  --fg:#fff;
+  --muted:#9aa0a6;
+  --border:rgba(255,255,255,0.08);
+  --accent:#10b981;
+  font-family: Inter, system-ui;
+}
+body{margin:0;background:var(--bg);color:var(--fg);}
+.container{padding:20px;}
+h1{margin:0 0 6px;}
+
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+.filters{display:flex;gap:10px;}
+select,input,button{
+  background:var(--panel);
+  color:var(--fg);
+  border:1px solid var(--border);
+  padding:8px 12px;
+  border-radius:8px;
+}
+
+.today-strip{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:12px;
+  margin-bottom:20px;
+}
+.card{
+  background:var(--panel);
+  border-radius:12px;
+  padding:12px;
+  cursor:pointer;
+  border:1px solid var(--border);
+}
+.card strong{font-size:14px;}
+.card .muted{font-size:12px;color:var(--muted);}
+
+.pipeline{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+}
+.col{
+  background:rgba(255,255,255,0.03);
+  border-radius:12px;
+  padding:10px;
+}
+.col h3{margin:0 0 8px;font-size:14px;color:var(--muted);}
+.visit{
+  background:var(--panel);
+  padding:10px;
+  border-radius:10px;
+  margin-bottom:8px;
+  border:1px solid var(--border);
+}
+.hot{color:#ef4444}
+.warm{color:#f59e0b}
+.cold{color:#38bdf8}
+.soon{box-shadow:0 0 0 1px #f59e0b inset;}
+.overdue{box-shadow:0 0 0 1px #ef4444 inset;}
+
+#scheduleModal,#rescheduleModal,#unsuccessModal{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);
+  display:none;align-items:center;justify-content:center;z-index:99;
+}
+.modal{
+  background:#0f1720;border-radius:12px;padding:16px;width:360px;
+  border:1px solid rgba(255,255,255,.08);
+}
+.modal label{font-size:12px;color:var(--muted);}
+.modal input,.modal select{width:100%;margin-bottom:8px;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;}
+.action-btn{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);margin-right:6px;}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+  <div class="topbar">
+    <div>
+      <h1>Site Visits</h1>
+      <div style="color:var(--muted)">Daily operations dashboard</div>
+    </div>
+
+    <div class="filters">
+      <select id="agentFilter">
+        <option value="all">All Agents</option>
+        <option value="Sai">Sai</option>
+        <option value="Rahul">Rahul</option>
+      </select>
+      <select id="modeFilter">
+        <option value="all">All Modes</option>
+        <option value="On-site">On-site</option>
+        <option value="VR">VR</option>
+      </select>
+      <button onclick="openSchedule()">+ Schedule Visit</button>
+    </div>
+  </div>
+
+  <h3>Today’s Visits</h3>
+  <div class="today-strip" id="todayVisits"></div>
+
+  <div class="pipeline">
+    <div class="col"><h3>Scheduled</h3><div id="Scheduled"></div></div>
+    <div class="col"><h3>Completed</h3><div id="Completed"></div></div>
+    <div class="col"><h3>Unsuccessful Visit</h3><div id="Unsuccessful"></div></div>
+    <div class="col"><h3>Rescheduled</h3><div id="Rescheduled"></div></div>
+  </div>
+
+</div>
+
+<!-- Schedule Modal -->
+<div id="scheduleModal">
+  <div class="modal">
+    <h3>Schedule Site Visit</h3>
+    <label>Client</label><input id="svClient">
+    <label>Project</label><input id="svProject">
+    <label>Date & Time</label><input id="svTime" type="datetime-local">
+    <label>Mode</label>
+    <select id="svMode"><option>On-site</option><option>VR</option></select>
+    <label>Agent</label>
+    <select id="svAgent"><option>Sai</option><option>Rahul</option></select>
+    <div class="modal-actions">
+      <button onclick="closeSchedule()">Cancel</button>
+      <button onclick="saveVisit()" style="background:#10b981;color:#000">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reschedule Modal -->
+<div id="rescheduleModal">
+  <div class="modal">
+    <h3>Reschedule Visit</h3>
+    <label>New Date & Time</label>
+    <input id="rsTime" type="datetime-local">
+    <div class="modal-actions">
+      <button onclick="closeReschedule()">Cancel</button>
+      <button onclick="confirmReschedule()" style="background:#10b981;color:#000">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Unsuccessful Modal -->
+<div id="unsuccessModal">
+  <div class="modal">
+    <h3>Mark Unsuccessful Visit</h3>
+    <label>Reason</label>
+    <select id="usReason">
+      <option value="">Select reason</option>
+      <option>Client Unavailable</option>
+      <option>No Response</option>
+      <option>Client Not Confirmed</option>
+      <option>Client Cancelled</option>
+      <option>Decision Maker Not Available</option>
+      <option>Budget Issue</option>
+      <option>Location Not Liked</option>
+      <option>Project Not Liked</option>
+      <option>Unit Not Available</option>
+      <option>Reschedule Requested</option>
+      <option>Other (Add Note)</option>
+    </select>
+    <div class="modal-actions">
+      <button onclick="closeUnsuccess()">Cancel</button>
+      <button onclick="confirmUnsuccess()" style="background:#ef4444;color:#000">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const USER_ROLE="founder";
+let rescheduleId=null;
+let unsuccessId=null;
+
+let visits=[
+  {id:1,client:"Ramesh",project:"MyHome Avatar",timeISO:"2026-02-04T11:00",time:"11:00 AM",agent:"Sai",mode:"On-site",status:"Scheduled",temp:"hot"},
+  {id:2,client:"Sita",project:"Vasavi Skyla",timeISO:"2026-02-04T14:30",time:"2:30 PM",agent:"Rahul",mode:"VR",status:"Completed",temp:"warm"}
+];
+
+function tempLabel(t){return{hot:"🔥 Hot",warm:"🌤️ Warm",cold:"❄️ Cold"}[t]||"";}
+function isSoon(t){const d=new Date(t)-new Date();return d>0&&d<=2*60*60*1000;}
+function isOverdue(t,s){return new Date(t)<new Date()&&s==="Scheduled";}
+
+function render(){
+  todayVisits.innerHTML="";
+  ["Scheduled","Completed","Unsuccessful","Rescheduled"].forEach(s=>document.getElementById(s).innerHTML="");
+  visits.forEach(v=>{
+    const soon=isSoon(v.timeISO),over=isOverdue(v.timeISO,v.status);
+    const actions=(USER_ROLE==="founder"||USER_ROLE==="core")?`
+      <div style="margin-top:6px">
+        <button class="action-btn" onclick="updateStatus(${v.id},'Completed')">Done</button>
+        <button class="action-btn" onclick="openUnsuccess(${v.id})">Unsuccessful</button>
+        <button class="action-btn" onclick="openReschedule(${v.id})">Reschedule</button>
+      </div>`:"";
+    document.getElementById(v.status).insertAdjacentHTML("beforeend",`
+      <div class="visit ${soon?'soon':''} ${over?'overdue':''}">
+        <strong>${v.client}</strong> <span class="${v.temp}">${tempLabel(v.temp)}</span><br>
+        <span style="color:var(--muted)">${v.project}</span><br>
+        <span style="color:var(--muted)">${v.time} • ${v.agent} • ${v.mode}</span>
+        ${soon?`<div class="warm">⏰ Soon</div>`:""} ${over?`<div class="hot">⚠️ Overdue</div>`:""}
+        ${actions}
+      </div>`);
+  });
+}
+
+function updateStatus(id,s){visits=visits.map(v=>v.id===id?{...v,status:s}:v);render();}
+function openSchedule(){scheduleModal.style.display="flex";}
+function closeSchedule(){scheduleModal.style.display="none";}
+function saveVisit(){
+  visits.push({id:Date.now(),client:svClient.value,project:svProject.value,timeISO:svTime.value,time:new Date(svTime.value).toLocaleString(),agent:svAgent.value,mode:svMode.value,status:"Scheduled",temp:"warm"});
+  closeSchedule();render();
+}
+
+function openReschedule(id){rescheduleId=id;rescheduleModal.style.display="flex";}
+function closeReschedule(){rescheduleModal.style.display="none";rescheduleId=null;}
+function confirmReschedule(){
+  const iso=rsTime.value;
+  if(!iso) return alert("Select date & time");
+  visits=visits.map(v=>v.id===rescheduleId?{...v,timeISO:iso,time:new Date(iso).toLocaleString(),status:"Rescheduled"}:v);
+  closeReschedule();render();
+}
+
+function openUnsuccess(id){unsuccessId=id;unsuccessModal.style.display="flex";}
+function closeUnsuccess(){unsuccessModal.style.display="none";unsuccessId=null;}
+
+function confirmUnsuccess(){
+  const reason=document.getElementById("usReason").value;
+  if(!reason) return alert("Select a reason");
+  visits=visits.map(v=>v.id===unsuccessId?{...v,status:"Unsuccessful",reason}:v);
+  closeUnsuccess();
+  autoFollowUp(reason);
+  render();
+}
+
+function autoFollowUp(reason){
+  let msg="Manual follow-up in 24–48 hrs";
+  if(reason==="No Response"||reason==="Client Unavailable") msg="Auto follow-up call in 24 hrs";
+  if(reason==="Budget Issue") msg="Suggest lower budget listings in 48 hrs";
+  if(reason==="Location Not Liked") msg="Suggest alternate areas in 48 hrs";
+  if(reason==="Project Not Liked") msg="Suggest similar projects in 48 hrs";
+  if(reason==="Reschedule Requested") msg="Reschedule visit with new date & time";
+  alert("Auto Follow-up Created:\n"+msg);
+}
+
+// 🔗 Auto-open Schedule modal + prefill date-time from lead-view
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const dt = params.get("dt");
+  if(dt){
+    const modal = document.getElementById("scheduleModal");
+    const input = document.getElementById("svTime");
+    if(modal && input){
+      modal.style.display = "flex";
+      input.value = dt;
+    }
+  }
+})();
+
+render();
+</script>
+</body>
+</html>

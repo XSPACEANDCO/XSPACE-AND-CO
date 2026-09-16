@@ -1,0 +1,133 @@
+<!-- index.html (Login Page) - overwrite existing file -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Xspace & Co. — Login</title>
+  <meta name="description" content="Xspace private portal login" />
+  <style>
+    :root{
+      --bg:#fff; --fg:#0b0b0b; --muted:#6b6b6b; --card-radius:12px; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto;
+    }
+    [data-theme="dark"]{ --bg:#000; --fg:#fff; --muted:#9a9a9a; }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased;}
+    .center{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+    .card{width:100%;max-width:460px;padding:32px;border-radius:var(--card-radius);box-sizing:border-box;}
+    .brand{text-align:center;margin-bottom:14px}
+    .brand .title{font-size:28px;font-weight:700}
+    .brand .sub{font-size:13px;color:var(--muted);margin-top:6px}
+    form{display:flex;flex-direction:column;gap:12px}
+    label{font-size:13px;color:var(--muted)}
+    input{padding:12px 14px;border-radius:10px;border:1px solid rgba(0,0,0,0.08);font-size:15px}
+    [data-theme="dark"] input{border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);color:var(--fg)}
+    .controls{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted)}
+    .btn{padding:12px;border-radius:10px;border:0;background:var(--fg);color:var(--bg);font-weight:600;cursor:pointer}
+    .small{font-size:12px;color:var(--muted);text-align:center;margin-top:12px}
+    .toptoggle{position:fixed;right:18px;top:18px;padding:8px 10px;border-radius:999px;background:rgba(0,0,0,0.03);cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="toptoggle" id="themeToggle" role="button" tabindex="0">☀️ Day</div>
+
+  <main class="center">
+    <section class="card" role="main" aria-labelledby="brandTitle">
+      <div class="brand" id="brandTitle">
+        <div class="title">Xspace &amp; Co.</div>
+        <div class="sub">Portal</div>
+      </div>
+
+      <div style="text-align:center;margin-bottom:10px">
+        <h2 style="margin:0;font-size:18px">Login to continue</h2>
+        <div style="color:var(--muted);font-size:13px;margin-top:8px">Sign in to your private workspace</div>
+      </div>
+
+      <form id="loginForm" autocomplete="off" novalidate>
+        <div>
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" placeholder="name@xspace.co" required />
+        </div>
+
+        <div>
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" placeholder="Enter your password" required />
+        </div>
+
+        <div class="controls">
+          <label><input id="remember" type="checkbox" /> Remember me</label>
+          <a href="#" id="forgot" style="color:var(--muted);text-decoration:none">Forgot?</a>
+        </div>
+
+        <div>
+          <button class="btn" type="submit" id="loginBtn">Login to Portal</button>
+        </div>
+
+        <div class="small">Private Access • Xspace team only</div>
+      </form>
+
+      <div class="small" style="margin-top:18px">© <span id="year"></span> Xspace &amp; Co.</div>
+    </section>
+  </main>
+
+  <script>
+    // small auth demo + theme toggle
+    const THEME_KEY = 'xspace_theme';
+    const AUTH_KEY = 'xspace_auth'; // session flag
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // theme
+    const root = document.documentElement;
+    const themeToggle = document.getElementById('themeToggle');
+    const saved = localStorage.getItem(THEME_KEY) || 'light';
+    applyTheme(saved);
+    function applyTheme(m){
+      if(m === 'dark'){ root.setAttribute('data-theme','dark'); themeToggle.textContent='🌙 Night'; }
+      else { root.removeAttribute('data-theme'); themeToggle.textContent='☀️ Day'; }
+      localStorage.setItem(THEME_KEY,m);
+    }
+    themeToggle.addEventListener('click', ()=> applyTheme(root.getAttribute('data-theme') === 'dark' ? 'light':'dark'));
+    themeToggle.addEventListener('keydown',(e)=>{ if(e.key==='Enter') themeToggle.click(); });
+
+    // If already logged in (session exists), redirect to dashboard
+    if(localStorage.getItem(AUTH_KEY) === '1'){
+      window.location.href = 'dashboard.html';
+    }
+
+    // Mock login: Replace with real API later
+    document.getElementById('loginForm').addEventListener('submit', function(e){
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const pass  = document.getElementById('password').value.trim();
+
+      if(!email || !pass){
+        alert('Please enter email and password');
+        return;
+      }
+
+      // Demo rule: accept any email & password length >= 4
+      if(pass.length >= 4){
+        // store session flag (demo). In real app, store token from backend.
+        localStorage.setItem(AUTH_KEY, '1');
+        // also store role hint (for demo only). In real app backend returns role.
+        // Example: if email contains "agent" -> role=agent
+        let role = 'agent';
+        if(/founder|admin|core/i.test(email)) role = 'admin';
+        if(/creator/i.test(email)) role = 'creator';
+        localStorage.setItem('xspace_role', role);
+
+        // redirect
+        window.location.href = 'dashboard.html';
+      } else {
+        alert('Weak password (demo). Use minimum 4 characters.');
+      }
+    });
+
+    // Forgot link (demo)
+    document.getElementById('forgot').addEventListener('click', function(e){
+      e.preventDefault();
+      const email = prompt('Enter your email to reset (demo):');
+      if(email) alert('If this were live, we would send a reset email to ' + email);
+    });
+  </script>
+</body>
+</html>

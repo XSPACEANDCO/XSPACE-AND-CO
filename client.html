@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Xspace & Co | Clients</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+:root{
+  --bg:#0b0b0b;
+  --panel:#0f1720;
+  --fg:#fff;
+  --muted:#9aa0a6;
+  --accent:#10b981;
+  --border:rgba(255,255,255,0.08);
+  font-family: Inter, system-ui;
+}
+body{margin:0;background:var(--bg);color:var(--fg);}
+.container{padding:20px;}
+h1{margin:0 0 6px;}
+
+.top-bar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:14px;
+}
+
+select{
+  background:var(--panel);
+  color:var(--fg);
+  border:1px solid var(--border);
+  padding:8px 12px;
+  border-radius:8px;
+  font-size:14px;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  background:var(--panel);
+  border-radius:12px;
+  overflow:hidden;
+}
+th,td{
+  padding:12px;
+  text-align:left;
+  border-bottom:1px solid var(--border);
+  font-size:14px;
+}
+th{color:var(--muted);font-weight:500;}
+tr:hover{background:rgba(255,255,255,0.03);cursor:pointer;}
+
+/* STATUS */
+.status{
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:12px;
+  background:rgba(255,255,255,0.06);
+}
+.new{background:#1f2937;}
+.contacted{background:#64748b;}
+.visit{background:#0ea5e9;}
+.negotiation{background:#f59e0b;}
+.closed{background:#10b981;color:#000;}
+
+/* TEMPERATURE */
+.temp{
+  font-size:12px;
+  margin-left:6px;
+  font-weight:500;
+}
+.hot{color:#ef4444;}
+.warm{color:#f59e0b;}
+.cold{color:#38bdf8;}
+
+/* SOURCE */
+.source{
+  display:block;
+  font-size:12px;
+  color:var(--muted);
+  margin-top:2px;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+  <div class="top-bar">
+    <div>
+      <h1>Clients</h1>
+      <p style="color:var(--muted);margin:0">
+        Click on a client to view complete details
+      </p>
+    </div>
+
+    <select id="statusFilter">
+      <option value="all">All Clients</option>
+      <option value="new">New</option>
+      <option value="contacted">Contacted</option>
+      <option value="visit">Site Visit Done</option>
+      <option value="negotiation">Negotiation</option>
+      <option value="closed">Closed</option>
+    </select>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Contact</th>
+        <th>Requirement</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="clientTable"></tbody>
+  </table>
+
+</div>
+
+<script>
+const clients = [
+  {
+    id:1,
+    name:"Ramesh Kumar",
+    source:"Instagram",
+    phone:"9000011111",
+    req:"2BHK • Kukatpally • ₹90L",
+    status:"visit",
+    temperature:"hot"
+  },
+  {
+    id:2,
+    name:"Sita Reddy",
+    source:"Referral",
+    phone:"9000022222",
+    req:"3BHK • Nallagandla • ₹1.2Cr",
+    status:"contacted",
+    temperature:"warm"
+  },
+  {
+    id:3,
+    name:"Rahul Jain",
+    source:"Website",
+    phone:"9000033333",
+    req:"2BHK • Miyapur • ₹75L",
+    status:"new",
+    temperature:"cold"
+  },
+  {
+    id:4,
+    name:"Anjali Sharma",
+    source:"Walk-in",
+    phone:"9000044444",
+    req:"Villa • Tellapur • ₹1.8Cr",
+    status:"negotiation",
+    temperature:"hot"
+  }
+];
+
+const tbody = document.getElementById('clientTable');
+const filter = document.getElementById('statusFilter');
+
+function renderClients(){
+  tbody.innerHTML = "";
+  const selected = filter.value;
+
+  clients.forEach(c=>{
+    if(selected !== "all" && c.status !== selected) return;
+
+    const tr = document.createElement('tr');
+    tr.onclick = ()=> openClient(c.id);
+
+    tr.innerHTML = `
+      <td>
+        ${c.name}
+        <span class="temp ${c.temperature}">
+          ${tempLabel(c.temperature)}
+        </span>
+        <span class="source">${c.source}</span>
+      </td>
+      <td>${c.phone}</td>
+      <td>${c.req}</td>
+      <td>
+        <span class="status ${c.status}">
+          ${labelStatus(c.status)}
+        </span>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function labelStatus(s){
+  return {
+    new:"New",
+    contacted:"Contacted",
+    visit:"Site Visit Done",
+    negotiation:"Negotiation",
+    closed:"Closed"
+  }[s] || s;
+}
+
+function tempLabel(t){
+  return {
+    hot:"🔥 Hot",
+    warm:"🌤️ Warm",
+    cold:"❄️ Cold"
+  }[t] || "";
+}
+
+filter.addEventListener("change", renderClients);
+
+function openClient(id){
+  window.location.href = `lead-view.html?id=${id}`;
+}
+
+renderClients();
+</script>
+</body>
+</html>

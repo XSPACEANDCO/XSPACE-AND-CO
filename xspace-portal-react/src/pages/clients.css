@@ -1,0 +1,119 @@
+/* Ported from client.html, scoped under .page-clients. */
+
+.page-clients {
+  --bg: #0b0b0b;
+  --panel: #0f1720;
+  --fg: #fff;
+  --muted: #9aa0a6;
+  --accent: #10b981;
+  --border: rgba(255, 255, 255, 0.08);
+  font-family: Inter, system-ui;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.page-clients .container {
+  padding: 20px;
+}
+.page-clients h1 {
+  margin: 0 0 6px;
+}
+
+.page-clients .top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.page-clients select {
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.page-clients table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--panel);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.page-clients th,
+.page-clients td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.page-clients th {
+  color: var(--muted);
+  font-weight: 500;
+}
+.page-clients tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+}
+
+/* STATUS */
+.page-clients .status {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.page-clients .new {
+  background: #1f2937;
+}
+.page-clients .contacted {
+  background: #64748b;
+}
+.page-clients .visit {
+  background: #0ea5e9;
+}
+.page-clients .negotiation {
+  background: #f59e0b;
+}
+.page-clients .closed {
+  background: #10b981;
+  color: #000;
+}
+
+/* TEMPERATURE */
+.page-clients .temp {
+  font-size: 12px;
+  margin-left: 6px;
+  font-weight: 500;
+}
+.page-clients .hot {
+  color: #ef4444;
+}
+.page-clients .warm {
+  color: #f59e0b;
+}
+.page-clients .cold {
+  color: #38bdf8;
+}
+
+/* SOURCE */
+.page-clients .source {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.page-clients .subtitle {
+  color: var(--muted);
+  margin: 0;
+}
+
+/* When the lead came in. The absolute date is what people quote at each
+   other; the relative one below it is what they actually read. */
+.page-clients .stamp {
+  white-space: nowrap;
+}

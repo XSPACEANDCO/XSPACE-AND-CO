@@ -1,0 +1,97 @@
+/* Ported from listingsview.html, scoped under .page-listingview. */
+
+.page-listingview {
+  --bg: #0b0b0b;
+  --panel: #0f1720;
+  --fg: #fff;
+  --muted: #9aa0a6;
+  --border: rgba(255, 255, 255, 0.08);
+  --accent: #10b981;
+  font-family: Inter, system-ui;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.page-listingview .container {
+  padding: 20px;
+  max-width: 1100px;
+  margin: auto;
+}
+
+.page-listingview .section {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.page-listingview .header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.page-listingview h1 {
+  margin: 0;
+}
+.page-listingview .small {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.page-listingview .badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.page-listingview .verified {
+  background: #22c55e;
+  color: #000;
+}
+.page-listingview .hot {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.page-listingview .grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.page-listingview .box {
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px;
+  border-radius: 10px;
+}
+.page-listingview .box strong {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.page-listingview .amenities {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.page-listingview .amenity {
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.page-listingview input[type='file'],
+.page-listingview input[type='text'] {
+  width: 100%;
+  background: #020617;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 8px;
+  border-radius: 8px;
+  margin-top: 6px;
+  box-sizing: border-box;
+}
+
+.page-listingview .media-box {
+  margin-bottom: 12px;
+}

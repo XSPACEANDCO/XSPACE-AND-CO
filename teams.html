@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Xspace & Co – Teams</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Inter, system-ui, sans-serif; }
+  </style>
+</head>
+<body class="bg-[#0b0b0b] text-white">
+  <div class="max-w-6xl mx-auto p-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-semibold">Teams</h1>
+      <button onclick="toggleModal(true)" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-medium">
+        + Add Member
+      </button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-3 mb-4">
+      <button class="tab-btn bg-[#111827] px-4 py-2 rounded-lg" data-tab="Agent">Agents</button>
+      <button class="tab-btn bg-[#111827] px-4 py-2 rounded-lg" data-tab="Creator">Creators</button>
+      <button class="tab-btn bg-[#111827] px-4 py-2 rounded-lg" data-tab="Studio">Studio</button>
+      <button class="tab-btn bg-[#111827] px-4 py-2 rounded-lg" data-tab="Core">Core Team</button>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-[#0f1720] rounded-xl border border-white/10 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-white/5 text-gray-300">
+          <tr>
+            <th class="text-left p-3">Name</th>
+            <th class="text-left p-3">Role</th>
+            <th class="text-left p-3">Details</th>
+            <th class="text-left p-3">Status</th>
+            <th class="text-left p-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="teamTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal" class="fixed inset-0 bg-black/70 hidden items-center justify-center">
+    <div class="bg-[#0f1720] rounded-xl w-full max-w-md p-6">
+      <h2 class="text-lg font-semibold mb-4">Add Member</h2>
+
+      <!-- Common Fields -->
+      <div class="space-y-3 mb-3">
+        <input id="name" class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" placeholder="Full Name"/>
+        <input id="phone" class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" placeholder="Phone Number"/>
+        <select id="role" onchange="onRoleChange()" class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2">
+          <option value="">Select Role</option>
+          <option value="Agent">Agent</option>
+          <option value="Creator">Creator</option>
+          <option value="Studio">Studio</option>
+          <option value="Core">Core Team</option>
+        </select>
+      </div>
+
+      <!-- Role-based fields -->
+      <div id="agentFields" class="hidden space-y-3 mb-3">
+        <input id="areas" class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" placeholder="Areas Covered (comma separated)"/>
+        <input id="propertyTypes" class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" placeholder="Property Types (Villas, Flats, Plots)"/>
+      </div>
+
+      <div id="creatorFields" class="hidden space-y-3 mb-3">
+        <input id="platform" class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" placeholder="Platform (Instagram/YouTube)"/>
+        <input id="handle" class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" placeholder="Handle / Username"/>
+      </div>
+
+      <div id="studioFields" class="hidden space-y-3 mb-3">
+        <input id="skill" class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" placeholder="Role (Camera / VR / Editor)"/>
+        <input id="availability" class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" placeholder="Availability (Days/Time)"/>
+      </div>
+
+      <div id="coreFields" class="hidden space-y-3 mb-3">
+        <input id="permission" class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2" placeholder="Permission (View / Edit / Admin)"/>
+      </div>
+
+      <div class="flex justify-end gap-3 mt-5">
+        <button onclick="toggleModal(false)" class="px-4 py-2 rounded-lg bg-white/10">Cancel</button>
+        <button onclick="addMember()" class="px-4 py-2 rounded-lg bg-blue-600">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const members = [];
+
+    const table = document.getElementById("teamTable");
+    let currentTab = "Agent";
+
+    function renderTable(role) {
+      table.innerHTML = "";
+      members.filter(m => m.role === role).forEach((m, i) => {
+        table.innerHTML += `
+          <tr class="border-t border-white/5 hover:bg-white/5">
+            <td class="p-3">${m.name}</td>
+            <td class="p-3">${m.role}</td>
+            <td class="p-3 text-gray-400 text-xs">${m.details}</td>
+            <td class="p-3 ${m.active ? 'text-green-400' : 'text-red-400'}">
+              ${m.active ? 'Active' : 'Inactive'}
+            </td>
+            <td class="p-3">
+              <button onclick="toggleActive(${i})" class="text-blue-400 hover:underline text-xs">Toggle</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function toggleActive(i) {
+      members[i].active = !members[i].active;
+      renderTable(currentTab);
+    }
+
+    function onRoleChange() {
+      ["agentFields","creatorFields","studioFields","coreFields"].forEach(id => {
+        document.getElementById(id).classList.add("hidden");
+      });
+      const role = document.getElementById("role").value;
+      if (role === "Agent") document.getElementById("agentFields").classList.remove("hidden");
+      if (role === "Creator") document.getElementById("creatorFields").classList.remove("hidden");
+      if (role === "Studio") document.getElementById("studioFields").classList.remove("hidden");
+      if (role === "Core") document.getElementById("coreFields").classList.remove("hidden");
+    }
+
+    function addMember() {
+      const name = document.getElementById("name").value;
+      const phone = document.getElementById("phone").value;
+      const role = document.getElementById("role").value;
+
+      if (!name || !phone || !role) {
+        alert("Name, Phone and Role are required");
+        return;
+      }
+
+      let details = "";
+      if (role === "Agent") {
+        details = `Areas: ${areas.value || '-'} | Types: ${propertyTypes.value || '-'}`;
+      }
+      if (role === "Creator") {
+        details = `Platform: ${platform.value || '-'} | Handle: ${handle.value || '-'}`;
+      }
+      if (role === "Studio") {
+        details = `Role: ${skill.value || '-'} | Availability: ${availability.value || '-'}`;
+      }
+      if (role === "Core") {
+        details = `Permission: ${permission.value || '-'}`;
+      }
+
+      members.push({ name, phone, role, details, active: true });
+      toggleModal(false);
+      renderTable(currentTab);
+      document.querySelectorAll("#modal input").forEach(i => i.value = "");
+      document.getElementById("role").value = "";
+      onRoleChange();
+    }
+
+    function toggleModal(show) {
+      const modal = document.getElementById("modal");
+      modal.classList.toggle("hidden", !show);
+      modal.classList.toggle("flex", show);
+    }
+
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        currentTab = btn.dataset.tab;
+        renderTable(currentTab);
+      });
+    });
+
+    renderTable(currentTab);
+  </script>
+</body>
+</html>

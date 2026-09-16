@@ -1,0 +1,664 @@
+/* -------------------------
+   BASIC THEME / LAYOUT
+   Ported from dashboard.html. :root -> .page-dashboard and the body rules move
+   onto the same element, since this page's root IS the flex shell.
+   ------------------------- */
+
+.page-dashboard {
+  --bg: #0b0b0b;
+  --panel: #0f1720;
+  --muted: #9aa0a6;
+  --fg: #fff;
+  --accent: #10b981;
+  --danger: #ef4444;
+  --glass: rgba(255, 255, 255, 0.03);
+  --radius: 12px;
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  font-size: 14px;
+
+  background: var(--bg);
+  color: var(--fg);
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  transition: background-color 0.22s ease, color 0.22s ease;
+}
+
+[data-theme='light'] .page-dashboard {
+  --bg: #ffffff;
+  --panel: #f7f8fb;
+  --muted: #556073;
+  --fg: #0b1220;
+  --glass: rgba(0, 0, 0, 0.03);
+}
+
+.page-dashboard .kpi,
+.page-dashboard .panel {
+  transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.page-dashboard .sr-only {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.page-dashboard .sidebar {
+  width: 210px;
+  flex: 0 0 210px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent);
+  padding: 18px 14px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  overflow-y: auto;
+}
+.page-dashboard .brand {
+  font-size: 20px;
+  font-weight: 700;
+}
+.page-dashboard .role-badge {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.page-dashboard .nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.page-dashboard .nav-item {
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 15px;
+  user-select: none;
+  color: inherit;
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  font-family: inherit;
+}
+.page-dashboard .nav-item:hover {
+  background: var(--glass);
+}
+.page-dashboard .nav-item.active {
+  background: rgba(255, 255, 255, 0.04);
+  font-weight: 600;
+}
+
+.page-dashboard .sidebar .footer {
+  margin-top: auto;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* main area */
+.page-dashboard .main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.page-dashboard .topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent);
+  gap: 12px;
+}
+.page-dashboard .top-left {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.page-dashboard .top-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.page-dashboard .welcome {
+  font-size: 15px;
+}
+
+.page-dashboard .workspace {
+  flex: 1;
+  overflow: auto;
+  padding: 18px;
+  box-sizing: border-box;
+}
+
+/* Daily Snapshot */
+.page-dashboard .kpi-strip {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+.page-dashboard .kpi {
+  flex: 1 1 140px;
+  min-width: 130px;
+  background: var(--panel);
+  border-radius: 10px;
+  padding: 12px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+.page-dashboard .kpi h3 {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.page-dashboard .kpi .num {
+  font-size: 18px;
+  font-weight: 700;
+  margin-top: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.page-dashboard .layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 14px;
+  align-items: start;
+}
+.page-dashboard .panel {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 12px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+.page-dashboard .panel + .panel {
+  margin-top: 12px;
+}
+.page-dashboard .panel h4 {
+  margin: 0 0 10px 0;
+  font-size: 15px;
+}
+.page-dashboard .muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Approvals list */
+.page-dashboard .approvals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.page-dashboard .approval {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.page-dashboard .approval .meta {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Activity feed */
+.page-dashboard .activity {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 6px;
+  margin-top: 10px;
+}
+.page-dashboard .activity-item {
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.page-dashboard .activity-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(120deg, #222, #444);
+}
+.page-dashboard .activity-avatar-col {
+  width: 42px;
+}
+
+/* Lead Funnel (pipeline) */
+.page-dashboard .lead-metrics {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.page-dashboard .lead-metric {
+  background: rgba(255, 255, 255, 0.02);
+  padding: 8px 10px;
+  border-radius: 8px;
+  min-width: 130px;
+}
+.page-dashboard .lead-metric h5 {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.page-dashboard .lead-metric .val {
+  font-weight: 700;
+  margin-top: 6px;
+  font-size: 16px;
+}
+
+.page-dashboard .pipeline {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 10px;
+}
+.page-dashboard .pipeline-column {
+  flex: 0 0 220px;
+  min-width: 200px;
+  max-width: 300px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  padding: 8px;
+  box-sizing: border-box;
+}
+.page-dashboard .pipeline-column h5 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.page-dashboard .pipeline-card {
+  padding: 8px;
+  margin-top: 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Verification queue specifics */
+.page-dashboard .ver-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  margin-bottom: 8px;
+}
+.page-dashboard .ver-meta {
+  font-size: 13px;
+  color: var(--muted);
+}
+.page-dashboard .ver-row .grow {
+  flex: 1;
+}
+.page-dashboard .ver-row .stack-end {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+.page-dashboard .ver-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Studio Journey */
+.page-dashboard .studio-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.page-dashboard .studio-tile {
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.page-dashboard .studio-tile .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Contact */
+.page-dashboard .contact-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.page-dashboard .contact-btn {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+
+/* Team list */
+.page-dashboard .team-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.page-dashboard .team-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.page-dashboard .team-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(120deg, #666, #333);
+}
+.page-dashboard .presence-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* quick actions */
+.page-dashboard .btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--fg);
+  color: var(--bg);
+  border: 0;
+  cursor: pointer;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: inherit;
+}
+.page-dashboard .btn-ghost {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+}
+.page-dashboard .quick-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+/* small utilities */
+.page-dashboard .small {
+  font-size: 13px;
+  color: var(--muted);
+}
+.page-dashboard .search {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: transparent;
+  color: var(--fg);
+  min-width: 260px;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* notification badge */
+.page-dashboard .badge {
+  background: var(--danger);
+  color: white;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+/* modal */
+.page-dashboard .modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+}
+.page-dashboard .modal {
+  width: 720px;
+  max-width: 95%;
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 18px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+.page-dashboard .modal h3 {
+  margin-top: 0;
+}
+.page-dashboard .modal select,
+.page-dashboard .modal input,
+.page-dashboard .modal textarea {
+  padding: 8px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: inherit;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--fg);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.page-dashboard .modal .full {
+  width: 100%;
+}
+.page-dashboard .modal-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: center;
+}
+.page-dashboard .modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+.page-dashboard .modal-list {
+  margin-top: 12px;
+  max-height: 420px;
+  overflow: auto;
+}
+.page-dashboard .notif-item {
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  margin-bottom: 8px;
+}
+.page-dashboard .notif-item .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.page-dashboard .push {
+  margin-left: auto;
+}
+
+/* profile mini */
+.page-dashboard .profile-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.page-dashboard .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(120deg, #ccc, #999);
+  display: inline-block;
+}
+.page-dashboard .mini-name {
+  font-size: 13px;
+}
+.page-dashboard .profile-body {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+.page-dashboard .profile-side {
+  width: 120px;
+  text-align: center;
+}
+.page-dashboard .profile-avatar-large {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: #ddd;
+  margin: auto;
+}
+.page-dashboard .profile-fields {
+  flex: 1;
+}
+
+/* lead scope label */
+.page-dashboard .lead-scope {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+/* Agent panel specific layout tweaks */
+.page-dashboard .agent-panel .kpi-grid {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  margin-top: 10px;
+}
+.page-dashboard .agent-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.page-dashboard .small-muted-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.page-dashboard .subsection {
+  margin-top: 12px;
+}
+.page-dashboard .subsection h4 {
+  margin: 0 0 8px 0;
+}
+.page-dashboard .age-buckets {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.page-dashboard .spacer-8 {
+  height: 8px;
+}
+
+/* verification toolbar */
+.page-dashboard .ver-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+.page-dashboard .ver-toolbar select {
+  padding: 6px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--fg);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: inherit;
+}
+.page-dashboard .list-gap {
+  margin-top: 12px;
+}
+.page-dashboard .audit-log {
+  margin-top: 8px;
+  max-height: 160px;
+  overflow: auto;
+}
+.page-dashboard .audit-item {
+  padding: 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  margin-bottom: 6px;
+}
+.page-dashboard .audit-item .text {
+  font-size: 13px;
+}
+.page-dashboard .project-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.page-dashboard .contact-card {
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.page-dashboard .dev-role {
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--fg);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: inherit;
+}
+
+/* responsive */
+@media (max-width: 1000px) {
+  .page-dashboard .layout {
+    grid-template-columns: 1fr;
+  }
+  .page-dashboard .sidebar {
+    display: none;
+  }
+  .page-dashboard .search {
+    min-width: 140px;
+  }
+}

@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Xspace & Co | Client Intelligence</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+:root{
+  --bg:#0b0b0b;
+  --panel:#0f1720;
+  --fg:#fff;
+  --muted:#9aa0a6;
+  --border:rgba(255,255,255,0.08);
+  font-family: Inter, system-ui;
+}
+body{margin:0;background:var(--bg);color:var(--fg);}
+.container{padding:20px;max-width:1100px;margin:auto;}
+
+.section{background:var(--panel);border-radius:12px;padding:16px;margin-bottom:16px;}
+.section h3{margin:0 0 12px;font-size:16px}
+.muted{color:var(--muted);font-size:13px}
+
+.header-top{margin-bottom:12px;}
+.client-name{font-size:22px;font-weight:600}
+
+.status-wrap{background:rgba(255,255,255,0.03);padding:10px;border-radius:10px}
+
+.status-badge{display:inline-block;padding:6px 12px;border-radius:999px;font-size:12px}
+.new{background:#1f2937}
+.contacted{background:#64748b}
+.presented{background:#2563eb}
+.scheduled{background:#4f46e5}
+.completed{background:#0ea5e9}
+.negotiation{background:#f59e0b}
+.token{background:#a855f7}
+.closed{background:#10b981;color:#000}
+.dropped{background:#374151}
+
+.hot{color:#ef4444}
+.warm{color:#f59e0b}
+.cold{color:#38bdf8}
+
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.box{background:rgba(255,255,255,0.03);padding:10px;border-radius:10px}
+.box strong{display:block;font-size:12px;color:var(--muted)}
+
+.timeline-item{border-left:2px solid rgba(255,255,255,0.1);padding-left:12px;margin-bottom:10px}
+.time{font-size:12px;color:var(--muted)}
+
+.shortlist{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:10px;
+}
+.short-item{
+  background:rgba(255,255,255,0.04);
+  padding:10px;
+  border-radius:10px;
+}
+.short-item strong{display:block;font-size:14px}
+.short-item span{font-size:12px;color:var(--muted)}
+
+textarea,input[type="datetime-local"],select{
+  width:100%;
+  background:#020617;
+  border:1px solid var(--border);
+  color:var(--fg);
+  padding:10px;
+  border-radius:8px;
+}
+button{background:#10b981;color:#000;border:0;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer}
+.action{background:transparent;color:#10b981;border:1px solid var(--border);margin-top:6px;}
+.actions button{margin-right:6px;margin-top:6px;}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<!-- HEADER -->
+<div class="section">
+  <div class="header-top">
+    <div class="client-name">
+      Ramesh Kumar <span class="hot">🔥 Hot</span>
+    </div>
+    <div class="muted">📞 +91 90000 11111</div>
+    <div class="muted">🔗 Lead Source: Instagram</div>
+    <div class="muted">👤 Lead Owner: Sai (Xspace Core)</div>
+  </div>
+
+  <div class="status-wrap">
+    <div class="muted">Current Status</div>
+    <div id="currentStatus" class="status-badge completed">Visit Completed</div>
+    <div class="muted" id="statusTime">Last updated: Today, 4:30 PM</div>
+
+    <div id="presentationMode" class="muted" style="display:none;margin-top:6px">
+      Presentation Mode: <strong id="presentModeLabel">—</strong>
+    </div>
+
+    <div class="actions" id="statusActions">
+      <button class="action" onclick="setStatus('New')">New</button>
+      <button class="action" onclick="setStatus('Contacted')">Contacted</button>
+
+      <div style="margin-top:6px">
+        <select id="presentMode">
+          <option value="">Listings Presented (select mode)</option>
+          <option value="Office">🏢 Office</option>
+          <option value="In Person">👥 In Person</option>
+          <option value="Zoom">💻 Zoom</option>
+        </select>
+        <button class="action" onclick="markPresented()">Mark Presented</button>
+      </div>
+
+      <button class="action" onclick="setStatus('Visit Scheduled')">Visit Scheduled</button>
+      <button class="action" onclick="setStatus('Visit Completed')">Visit Completed</button>
+      <button class="action" onclick="setStatus('Negotiation')">Negotiation</button>
+      <button class="action" onclick="setStatus('Token/EOI')">Token / EOI</button>
+      <button class="action" onclick="setStatus('Closed')">Closed</button>
+      <button class="action" onclick="setStatus('Dropped')">Dropped</button>
+    </div>
+
+    <div style="margin-top:12px">
+      <div class="muted">Schedule Site Visit</div>
+      <input id="quickDate" type="datetime-local">
+      <button class="action" onclick="scheduleVisit()">Schedule Site Visit</button>
+    </div>
+  </div>
+</div>
+
+<!-- REQUIREMENT -->
+<div class="section">
+  <h3>Requirement Snapshot</h3>
+  <div class="grid">
+    <div class="box"><strong>Budget</strong>₹70 – 90 Lakhs</div>
+    <div class="box"><strong>Preferred Area</strong>Kukatpally / Hitech City</div>
+    <div class="box"><strong>Property Type</strong>2BHK – Gated Community</div>
+    <div class="box"><strong>Timeline</strong>Immediate (30 days)</div>
+  </div>
+</div>
+
+<!-- ACTIVITY -->
+<div class="section">
+  <h3>Activity Timeline</h3>
+  <div class="timeline-item">
+    <div><strong>Site Visit Completed</strong> – MyHome Avatar</div>
+    <div class="time">12 Jan 2026 • Agent: Sai</div>
+  </div>
+</div>
+
+<!-- SHORTLISTED PROJECTS -->
+<div class="section">
+  <h3>Shortlisted Projects</h3>
+  <div class="shortlist">
+    <div class="short-item">
+      <strong>MyHome Avatar</strong>
+      <span>Tellapur • 2BHK • ₹88L</span>
+    </div>
+    <div class="short-item">
+      <strong>Vasavi Skyla</strong>
+      <span>Nallagandla • 2BHK • ₹92L</span>
+    </div>
+    <div class="short-item">
+      <strong>ASBL Loft</strong>
+      <span>Kondapur • 2BHK • ₹85L</span>
+    </div>
+  </div>
+</div>
+
+<!-- SITE VISITS -->
+<div class="section">
+  <h3>Site Visits</h3>
+  <div class="muted">
+    • MyHome Avatar – 12 Jan 2026 (Completed)<br>
+    • Vasavi Skyla – Scheduled (15 Jan 2026)
+  </div>
+</div>
+
+<!-- NOTES -->
+<div class="section">
+  <h3>Internal Notes (Agent Only)</h3>
+  <textarea>
+Client liked tower B.
+Needs bank loan ~70%.
+Father will join next visit.
+  </textarea>
+  <br><br>
+  <button>Save Note</button>
+</div>
+
+</div>
+
+<script>
+const USER_ROLE = "founder"; // change to "agent" to test
+let status = "Visit Completed";
+let presentMode = "";
+
+function cssForStatus(s){
+  return {
+    "New":"new",
+    "Contacted":"contacted",
+    "Listings Presented":"presented",
+    "Visit Scheduled":"scheduled",
+    "Visit Completed":"completed",
+    "Negotiation":"negotiation",
+    "Token/EOI":"token",
+    "Closed":"closed",
+    "Dropped":"dropped"
+  }[s] || "completed";
+}
+
+function setStatus(s){
+  status = s;
+  const el = document.getElementById("currentStatus");
+  el.textContent = s;
+  el.className = "status-badge " + cssForStatus(s);
+  document.getElementById("statusTime").textContent =
+    "Last updated: " + new Date().toLocaleString();
+
+  if(s !== "Listings Presented"){
+    document.getElementById("presentationMode").style.display = "none";
+  }
+}
+
+function markPresented(){
+  const mode = document.getElementById("presentMode").value;
+  if(!mode){ alert("Select presentation mode"); return; }
+  presentMode = mode;
+  setStatus("Listings Presented");
+  document.getElementById("presentationMode").style.display = "block";
+  document.getElementById("presentModeLabel").textContent = mode;
+}
+
+function scheduleVisit(){
+  const dt = document.getElementById("quickDate").value;
+  if(!dt){ alert("Select date & time first"); return; }
+  window.location.href = "site-visits.html?dt=" + encodeURIComponent(dt);
+}
+
+if(USER_ROLE !== "founder" && USER_ROLE !== "core"){
+  document.getElementById("statusActions").style.display = "none";
+}
+</script>
+</body>
+</html>
