@@ -190,6 +190,27 @@ export default function Teams() {
     }
   }
 
+  /* Permanent deletion, offered only once an account is already deactivated —
+     so switching someone off and erasing them can never be the same click.
+     The work they did is kept but becomes unowned; the login is gone. */
+  async function deleteForever(user) {
+    const typed = window.prompt(
+      `This permanently deletes ${user.name} from the database. It cannot be undone.\n\n` +
+        `Their leads, listings and visits are kept but will no longer be assigned to anyone, ` +
+        `and the login "${user.username}" stops working immediately.\n\n` +
+        `Type DELETE to confirm.`
+    );
+    if (typed !== 'DELETE') return;
+
+    setError('');
+    try {
+      await api.users.remove(user.id);
+      await refresh();
+    } catch (err) {
+      setError(err.message || 'Could not delete that account');
+    }
+  }
+
   function hide(userId) {
     setRevealed(({ [userId]: _gone, ...rest }) => rest);
   }
@@ -362,6 +383,14 @@ export default function Teams() {
 
                   {isFounder && u.id !== me?.id && (
                     <div className="tcard-actions">
+                      {/* Deleting is only reachable from the deactivated
+                          state, so it is never one slip away from a live
+                          account. */}
+                      {!u.active && (
+                        <button className="teams-link danger" onClick={() => deleteForever(u)}>
+                          Delete permanently
+                        </button>
+                      )}
                       <button className="teams-link" onClick={() => setActive(u, !u.active)}>
                         {u.active ? 'Deactivate' : 'Reactivate'}
                       </button>

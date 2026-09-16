@@ -407,3 +407,12 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Permanent deletion reads as destructive, and only appears once an account
+   is already deactivated (see Teams.jsx). */
+.teams-link.danger {
+  color: #f87171;
+}
+.teams-link.danger:hover {
+  color: #fca5a5;
+}

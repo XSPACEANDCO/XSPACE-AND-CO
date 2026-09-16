@@ -1,23 +1,13 @@
 import { createApp } from './app.js';
 import { config } from './config.js';
 import { migrate, pool } from './db.js';
-import { seed } from './seed.js';
 import { bootstrapFounder } from './bootstrap.js';
 
 async function main() {
   await migrate();
 
-  /* Demo data, local only by default. Idempotent either way. */
-  if (config.seedDemo) {
-    if (config.env === 'production') {
-      console.warn(
-        '[seed] SEED_DEMO is true in production — this creates five accounts ' +
-          'sharing one password. Set SEED_DEMO=false unless you are ' +
-          'deliberately running a demo.'
-      );
-    }
-    await seed();
-  }
+  /* No demo data is generated, in any environment. The portal starts empty
+     and fills up with what people actually enter. */
 
   /* First Founder for a fresh production database. No-op unless
      BOOTSTRAP_EMAIL and BOOTSTRAP_PASSWORD are set. */

@@ -88,7 +88,23 @@ export const api = {
       return out;
     },
     me: () => get('/auth/me'),
-    logout: () => setToken(null),
+    heartbeat: () => post('/auth/heartbeat'),
+    /* Tell the server this session is going away. `keepalive` is what lets the
+       request survive the page being closed — a normal fetch is cancelled with
+       the document, which is exactly when this most needs to be sent. */
+    goOffline: () => {
+      const token = getToken();
+      if (!token) return Promise.resolve();
+      return fetch(BASE + '/api/auth/offline', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+        keepalive: true,
+      }).catch(() => {});
+    },
+    logout: async () => {
+      await api.auth.goOffline();
+      setToken(null);
+    },
     changePassword: (currentPassword, newPassword) =>
       post('/auth/change-password', { currentPassword, newPassword }),
   },
@@ -113,11 +129,16 @@ export const api = {
   },
 
   listings: {
-    list: () => get('/listings'),
+    /* Defaults to the verification queue; { include: 'verified' } for the
+       whole book. */
+    list: (opts = {}) => get('/listings' + qs(opts)),
     get: (id) => get(`/listings/${id}`),
     create: (data) => post('/listings', data),
     update: (id, data) => patch(`/listings/${id}`, data),
     verify: (id) => post(`/listings/${id}/verify`),
+    photos: (id) => get(`/listings/${id}/photos`),
+    addPhoto: (id, dataUrl, caption) => post(`/listings/${id}/photos`, { dataUrl, caption }),
+    removePhoto: (id, photoId) => del(`/listings/${id}/photos/${photoId}`),
   },
 
   projects: {
@@ -164,6 +185,8 @@ export const api = {
     create: (data) => post('/users', data),
     resetPassword: (id, password) => post(`/users/${id}/reset-password`, { password }),
     update: (id, data) => patch(`/users/${id}`, data),
+    /* Permanent — removes the row, not just the active flag. */
+    remove: (id) => del(`/users/${id}`),
   },
 };
 

@@ -92,6 +92,35 @@ router.get(
   })
 );
 
+/* Heartbeat. requireAuth already refreshes last_seen_at, so the body of this
+   route has nothing to do — the point is that an open tab keeps calling it
+   and therefore keeps reading as online. */
+router.post(
+  '/heartbeat',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json({ ok: true });
+  })
+);
+
+/* Signing off: closing the tab, backgrounding the app, or logging out.
+
+   Presence is inferred from last_seen_at, so there is no "offline" to set —
+   instead the timestamp is pushed back beyond the online window, which is
+   what makes someone who closed their laptop show as offline straight away
+   instead of lingering for the length of the timeout. */
+router.post(
+  '/offline',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await query(
+      "UPDATE users SET last_seen_at = now() - interval '1 hour' WHERE id = $1",
+      [req.user.id]
+    );
+    res.json({ ok: true });
+  })
+);
+
 router.post(
   '/change-password',
   requireAuth,

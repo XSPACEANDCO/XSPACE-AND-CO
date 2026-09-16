@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { getToken } from '../lib/api';
 import { KEYS, setRaw } from '../lib/storage';
-import { ensureUserIdForRole, rememberSessionUser } from '../lib/seed';
 import { usePageClass } from '../hooks/usePageClass';
 import { useTheme } from '../hooks/useTheme';
 import './login.css';
@@ -26,17 +25,14 @@ export default function Login() {
     if (getToken()) navigate('/dashboard', { replace: true });
   }, [navigate]);
 
-  /* The rest of the UI still reads role and user id from localStorage while
-     the pages are migrated onto the API, so mirror the server's answer there.
-     Remove this once every page reads from the API. */
-  function syncLegacySession(user) {
+  /* Sidebar and route guards read the role synchronously, so the server's
+     answer is mirrored into localStorage. It is only ever a copy of what the
+     token already says — the API re-checks the role on every request, so
+     editing it here buys nobody access to anything. */
+  function rememberSession(user) {
     setRaw(KEYS.auth, '1');
     setRaw(KEYS.role, user.role);
     setRaw(KEYS.userId, user.id);
-    /* Add them to the demo roster first, or ensureUserIdForRole() finds no
-       user with that id and falls back to a demo account of the same role. */
-    rememberSessionUser(user);
-    ensureUserIdForRole();
   }
 
   async function handleSubmit(e) {
@@ -45,7 +41,7 @@ export default function Login() {
     setBusy(true);
     try {
       const out = await api.auth.login(identifier.trim(), password);
-      syncLegacySession(out.user);
+      rememberSession(out.user);
       navigate('/dashboard', { replace: true });
     } catch (err) {
       setError(err.message || 'Could not sign in');

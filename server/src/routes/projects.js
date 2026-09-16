@@ -13,8 +13,19 @@ router.get(
     /* Creators get new and upcoming projects only — they pitch inventory, they
        don't need the full internal book. */
     const upcomingOnly = req.scope === 'upcoming';
+    /* Projects are the verified book, so each one is summarised by the
+       verified inventory under it, not by every listing ever filed against
+       it. The headline figures come from the first verified listing, which
+       for a project created by verifying a listing is that listing. */
     const rows = await many(
-      `SELECT p.*, COUNT(l.id)::int AS listing_count
+      `SELECT p.*,
+              COUNT(l.id) FILTER (WHERE l.verified)::int AS listing_count,
+              MIN(l.area)          FILTER (WHERE l.verified) AS area,
+              MIN(l.price)         FILTER (WHERE l.verified) AS price,
+              MIN(l.property_type) FILTER (WHERE l.verified) AS property_type,
+              MIN(l.configuration) FILTER (WHERE l.verified) AS configuration,
+              MIN(l.rera_number)   FILTER (WHERE l.verified) AS listing_rera,
+              MAX(l.verified_at)   FILTER (WHERE l.verified) AS verified_at
          FROM projects p
          LEFT JOIN listings l ON l.project_id = p.id
         ${upcomingOnly ? "WHERE p.status IN ('Upcoming','Under Construction','New Launch')" : ''}

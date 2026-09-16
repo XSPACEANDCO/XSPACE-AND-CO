@@ -8,13 +8,12 @@
   --border: rgba(255, 255, 255, 0.08);
   --accent: #10b981;
   font-family: Inter, system-ui;
-  min-height: 100%;
-  background: var(--bg);
+  background: transparent;
   color: var(--fg);
 }
 
 .page-sitevisits .container {
-  padding: 20px;
+  padding: 0;
 }
 .page-sitevisits h1 {
   margin: 0 0 6px;
@@ -159,4 +158,18 @@
 }
 .page-sitevisits .subtitle {
   color: var(--muted);
+}
+
+.page-sitevisits .visits-error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+.page-sitevisits button:disabled {
+  opacity: 0.55;
+  cursor: default;
 }

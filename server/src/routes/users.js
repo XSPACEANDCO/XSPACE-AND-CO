@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { Router } from 'express';
-import { many, one } from '../db.js';
+import { many, one, query } from '../db.js';
 import { asyncHandler, requireModule, requirePermission } from '../middleware.js';
 import { hashPassword } from '../auth.js';
 import { config } from '../config.js';
@@ -37,8 +37,8 @@ for (const role of ['creator', 'realtor', 'studio']) {
       const rows = await many(
         `SELECT u.id, u.name, u.email, u.username, u.phone, u.role, CASE
                   WHEN u.last_seen_at IS NULL THEN 'offline'
-                  WHEN u.last_seen_at > now() - interval '5 minutes' THEN 'online'
-                  WHEN u.last_seen_at > now() - interval '30 minutes' THEN 'away'
+                  WHEN u.last_seen_at > now() - interval '2 minutes' THEN 'online'
+                  WHEN u.last_seen_at > now() - interval '15 minutes' THEN 'away'
                   ELSE 'offline'
                 END AS presence, u.last_seen_at, u.active,
                 u.areas, u.platform, u.handle, u.skill, u.kyc_status, u.created_at,
@@ -80,8 +80,8 @@ router.get(
     const rows = await many(
       `SELECT id, name, email, username, phone, role, CASE
                 WHEN last_seen_at IS NULL THEN 'offline'
-                WHEN last_seen_at > now() - interval '5 minutes' THEN 'online'
-                WHEN last_seen_at > now() - interval '30 minutes' THEN 'away'
+                WHEN last_seen_at > now() - interval '2 minutes' THEN 'online'
+                WHEN last_seen_at > now() - interval '15 minutes' THEN 'away'
                 ELSE 'offline'
               END AS presence, last_seen_at, active, kyc_status, created_at
          FROM users WHERE role = ANY($1) ORDER BY role, name`,
@@ -324,6 +324,49 @@ router.patch(
     );
     await recordAudit(`User ${user.name} updated`, req.user.id, 'user', user.id);
     res.json({ user: publicUser(user) });
+  })
+);
+
+/* Delete the account outright — Founder only.
+
+   This removes the row, it does not flag it. The person's work is kept but
+   becomes unowned: leads, listings, visits and media they touched have their
+   user reference set to NULL (see schema.sql), so the records survive with
+   nobody attached. Their notifications, commissions and area updates are
+   removed with them.
+
+   The audit log keeps its entries because it stores what happened as text and
+   only the actor reference is nulled — so "X verified listing Y" is still
+   readable after X is gone. */
+router.delete(
+  '/:id',
+  requirePermission('users:write'),
+  asyncHandler(async (req, res) => {
+    if (req.params.id === req.user.id) {
+      return res.status(400).json({ error: 'You cannot delete your own account' });
+    }
+
+    const target = await one('SELECT * FROM users WHERE id = $1', [req.params.id]);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+
+    if (target.role === 'founder') {
+      const { n } = await one(
+        "SELECT COUNT(*)::int AS n FROM users WHERE role = 'founder' AND active AND id <> $1",
+        [target.id]
+      );
+      if (n === 0) return res.status(409).json({ error: 'That is the only active Founder' });
+    }
+
+    await query('DELETE FROM users WHERE id = $1', [target.id]);
+
+    /* Recorded before the row goes, by name, so the log still reads properly. */
+    await recordAudit(
+      `User ${target.name} (${target.email}) deleted permanently`,
+      req.user.id,
+      'user',
+      target.id
+    );
+    res.json({ deleted: true, id: target.id, name: target.name });
   })
 );
 

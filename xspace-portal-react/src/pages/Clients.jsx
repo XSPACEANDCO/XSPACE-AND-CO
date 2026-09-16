@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { usePageClass } from '../hooks/usePageClass';
 import { timeAgo } from '../lib/time';
 import api from '../lib/api';
 import {
@@ -28,7 +27,6 @@ const EMPTY_FORM = {
 const SOURCES = ['Instagram', 'Referral', 'Website', 'Walk-in', 'YouTube', 'Other'];
 
 export default function Clients() {
-  usePageClass('clients');
   const navigate = useNavigate();
 
   const [leads, setLeads] = useState([]);

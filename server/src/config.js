@@ -43,14 +43,7 @@ export const config = {
       ? null
       : process.env.STATIC_DIR || '../xspace-portal-react/dist',
 
-  seedPassword: process.env.SEED_PASSWORD || 'xspace123',
 
-  /* Demo data is for local work. In production it defaults OFF so a real
-     deployment never ships five accounts with a shared password. */
-  seedDemo:
-    process.env.SEED_DEMO != null
-      ? process.env.SEED_DEMO === 'true'
-      : (process.env.NODE_ENV || 'development') !== 'production',
 
   /* Login throttling, per 15-minute window. See routes/auth.js — the per
      account limit is the brute-force brake, the per-IP one is the sweep

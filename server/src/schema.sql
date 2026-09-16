@@ -79,6 +79,74 @@ CREATE TABLE IF NOT EXISTS listings (
 );
 CREATE INDEX IF NOT EXISTS listings_assigned_idx ON listings (assigned_to);
 
+-- The listing detail sheet asks for far more than the six columns above. These
+-- are the rest of it, grouped the way the screen groups them. All nullable:
+-- a realtor submitting inventory from site may only know half of it, and the
+-- missing half gets filled in during verification.
+
+-- Project snapshot. property_type / configuration use the same vocabulary as
+-- a lead's requirement (src/leadStatus.js), so "3 BHK in Tellapur" means the
+-- same thing whether it is being asked for or offered.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS builder        TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS property_type  TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS configuration  TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS possession     TEXT;
+
+-- Unit details.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS super_built_up TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS carpet_area    TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS uds            TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS facing         TEXT;
+
+-- Price & commercials. `price` above stays the headline figure shown in lists.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS base_price     TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS all_inclusive  TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS negotiation    TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS commission     TEXT;
+
+-- Legal & verification. These are what Core actually checks against the
+-- government portals before flipping `verified`.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS rera_number    TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS approval       TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS title_status   TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS bank_approved  TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS survey_number  TEXT;
+
+-- Amenities: a newline-separated list, kept as text so a realtor can type one
+-- this portal has never heard of rather than being limited to a fixed set.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS amenities      TEXT;
+
+-- Media & documents. Files themselves live wherever they are hosted; the
+-- listing stores the link.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS video_link     TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS brochure_url   TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS floor_plan_url TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS price_sheet_url TEXT;
+
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS high_demand    BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS notes          TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS verified_at    TIMESTAMPTZ;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS verified_by    TEXT REFERENCES users(id) ON DELETE SET NULL;
+
+-- Photos attached to a listing.
+--
+-- The image is held as a base64 data URL in a text column rather than on disk.
+-- Render's filesystem is wiped on every deploy, so anything written there
+-- would vanish the next time the site updates; the database is the only
+-- storage this deployment actually keeps. The client downscales before
+-- uploading and the route enforces a size cap, so rows stay small.
+CREATE TABLE IF NOT EXISTS listing_photos (
+  id           TEXT PRIMARY KEY,
+  listing_id   TEXT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  data_url     TEXT NOT NULL,
+  content_type TEXT NOT NULL DEFAULT 'image/jpeg',
+  caption      TEXT,
+  bytes        INTEGER NOT NULL DEFAULT 0,
+  uploaded_by  TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS listing_photos_listing_idx ON listing_photos (listing_id);
+
 CREATE TABLE IF NOT EXISTS leads (
   id                   TEXT PRIMARY KEY,
   name                 TEXT NOT NULL,

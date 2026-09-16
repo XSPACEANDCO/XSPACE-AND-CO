@@ -8,13 +8,12 @@
   --accent: #10b981;
   --border: rgba(255, 255, 255, 0.08);
   font-family: Inter, system-ui;
-  min-height: 100%;
-  background: var(--bg);
+  background: transparent;
   color: var(--fg);
 }
 
 .page-clients .container {
-  padding: 20px;
+  padding: 0;
 }
 .page-clients h1 {
   margin: 0 0 6px;

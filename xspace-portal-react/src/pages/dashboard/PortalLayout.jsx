@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { usePageClass } from '../../hooks/usePageClass';
+import { usePresence } from '../../hooks/usePresence';
 import { useTheme } from '../../hooks/useTheme';
 import { DashboardProvider } from './DashboardStore';
 import Sidebar from './components/Sidebar';
@@ -14,6 +15,9 @@ import './dashboard.css';
    nav chrome. */
 function Shell({ children }) {
   usePageClass('dashboard');
+  /* Heartbeat while open, sign off on close — so "online" in Teams means
+     someone actually has the portal open. */
+  usePresence();
   const [theme, toggleTheme] = useTheme('dark');
   const [modal, setModal] = useState(null);
   const close = () => setModal(null);

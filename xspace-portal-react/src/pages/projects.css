@@ -1,0 +1,122 @@
+/* Projects — verified inventory. Rendered inside PortalLayout's workspace,
+   so it paints no background of its own. */
+
+.page-projects {
+  --panel: #0f1720;
+  --muted: #9aa0a6;
+  --accent: #10b981;
+  --border: rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: inherit;
+}
+
+.page-projects .container {
+  padding: 0;
+}
+.page-projects h1 {
+  margin: 0 0 6px;
+}
+.page-projects .top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.page-projects .small {
+  font-size: 13px;
+  color: var(--muted);
+}
+.page-projects .muted {
+  color: var(--muted);
+}
+
+.page-projects .projects-error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.page-projects .project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 14px;
+}
+
+.page-projects .project-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  min-width: 0;
+}
+.page-projects .project-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.page-projects .project-card h3 {
+  margin: 0;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.page-projects .badge.verified {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+/* Two fact columns, collapsing to one on a narrow phone. */
+.page-projects .project-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px 12px;
+  margin: 12px 0;
+}
+.page-projects .project-facts div {
+  min-width: 0;
+}
+.page-projects .project-facts dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.page-projects .project-facts dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.page-projects .project-card footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.page-projects .btn-ghost {
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 11px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.page-projects .btn-ghost:hover {
+  border-color: var(--accent);
+}

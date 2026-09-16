@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { usePageClass } from '../hooks/usePageClass';
 import { timeAgo } from '../lib/time';
 import api from '../lib/api';
 import {
@@ -14,7 +13,6 @@ const STAMP = new Intl.DateTimeFormat('en-IN', {
 });
 
 export default function LeadView() {
-  usePageClass('leadview');
   const navigate = useNavigate();
   const { id } = useParams();
 

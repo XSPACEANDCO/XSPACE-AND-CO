@@ -9,29 +9,40 @@ import { App as CapApp } from '@capacitor/app';
 
 import Login from './pages/Login';
 import Dashboard from './pages/dashboard/Dashboard';
+import PortalLayout from './pages/dashboard/PortalLayout';
 import Clients from './pages/Clients';
 import LeadView from './pages/LeadView';
 import Listings from './pages/Listings';
 import ListingView from './pages/ListingView';
+import Projects from './pages/Projects';
 import SiteVisits from './pages/SiteVisits';
 import Teams from './pages/Teams';
 
 /* Pages where pressing back exits the app rather than navigating further back. */
 const ROOT_PAGES = new Set(['/dashboard', '/login', '/']);
 
+/* Every in-portal screen gets the same shell — sidebar, top bar, modals — so
+   navigation does not disappear the moment you leave the dashboard. These
+   pages were ported from standalone HTML documents and used to render
+   full-bleed with no way back except the browser's own Back button. */
+const shell = (el) => <PortalLayout>{el}</PortalLayout>;
+
 /* Module routes that already have a screen. Everything else in the registry
    renders ModulePage, which states what the spec says belongs there. Both go
    through RequireModule, so a built page is no easier to reach by URL than a
    placeholder one. */
 const BUILT = {
+  /* Dashboard brings its own PortalLayout. */
   '/dashboard': <Dashboard />,
-  '/clients': <Clients />,
-  '/listings': <Listings />,
-  '/site-visits': <SiteVisits />,
+  '/clients': shell(<Clients />),
+  '/listings': shell(<Listings />),
+  '/projects': shell(<Projects />),
+  '/site-visits': shell(<SiteVisits />),
 
-  /* Accounts. Four rosters behind four tabs — see pages/Teams.jsx. This is
-     where a Founder creates Core members and a Founder or Core member creates
-     partners, so it is the only way anyone gets a login. */
+  /* Accounts. Four rosters behind four tabs — see pages/Teams.jsx. Brings its
+     own PortalLayout. This is where a Founder creates Core members and a
+     Founder or Core member creates partners, so it is the only way anyone
+     gets a login. */
   '/teams': <Teams />,
 };
 
@@ -66,8 +77,8 @@ export default function App() {
       ))}
 
       {/* detail views, reached from their list page */}
-      <Route path="/clients/:id" element={guard(<RequireModule to="/clients" element={<LeadView />} />)} />
-      <Route path="/listings/:id" element={guard(<RequireModule to="/listings" element={<ListingView />} />)} />
+      <Route path="/clients/:id" element={guard(<RequireModule to="/clients" element={shell(<LeadView />)} />)} />
+      <Route path="/listings/:id" element={guard(<RequireModule to="/listings" element={shell(<ListingView />)} />)} />
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

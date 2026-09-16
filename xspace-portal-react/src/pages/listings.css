@@ -8,13 +8,12 @@
   --accent: #10b981;
   --border: rgba(255, 255, 255, 0.08);
   font-family: Inter, system-ui;
-  min-height: 100%;
-  background: var(--bg);
+  background: transparent;
   color: var(--fg);
 }
 
 .page-listings .container {
-  padding: 20px;
+  padding: 0;
 }
 .page-listings h1 {
   margin: 0 0 6px;
@@ -90,4 +89,63 @@
 }
 .page-listings .title-cell {
   cursor: pointer;
+}
+
+/* ---------- Add-listing form ---------- */
+.page-listings .top-bar-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.page-listings select {
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.page-listings .listing-error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.page-listings .add-listing {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.page-listings .add-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.page-listings .add-actions .small {
+  flex: 1;
+  min-width: 220px;
+}
+.page-listings .hot {
+  color: #fb923c;
+}
+
+/* "Projects" inside the subtitle sentence — a link, not a button. */
+.page-listings .inline-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
 }

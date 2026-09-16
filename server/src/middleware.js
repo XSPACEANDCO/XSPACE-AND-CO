@@ -22,10 +22,15 @@ export async function requireAuth(req, res, next) {
   if (!user.active) return res.status(403).json({ error: 'Account is deactivated' });
 
   /* Presence comes from this, not from a column nobody writes. Touched at
-     most once a minute per user, and not awaited — a heartbeat is never worth
-     adding latency to the request it rode in on. */
+     most every 30 seconds per user, and not awaited — a heartbeat is never
+     worth adding latency to the request it rode in on.
+
+     Signing off is the one request that must not refresh it: that route exists
+     precisely to push the timestamp back, and this update is fire-and-forget,
+     so letting it run would race the route and could land last. */
+  const signingOff = req.originalUrl.endsWith('/auth/offline');
   const lastSeen = user.last_seen_at ? new Date(user.last_seen_at).getTime() : 0;
-  if (Date.now() - lastSeen > 60_000) {
+  if (!signingOff && Date.now() - lastSeen > 30_000) {
     query('UPDATE users SET last_seen_at = now() WHERE id = $1', [user.id]).catch(() => {});
   }
 

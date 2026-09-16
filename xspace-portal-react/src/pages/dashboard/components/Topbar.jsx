@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { KEYS, removeRaw } from '../../../lib/storage';
-import { setToken } from '../../../lib/api';
+import api, { setToken } from '../../../lib/api';
 import { ROLES, normalizeRole, seesEverything } from '../../../lib/roleConfig';
 import { useDashboard } from '../DashboardStore';
 
@@ -21,7 +21,10 @@ export default function Topbar({
   const showSearch = seesEverything(r);
   const unread = notifications.filter((n) => !n.read).length;
 
-  function logout() {
+  async function logout() {
+    /* Sign off first, while the token is still valid — otherwise the account
+       keeps reading as online until the presence window lapses. */
+    await api.auth.goOffline();
     setToken(null);
     removeRaw(KEYS.auth);
     removeRaw(KEYS.role);

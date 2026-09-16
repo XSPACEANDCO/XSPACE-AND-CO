@@ -36,7 +36,10 @@ export function createApp() {
     app.use(cors({ origin: config.corsOrigins, credentials: true }));
   }
 
-  app.use(express.json({ limit: '1mb' }));
+  /* Listing photos arrive as base64 inside the JSON body, which inflates them
+     by about a third — a 3 MB image needs roughly 4 MB of room. The photo
+     route enforces the real per-image cap; this only has to be above it. */
+  app.use(express.json({ limit: '6mb' }));
 
   /* Render pings this to decide whether the instance is healthy. */
   app.get('/api/health', (req, res) => {

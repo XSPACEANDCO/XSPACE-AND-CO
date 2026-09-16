@@ -43,11 +43,6 @@ services:
       - key: CORS_ORIGINS
         value: capacitor://localhost,https://localhost,http://localhost
 
-      # No demo accounts in production. Flip to "true" only if you want the
-      # five shared-password logins for a walkthrough.
-      - key: SEED_DEMO
-        value: "false"
-
       # Your first real Founder. Set both in the dashboard before the first
       # deploy — the free tier has no shell, so this is the only way in.
       # Afterwards: sign in, change the password, clear BOOTSTRAP_PASSWORD.
