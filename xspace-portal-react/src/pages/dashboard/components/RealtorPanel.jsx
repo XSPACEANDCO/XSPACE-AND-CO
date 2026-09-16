@@ -1,7 +1,8 @@
 import { timeAgo } from '../../../lib/time';
+import { FUNNEL_BUCKETS } from '../../../lib/leadStatus';
 import { useDashboard } from '../DashboardStore';
 
-const STAGES = ['Discovery', 'Engaged', 'Site Visit', 'Decision', 'Closed'];
+/* Five funnel columns over a longer pipeline — see lib/leadStatus.js. */
 const DAY = 24 * 60 * 60 * 1000;
 
 /* Realtor (area) partner KPIs, counted from the rows the server already
@@ -75,8 +76,8 @@ export default function RealtorPanel() {
       <div className="subsection">
         <h4>Assigned Lead Funnel</h4>
         <div className="pipeline">
-          {STAGES.map((stage) => {
-            const items = leads.filter((l) => l.status === stage);
+          {FUNNEL_BUCKETS.map(({ stage, statuses }) => {
+            const items = leads.filter((l) => statuses.includes(l.status));
             return (
               <div className="pipeline-column" key={stage}>
                 <h5>{stage} ({items.length})</h5>

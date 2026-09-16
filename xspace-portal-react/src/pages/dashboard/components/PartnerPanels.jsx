@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../lib/api';
+import { FUNNEL_BUCKETS } from '../../../lib/leadStatus';
 import { useDashboard } from '../DashboardStore';
 
-const STAGES = ['Discovery', 'Engaged', 'Site Visit', 'Decision', 'Closed'];
+/* Five funnel columns over a longer pipeline — see lib/leadStatus.js. */
 
 /* ---------- Creator partner dashboard ----------
    Their own uploaded leads and the media they have handed to Studio. Both
@@ -33,8 +34,8 @@ export function CreatorPanel() {
         <h4>Your Lead Tracker</h4>
         <div className="muted small">Only leads you sourced — you cannot see other partners&apos; leads</div>
         <div className="pipeline">
-          {STAGES.map((stage) => {
-            const items = leads.filter((l) => l.status === stage);
+          {FUNNEL_BUCKETS.map(({ stage, statuses }) => {
+            const items = leads.filter((l) => statuses.includes(l.status));
             return (
               <div className="pipeline-column" key={stage}>
                 <h5>{stage} ({items.length})</h5>

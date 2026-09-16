@@ -3,6 +3,7 @@ import { many, one, query } from '../db.js';
 import { asyncHandler, requireModule, requirePermission } from '../middleware.js';
 import { seesEverything } from '../rbac.js';
 import { newId, recordAudit } from '../helpers.js';
+import { ALL_STATUSES, canAdvance, isValidPropertyType } from '../leadStatus.js';
 
 const router = Router();
 
@@ -70,8 +71,17 @@ router.post(
   leadModule,
   requirePermission('leads:write'),
   asyncHandler(async (req, res) => {
-    const { name, phone, source, budget, listingId, temperature, status } = req.body || {};
+    const {
+      name, phone, source, budget, listingId, temperature, status,
+      propertyType, configuration, preferredArea, timeline,
+    } = req.body || {};
     if (!name) return res.status(400).json({ error: 'name is required' });
+    if (!isValidPropertyType(propertyType)) {
+      return res.status(400).json({ error: 'Unknown property type' });
+    }
+    if (status && !ALL_STATUSES.includes(status)) {
+      return res.status(400).json({ error: 'Unknown status' });
+    }
 
     /* A partner can only create leads against themselves; assigning to someone
        else is a Founder/Core action. */
@@ -80,11 +90,13 @@ router.post(
 
     const id = newId('c');
     const lead = await one(
-      `INSERT INTO leads (id, name, phone, source, budget, status, temperature, assigned_to, created_by, listing_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      `INSERT INTO leads (id, name, phone, source, budget, status, temperature, assigned_to,
+                          created_by, listing_id, property_type, configuration, preferred_area, timeline)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [
         id, name, phone || null, source || null, budget || null,
-        status || 'Discovery', temperature || 'warm', assignedTo, req.user.id, listingId || null,
+        status || 'New', temperature || 'warm', assignedTo, req.user.id, listingId || null,
+        propertyType || null, configuration || null, preferredArea || null, timeline || null,
       ]
     );
     await recordAudit(`Lead ${name} created`, req.user.id, 'lead', id);
@@ -104,6 +116,25 @@ router.patch(
     );
     if (!existing) return res.status(404).json({ error: 'Lead not found' });
 
+    /* A lead moves forward or it drops out. Rejecting a backwards move here
+       rather than only hiding the button means it holds for any caller. */
+    const nextStatus = req.body.status;
+    if (nextStatus && nextStatus !== existing.status) {
+      if (!ALL_STATUSES.includes(nextStatus)) {
+        return res.status(400).json({ error: 'Unknown status' });
+      }
+      if (!canAdvance(existing.status, nextStatus)) {
+        return res.status(409).json({
+          error: `A lead cannot go back to "${nextStatus}" once it is "${existing.status}"`,
+          code: 'status_regression',
+        });
+      }
+    }
+
+    if (!isValidPropertyType(req.body.propertyType)) {
+      return res.status(400).json({ error: 'Unknown property type' });
+    }
+
     /* Reassignment is a Founder/Core-only field. */
     const wantsReassign = req.body.assignedTo && req.body.assignedTo !== existing.assigned_to;
     if (wantsReassign && !seesEverything(req.user.role)) {
@@ -120,12 +151,19 @@ router.patch(
          temperature = COALESCE($7, temperature),
          assigned_to = COALESCE($8, assigned_to),
          listing_id = COALESCE($9, listing_id),
+         property_type = COALESCE($10, property_type),
+         configuration = COALESCE($11, configuration),
+         preferred_area = COALESCE($12, preferred_area),
+         timeline = COALESCE($13, timeline),
+         notes = COALESCE($14, notes),
          last_interaction_at = now()
        WHERE id = $1 RETURNING *`,
       [
         req.params.id, req.body.name ?? null, req.body.phone ?? null, req.body.source ?? null,
         req.body.budget ?? null, req.body.status ?? null, req.body.temperature ?? null,
         wantsReassign ? req.body.assignedTo : null, req.body.listingId ?? null,
+        req.body.propertyType ?? null, req.body.configuration ?? null,
+        req.body.preferredArea ?? null, req.body.timeline ?? null, req.body.notes ?? null,
       ]
     );
     await recordAudit(`Lead ${lead.name} updated`, req.user.id, 'lead', lead.id);

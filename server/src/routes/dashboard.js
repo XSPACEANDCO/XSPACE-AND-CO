@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { many, one, query } from '../db.js';
 import { asyncHandler, requireAuth, requireModule, requirePermission } from '../middleware.js';
 import { modulesForRole, seesEverything } from '../rbac.js';
+import { FUNNEL_BUCKETS } from '../leadStatus.js';
 import { newId, recordAudit } from '../helpers.js';
 
 const router = Router();
@@ -108,15 +109,18 @@ router.get(
         GROUP BY status`,
       [req.user.id, all]
     );
-    const byStage = Object.fromEntries(rows.map((r) => [r.status, r.count]));
-    const discovery = byStage.Discovery || 0;
-    const engaged = byStage.Engaged || 0;
+    const byStatus = Object.fromEntries(rows.map((r) => [r.status, r.count]));
+    /* The pipeline has more steps than the funnel shows, so each bucket sums
+       the statuses that belong to it — see src/leadStatus.js. */
+    const stages = FUNNEL_BUCKETS.map((b) => ({
+      stage: b.stage,
+      count: b.statuses.reduce((n, st) => n + (byStatus[st] || 0), 0),
+    }));
+    const discovery = stages[0].count;
+    const engaged = stages[1].count;
 
     res.json({
-      stages: ['Discovery', 'Engaged', 'Site Visit', 'Decision', 'Closed'].map((s) => ({
-        stage: s,
-        count: byStage[s] || 0,
-      })),
+      stages,
       conversionRate: discovery > 0 ? Math.round((engaged / discovery) * 100) : 0,
       scope: all ? 'ALL' : 'ASSIGNED',
     });

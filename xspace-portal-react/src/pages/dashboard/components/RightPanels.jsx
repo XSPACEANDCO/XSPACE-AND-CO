@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { timeAgo } from '../../../lib/time';
 import { ROLES } from '../../../lib/roleConfig';
+import { FUNNEL_BUCKETS } from '../../../lib/leadStatus';
 import { useDashboard } from '../DashboardStore';
 
-const STAGES = ['Discovery', 'Engaged', 'Site Visit', 'Decision', 'Closed'];
+/* Five funnel columns over a longer pipeline — see lib/leadStatus.js. */
 
 /* ---------- Lead Funnel ----------
    Stage totals come from /dashboard/funnel (counted in SQL, scoped to the
@@ -37,8 +38,8 @@ export function LeadFunnelPanel() {
       </div>
 
       <div className="pipeline">
-        {STAGES.map((stage) => {
-          const items = leads.filter((l) => l.status === stage);
+        {FUNNEL_BUCKETS.map(({ stage, statuses }) => {
+          const items = leads.filter((l) => statuses.includes(l.status));
           return (
             <div className="pipeline-column" key={stage}>
               <h5>

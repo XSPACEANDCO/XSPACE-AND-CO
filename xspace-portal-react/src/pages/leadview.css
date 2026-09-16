@@ -181,3 +181,67 @@
 .page-leadview .note-actions {
   margin-top: 12px;
 }
+
+/* ---- Editable requirement snapshot, status machine, save feedback ---- */
+.page-leadview .req-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+.page-leadview .req-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+}
+.page-leadview .req-grid label > span {
+  opacity: 0.75;
+}
+.page-leadview .req-grid input,
+.page-leadview .req-grid select {
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: 14px;
+}
+.page-leadview .req-grid input:disabled {
+  opacity: 0.5;
+}
+
+/* A stage already passed is offered but refused — disabled, not hidden, so
+   the pipeline still reads as a whole. */
+.page-leadview .action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.page-leadview .action.current {
+  outline: 2px solid currentColor;
+  font-weight: 700;
+}
+.page-leadview .action.drop {
+  color: #b42318;
+}
+
+.page-leadview .saved-flag {
+  font-size: 13px;
+  color: #1a7f37;
+  margin-left: 10px;
+}
+.page-leadview .crm-error {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #b42318;
+  background: rgba(217, 45, 32, 0.08);
+  border: 1px solid rgba(217, 45, 32, 0.25);
+}
+.page-leadview .note-actions button.ghost {
+  background: transparent;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  color: inherit;
+}

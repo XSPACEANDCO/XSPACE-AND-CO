@@ -96,6 +96,22 @@ CREATE TABLE IF NOT EXISTS leads (
 CREATE INDEX IF NOT EXISTS leads_assigned_idx ON leads (assigned_to);
 CREATE INDEX IF NOT EXISTS leads_created_by_idx ON leads (created_by);
 
+-- Requirement snapshot. A flat is counted in bedrooms, land in acres and a
+-- shop in square feet, so "configuration" holds whichever unit the chosen
+-- property type calls for (see src/leadStatus.js).
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS property_type  TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS configuration  TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS preferred_area TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS timeline       TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS notes          TEXT;
+
+-- One pipeline, not three. Rows seeded under the old funnel vocabulary are
+-- mapped onto the canonical statuses so existing leads keep their place.
+UPDATE leads SET status = 'New'             WHERE status = 'Discovery';
+UPDATE leads SET status = 'Contacted'       WHERE status = 'Engaged';
+UPDATE leads SET status = 'Visit Scheduled' WHERE status = 'Site Visit';
+UPDATE leads SET status = 'Negotiation'     WHERE status = 'Decision';
+
 CREATE TABLE IF NOT EXISTS visits (
   id                    TEXT PRIMARY KEY,
   lead_id               TEXT REFERENCES leads(id) ON DELETE CASCADE,
