@@ -2,10 +2,6 @@
    so it paints no background of its own. */
 
 .page-projects {
-  --panel: #0f1720;
-  --muted: #9aa0a6;
-  --accent: #10b981;
-  --border: rgba(255, 255, 255, 0.08);
   background: transparent;
   color: inherit;
 }

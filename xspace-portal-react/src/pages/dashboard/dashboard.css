@@ -12,6 +12,7 @@
   --accent: #10b981;
   --danger: #ef4444;
   --glass: rgba(255, 255, 255, 0.03);
+  --border: rgba(255, 255, 255, 0.08);
   --radius: 12px;
   font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
   font-size: 14px;
@@ -30,7 +31,14 @@
   --muted: #556073;
   --fg: #0b1220;
   --glass: rgba(0, 0, 0, 0.03);
+  --border: rgba(0, 0, 0, 0.1);
 }
+
+/* The pages that render inside the shell (CRM, Listings, Projects, Site
+   Visits and the two detail sheets) used to each declare their own copy of
+   this palette, hard-coded dark. That is why they ignored the theme toggle
+   and drifted away from the dashboard's colours. They now inherit the tokens
+   above, so there is one palette for the whole portal. */
 
 .page-dashboard .kpi,
 .page-dashboard .panel {

@@ -52,7 +52,7 @@ html[data-theme='light'] body[data-page='dashboard'] {
    ============================================================ */
 
 .listing-form fieldset {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 14px 16px 16px;
   margin: 0 0 14px;
@@ -64,7 +64,7 @@ html[data-theme='light'] body[data-page='dashboard'] {
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #9aa0a6;
+  color: var(--muted);
 }
 
 /* Two columns on a desktop, one on a phone. auto-fit keeps the last row from
@@ -83,11 +83,11 @@ html[data-theme='light'] body[data-page='dashboard'] {
 }
 .listing-form .lf-field > span {
   font-size: 13px;
-  color: #9aa0a6;
+  color: var(--muted);
 }
 .listing-form .lf-hint {
   font-size: 11.5px;
-  color: #6b7280;
+  color: var(--muted);
   font-style: normal;
 }
 
@@ -96,9 +96,9 @@ html[data-theme='light'] body[data-page='dashboard'] {
 .listing-form textarea {
   width: 100%;
   box-sizing: border-box;
-  background: rgba(255, 255, 255, 0.04);
-  color: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--glass);
+  color: var(--fg);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 9px 11px;
   font-family: inherit;
@@ -111,7 +111,7 @@ html[data-theme='light'] body[data-page='dashboard'] {
 .listing-form select:focus,
 .listing-form textarea:focus {
   outline: none;
-  border-color: #10b981;
+  border-color: var(--accent);
 }
 .listing-form input:disabled {
   opacity: 0.5;
@@ -145,7 +145,7 @@ html[data-theme='light'] body[data-page='dashboard'] {
   margin: 14px 0 8px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #9aa0a6;
+  color: var(--muted);
 }
 
 .listing-photos .lp-grid {
@@ -154,11 +154,11 @@ html[data-theme='light'] body[data-page='dashboard'] {
   gap: 12px;
 }
 .listing-photos .lp-item {
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 8px;
   min-width: 0;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--glass);
 }
 /* A photo waiting to be sent is visibly not yet part of the listing. */
 .listing-photos .lp-item.pending {
@@ -187,7 +187,7 @@ html[data-theme='light'] body[data-page='dashboard'] {
   flex-wrap: wrap;
 }
 .listing-photos button {
-  background: #10b981;
+  background: var(--accent);
   color: #04120c;
   border: 0;
   border-radius: 7px;
@@ -200,8 +200,8 @@ html[data-theme='light'] body[data-page='dashboard'] {
 .listing-photos button.ghost,
 .listing-photos .lp-all {
   background: transparent;
-  color: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--fg);
+  border: 1px solid var(--border);
 }
 .listing-photos button:disabled {
   opacity: 0.55;
@@ -220,7 +220,7 @@ html[data-theme='light'] body[data-page='dashboard'] {
   flex-direction: column;
   gap: 4px;
   padding: 11px 13px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
   border-radius: 9px;
   text-decoration: none;
   color: inherit;
@@ -228,6 +228,39 @@ html[data-theme='light'] body[data-page='dashboard'] {
   overflow-wrap: anywhere;
 }
 .portal-list .portal:hover {
-  border-color: #10b981;
+  border-color: var(--accent);
   background: rgba(16, 185, 129, 0.06);
+}
+
+/* ============================================================
+   Native dropdown options.
+
+   A <select> can be styled, but the list it opens is drawn by the operating
+   system and defaults to a white popup. With white text inherited from the
+   dark theme, the options were white on white — present, readable by a screen
+   reader, invisible to everyone else. Options need their colours set
+   explicitly; inheriting is not enough.
+   ============================================================ */
+.page-dashboard option,
+.page-dashboard optgroup {
+  background-color: #0f1720;
+  color: #fff;
+}
+[data-theme='light'] .page-dashboard option,
+[data-theme='light'] .page-dashboard optgroup {
+  background-color: #ffffff;
+  color: #0b1220;
+}
+
+/* Form controls across the in-portal pages follow the shell's palette rather
+   than each page's own copy of it. */
+.page-dashboard .workspace select,
+.page-dashboard .workspace input,
+.page-dashboard .workspace textarea {
+  color: var(--fg);
+  border-color: var(--border);
+}
+.page-dashboard .workspace ::placeholder {
+  color: var(--muted);
+  opacity: 1;
 }

@@ -1,12 +1,6 @@
 /* Ported from listings.html, scoped under .page-listings. */
 
 .page-listings {
-  --bg: #0b0b0b;
-  --panel: #0f1720;
-  --fg: #fff;
-  --muted: #9aa0a6;
-  --accent: #10b981;
-  --border: rgba(255, 255, 255, 0.08);
   font-family: Inter, system-ui;
   background: transparent;
   color: var(--fg);
@@ -54,7 +48,7 @@
   font-weight: 500;
 }
 .page-listings tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--glass);
 }
 
 /* badges */

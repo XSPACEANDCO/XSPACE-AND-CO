@@ -1,12 +1,6 @@
 /* Ported from listingsview.html, scoped under .page-listingview. */
 
 .page-listingview {
-  --bg: #0b0b0b;
-  --panel: #0f1720;
-  --fg: #fff;
-  --muted: #9aa0a6;
-  --border: rgba(255, 255, 255, 0.08);
-  --accent: #10b981;
   font-family: Inter, system-ui;
   background: transparent;
   color: var(--fg);
@@ -57,7 +51,7 @@
   gap: 12px;
 }
 .page-listingview .box {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--glass);
   padding: 12px;
   border-radius: 10px;
 }
@@ -73,7 +67,7 @@
   gap: 10px;
 }
 .page-listingview .amenity {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--glass);
   padding: 10px;
   border-radius: 8px;
   font-size: 14px;
