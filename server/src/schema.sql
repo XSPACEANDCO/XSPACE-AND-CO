@@ -20,6 +20,11 @@ CREATE INDEX IF NOT EXISTS users_role_idx ON users (role);
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by TEXT;
 
+-- Presence was a column nobody ever wrote to, so everyone read as "online"
+-- forever. It is now derived from this timestamp, which requireAuth touches
+-- as you use the portal: online < 5 min, away < 30 min, offline after that.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
+
 -- Partners sign in with a username rather than an email address, so every
 -- account has one. Login accepts either (routes/auth.js).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;

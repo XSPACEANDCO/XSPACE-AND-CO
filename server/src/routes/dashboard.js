@@ -15,7 +15,7 @@ router.get(
     const { id, role } = req.user;
     const all = seesEverything(role);
 
-    const [leads, listings, projects, visits, verifications, tickets, media, commission] =
+    const [leads, listings, projects, visits, verifications, media] =
       await Promise.all([
         one(
           `SELECT COUNT(*)::int AS total,
@@ -46,22 +46,12 @@ router.get(
              FROM verifications`
         ),
         one(
-          `SELECT COUNT(*) FILTER (WHERE status = 'open')::int AS open
-             FROM tickets WHERE ($2::boolean IS TRUE OR raised_by = $1)`,
-          [id, all]
-        ),
-        one(
           `SELECT COUNT(*) FILTER (WHERE status = 'pending')::int AS pending,
                   COUNT(*) FILTER (WHERE status = 'in_progress')::int AS in_progress,
                   COUNT(*) FILTER (WHERE status = 'delivered')::int AS delivered,
                   COUNT(*) FILTER (WHERE uploaded_by = $1)::int AS mine
              FROM media`,
           [id]
-        ),
-        one(
-          `SELECT COALESCE(SUM(amount) FILTER (WHERE status <> 'paid'), 0) AS pending
-             FROM commissions WHERE ($2::boolean IS TRUE OR user_id = $1)`,
-          [id, all]
         ),
       ]);
 
@@ -81,7 +71,6 @@ router.get(
         { title: 'Pending Verifications', num: verifications.pending },
         { title: 'Leads Today', num: leads.today },
         { title: 'Active Listings', num: listings.total },
-        { title: 'Tickets Open', num: tickets.open },
       ],
       realtor: [
         { title: 'Assigned Leads', num: leads.total },
@@ -94,14 +83,12 @@ router.get(
         { title: 'Converted', num: leads.closed },
         { title: 'Raw Media Submitted', num: media.mine },
         { title: 'Awaiting Edit', num: media.pending },
-        { title: 'Commission Pending', num: commission.pending },
       ],
       studio: [
         { title: 'Raw Media In', num: media.pending },
         { title: 'Edits Pending', num: media.in_progress },
         { title: 'Delivered', num: media.delivered },
         { title: 'Projects Accessible', num: projects.total },
-        { title: 'Open Coordination', num: tickets.open },
       ],
     };
 
@@ -149,11 +136,18 @@ router.get(
   })
 );
 
-/* Audit log is Founder-only, which is why it hangs off the finances module's
-   sibling rather than the shared dashboard one. */
+/* Audit log is Founder-only. It used to borrow the finances module's guard;
+   that module has been removed, so the check is stated directly here. */
+function founderOnly(req, res, next) {
+  if (req.user.role !== 'founder') {
+    return res.status(403).json({ error: 'Founder only' });
+  }
+  next();
+}
+
 router.get(
   '/audit',
-  requireModule('finances'),
+  founderOnly,
   asyncHandler(async (req, res) => {
     const rows = await many(
       `SELECT a.*, u.name AS actor_name FROM audit_log a
@@ -161,31 +155,6 @@ router.get(
         ORDER BY a.created_at DESC LIMIT 100`
     );
     res.json({ audit: rows });
-  })
-);
-
-router.get(
-  '/finances',
-  requireModule('finances'),
-  asyncHandler(async (req, res) => {
-    const totals = await one(
-      `SELECT COALESCE(SUM(amount) FILTER (WHERE status = 'paid'), 0) AS paid_out,
-              COALESCE(SUM(amount) FILTER (WHERE status <> 'paid'), 0) AS outstanding,
-              COUNT(DISTINCT user_id)::int AS partners_owed
-         FROM commissions`
-    );
-    const byPartner = await many(
-      `SELECT u.id, u.name, u.role,
-              COALESCE(SUM(c.amount) FILTER (WHERE c.status = 'paid'), 0) AS paid,
-              COALESCE(SUM(c.amount) FILTER (WHERE c.status <> 'paid'), 0) AS pending
-         FROM users u LEFT JOIN commissions c ON c.user_id = u.id
-        WHERE u.role IN ('realtor','creator','studio')
-        GROUP BY u.id ORDER BY pending DESC`
-    );
-    const closed = await one(
-      "SELECT COUNT(*)::int AS deals FROM leads WHERE status = 'Closed'"
-    );
-    res.json({ totals, byPartner, closedDeals: closed.deals });
   })
 );
 

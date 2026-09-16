@@ -112,23 +112,6 @@ export const MODULES = [
     contents: ['Live legal and RERA verification queue', 'Assign, start, escalate and clear', 'Turnaround tracking'],
   },
 
-  /* ---- Money ---- */
-  {
-    key: 'commissions',
-    label: '💰 Commission Tracker',
-    to: '/commissions',
-    roles: ['founder', 'core', 'realtor', 'creator'],
-    scope: { founder: 'all', core: 'all', realtor: 'own', creator: 'own' },
-    contents: ['Earned, pending and paid', 'Per deal breakdown', 'Partners see only their own position'],
-  },
-  {
-    key: 'finances',
-    label: '🏦 Finances',
-    to: '/finances',
-    roles: ['founder'],
-    contents: ['Revenue, payouts and studio billing', 'P&L across the business', 'Founder only'],
-  },
-
   /* ---- Media pipeline ---- */
   {
     key: 'mediaUpload',
@@ -175,22 +158,6 @@ export const MODULES = [
     contents: ['Keep your area current inside the portal', 'Ground knowledge, new inventory, pricing movement'],
   },
 
-  /* ---- Support & comms ---- */
-  {
-    key: 'issues',
-    label: '🚩 Issues & Queries',
-    to: '/issues',
-    roles: ['founder', 'core', 'realtor', 'creator', 'studio'],
-    scope: { founder: 'all', core: 'all', realtor: 'own', creator: 'own', studio: 'own' },
-    contents: ['Raise an issue or query', 'Track it to resolution', 'Founder and Core see the full tracker and dashboard'],
-  },
-  {
-    key: 'communication',
-    label: '💬 Communication',
-    to: '/communication',
-    roles: ['realtor', 'studio', 'founder', 'core'],
-    contents: ['Coordination thread with the Core team', 'Per-project and per-visit context'],
-  },
   {
     key: 'rules',
     label: '📘 Rules & Regulations',
@@ -259,23 +226,6 @@ export function seesEverything(role) {
 }
 
 /* ---- Quick actions, gated the same way ---- */
-export const QUICK_ACTIONS = [
-  { action: 'addProject', label: '+ Add Project', roles: ALL_INTERNAL },
-  { action: 'addListing', label: '+ Add Listing', roles: ['founder', 'core', 'realtor'] },
-  { action: 'uploadLead', label: '+ Upload Lead', roles: ['creator', 'realtor'] },
-  { action: 'inviteUser', label: 'Invite Partner', roles: ALL_INTERNAL },
-  { action: 'createVisit', label: 'Create Site Visit', roles: ['founder', 'core', 'realtor'] },
-  { action: 'verifyRera', label: 'Verify RERA', roles: ALL_INTERNAL },
-  { action: 'uploadMedia', label: 'Upload Media', roles: ['creator', 'realtor', 'studio'] },
-  { action: 'raiseIssue', label: 'Raise Issue', roles: ['realtor', 'creator', 'studio'] },
-  { action: 'exportData', label: 'Export', roles: ['founder', 'core', 'realtor', 'creator', 'studio'], ghost: true },
-];
-
-export function quickActionsFor(role) {
-  const r = normalizeRole(role);
-  return QUICK_ACTIONS.filter((a) => a.roles.includes(r));
-}
-
 /* ---- Dashboard panels, per role ---- */
 export const PANEL_VISIBILITY = {
   approvalsPanel: ['founder'],
@@ -286,12 +236,10 @@ export const PANEL_VISIBILITY = {
   projectsSnapshot: ['founder', 'core', 'studio'],
   auditPanel: ['founder'],
   verificationPanel: ['founder', 'core'],
-  supportPanel: ['founder', 'core'],
   leadsLegalPanel: ['founder', 'core'],
   realtorPanel: ['realtor'],
   creatorPanel: ['creator'],
   studioWorkPanel: ['studio'],
-  commissionPanel: ['realtor', 'creator'],
 };
 
 export function canSee(panelId, role) {

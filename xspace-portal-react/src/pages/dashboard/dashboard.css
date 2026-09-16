@@ -866,3 +866,23 @@
     min-width: 0;
   }
 }
+
+/* Presence, derived from each person's last request rather than a column
+   that always said "online". */
+.page-dashboard .presence-tag {
+  font-size: 12px;
+  text-transform: capitalize;
+  color: var(--muted);
+}
+.page-dashboard .presence-tag.online {
+  color: var(--accent);
+}
+.page-dashboard .presence-tag.away {
+  color: #d97706;
+}
+
+/* Role in the profile popup is shown, not chosen — see Modals.jsx. */
+.page-dashboard .profile-role-fixed {
+  padding: 9px 0;
+  font-size: 14px;
+}

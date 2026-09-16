@@ -1,26 +1,48 @@
 import { timeAgo } from '../../../lib/time';
-import { partnerMetrics, groupByStage } from '../../../lib/metrics';
 import { useDashboard } from '../DashboardStore';
 
-/* Realtor (area) partner KPIs: assigned leads, site visits, listing quality
-   and feedback velocity. Scoped to the signed-in partner only. */
+const STAGES = ['Discovery', 'Engaged', 'Site Visit', 'Decision', 'Closed'];
+const DAY = 24 * 60 * 60 * 1000;
+
+/* Realtor (area) partner KPIs, counted from the rows the server already
+   scoped to this partner — assigned leads, their visits and their listings.
+   Nothing here filters by user id, because nothing here was given anybody
+   else's records to begin with. */
 export default function RealtorPanel() {
-  const {
-    userId, leads, visits, listings, listingSubmissions, leadsContributed, leadInteractions,
-  } = useDashboard();
+  const { leads, visits, listings } = useDashboard();
 
-  if (!userId) return null;
+  const now = Date.now();
+  const ageOf = (l) => (l.createdAt ? now - new Date(l.createdAt).getTime() : 0);
 
-  const m = partnerMetrics({ userId, leads, visits, listings, listingSubmissions, leadsContributed, leadInteractions });
-  const stages = groupByStage(m.myLeads);
+  const completedThisWeek = visits.filter(
+    (v) => v.status === 'Completed' && v.endedAt && now - new Date(v.endedAt).getTime() < 7 * DAY
+  ).length;
+  const conversions = leads.filter((l) => l.status === 'Closed').length;
+  const activeListings = listings.filter((l) => l.status !== 'Sold').length;
+  const verified = listings.filter((l) => l.verified).length;
+  const listingQuality = listings.length ? Math.round((verified / listings.length) * 100) : 0;
+
+  const upcoming = visits
+    .filter((v) => {
+      if (!v.scheduledAt) return false;
+      const t = new Date(v.scheduledAt).getTime();
+      return t > now - DAY && t < now + 2 * DAY;
+    })
+    .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
 
   const kpis = [
-    ['Visits Completed (week)', m.visitsCompleted],
-    ['Conversions', m.conversions],
-    ['Leads Contributed (mo)', m.contributed],
-    ['Active Listings', m.activeListings],
-    ['Listing Quality (%)', m.listingQuality + '%'],
-    ['Avg Feedback Time (mins)', m.feedbackVelocity],
+    ['Visits Completed (week)', completedThisWeek],
+    ['Conversions', conversions],
+    ['Assigned Leads', leads.length],
+    ['Active Listings', activeListings],
+    ['Listing Quality (%)', listingQuality + '%'],
+    ['Visits Scheduled', visits.length],
+  ];
+
+  const buckets = [
+    ['0-3 days', leads.filter((l) => ageOf(l) <= 3 * DAY).length],
+    ['4-7 days', leads.filter((l) => ageOf(l) > 3 * DAY && ageOf(l) <= 7 * DAY).length],
+    ['8+ days', leads.filter((l) => ageOf(l) > 7 * DAY).length],
   ];
 
   return (
@@ -41,70 +63,59 @@ export default function RealtorPanel() {
         <h4>Assigned Leads</h4>
         <div className="muted small">Age buckets of assigned leads</div>
         <div className="age-buckets">
-          <div className="lead-metric"><h5>0-3 days</h5><div className="val">{m.age0_3}</div></div>
-          <div className="lead-metric"><h5>4-7 days</h5><div className="val">{m.age4_7}</div></div>
-          <div className="lead-metric"><h5>8+ days</h5><div className="val">{m.age8plus}</div></div>
-        </div>
-      </div>
-
-      <div className="subsection">
-        <h4>Assigned Lead Funnel</h4>
-        <div className="pipeline">
-          {stages.map(({ stage, items }) => (
-            <div className="pipeline-column" key={stage}>
-              <h5>
-                {stage} ({items.length})
-              </h5>
-              {items.map((it) => (
-                <div className="pipeline-card" key={it.id}>
-                  <strong>{it.name}</strong>
-                  <div className="small muted">
-                    {it.source} • {it.budget}
-                  </div>
-                </div>
-              ))}
+          {buckets.map(([label, n]) => (
+            <div className="lead-metric" key={label}>
+              <h5>{label}</h5>
+              <div className="val">{n}</div>
             </div>
           ))}
         </div>
       </div>
 
       <div className="subsection">
+        <h4>Assigned Lead Funnel</h4>
+        <div className="pipeline">
+          {STAGES.map((stage) => {
+            const items = leads.filter((l) => l.status === stage);
+            return (
+              <div className="pipeline-column" key={stage}>
+                <h5>{stage} ({items.length})</h5>
+                {items.map((it) => (
+                  <div className="pipeline-card" key={it.id}>
+                    <strong>{it.name}</strong>
+                    <div className="small muted">{it.source || '—'} • {it.budget || '—'}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="subsection">
         <h4>Scheduled Visits (today / tomorrow)</h4>
         <div style={{ marginTop: 8 }}>
-          {m.upcomingVisits.length === 0 ? (
+          {upcoming.length === 0 ? (
             <div className="small muted">No scheduled visits for today/tomorrow.</div>
           ) : (
-            m.upcomingVisits.map((v) => {
+            upcoming.map((v) => {
               const listing = listings.find((l) => l.id === v.listingId) || {};
-              const client = leads.find((c) => c.id === v.clientId) || {};
+              const client = leads.find((c) => c.id === v.leadId) || {};
               return (
                 <div className="ver-row" key={v.id}>
                   <div className="grow">
-                    <strong>{listing.title || listing.name || 'Listing'}</strong>
+                    <strong>{listing.title || 'Listing'}</strong>
                     <div className="small muted">
                       {client.name || 'Client'} • {new Date(v.scheduledAt).toLocaleString()}
                     </div>
                   </div>
                   <div className="stack-end">
-                    <div className="small muted">{v.scheduledAt ? timeAgo(v.scheduledAt) : ''}</div>
+                    <div className="small muted">{timeAgo(v.scheduledAt)}</div>
                   </div>
                 </div>
               );
             })
           )}
-        </div>
-      </div>
-
-      <div className="subsection">
-        <h4>Other</h4>
-        <div className="small-muted-row">
-          <div className="small muted">Lead Update Frequency (48h)</div>
-          <div className="small muted">{m.updateFrequency}%</div>
-        </div>
-        <div className="spacer-8" />
-        <div className="small-muted-row">
-          <div className="small muted">Scheduled vs Completed Visits</div>
-          <div className="small muted">{m.visitCompliance}%</div>
         </div>
       </div>
     </section>

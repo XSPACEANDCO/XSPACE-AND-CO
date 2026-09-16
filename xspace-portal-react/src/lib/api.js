@@ -98,7 +98,6 @@ export const api = {
     funnel: () => get('/dashboard/funnel'),
     activity: () => get('/dashboard/activity'),
     audit: () => get('/dashboard/audit'),
-    finances: () => get('/dashboard/finances'),
     notifications: () => get('/dashboard/notifications'),
     markRead: (id) => post(`/dashboard/notifications/${id}/read`),
     areaUpdates: () => get('/dashboard/area-updates'),
@@ -142,18 +141,6 @@ export const api = {
     verify: (id) => post(`/verifications/${id}/verify`),
     escalate: (id, notes) => post(`/verifications/${id}/escalate`, { notes }),
     csvUrl: () => BASE + '/api/verifications/export.csv',
-  },
-
-  tickets: {
-    list: () => get('/tickets'),
-    create: (data) => post('/tickets', data),
-    update: (id, data) => patch(`/tickets/${id}`, data),
-  },
-
-  commissions: {
-    list: () => get('/commissions'),
-    create: (data) => post('/commissions', data),
-    pay: (id) => post(`/commissions/${id}/pay`),
   },
 
   media: {

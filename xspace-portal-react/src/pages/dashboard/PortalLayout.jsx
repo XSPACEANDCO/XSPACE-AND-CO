@@ -4,7 +4,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { DashboardProvider } from './DashboardStore';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
-import { ContactCoreModal, NotificationCenter, ProfileModal, TicketModal } from './components/Modals';
+import { NotificationCenter, ProfileModal } from './components/Modals';
 import './dashboard.css';
 
 /* The shell every in-portal page shares: role-filtered sidebar, top bar and
@@ -38,16 +38,11 @@ function Shell({ children }) {
           onOpenMenu={() => setNavOpen((v) => !v)}
           onOpenNotifications={() => setModal('notifications')}
           onOpenProfile={() => setModal('profile')}
-          onOpenContactCore={() => setModal('contactCore')}
         />
         <main className="workspace">{children}</main>
       </div>
 
-      {modal === 'notifications' && (
-        <NotificationCenter onClose={close} onRaiseTicket={() => setModal('ticket')} />
-      )}
-      {modal === 'ticket' && <TicketModal onClose={close} />}
-      {modal === 'contactCore' && <ContactCoreModal onClose={close} />}
+      {modal === 'notifications' && <NotificationCenter onClose={close} />}
       {modal === 'profile' && <ProfileModal onClose={close} />}
     </div>
   );

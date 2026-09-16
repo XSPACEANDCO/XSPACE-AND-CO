@@ -1,18 +1,18 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { timeAgo } from '../../../lib/time';
-import { groupByStage, leadsForRole } from '../../../lib/metrics';
+import api from '../../../lib/api';
 import { useDashboard } from '../DashboardStore';
 
+const STAGES = ['Discovery', 'Engaged', 'Site Visit', 'Decision', 'Closed'];
+
 /* ---------- Creator partner dashboard ----------
-   Lead uploads, their own lead tracker, and the status of raw media they have
-   handed to Studio. */
+   Their own uploaded leads and the media they have handed to Studio. Both
+   datasets arrive already scoped to them by the server. */
 export function CreatorPanel() {
-  const { role, userId, leads, studio } = useDashboard();
+  const { leads, media } = useDashboard();
   const navigate = useNavigate();
 
-  const myLeads = leadsForRole(leads, role, userId);
-  const stages = groupByStage(myLeads);
-  const converted = myLeads.filter((l) => (l.status || '').toLowerCase() === 'closed').length;
+  const converted = leads.filter((l) => l.status === 'Closed').length;
 
   return (
     <section className="panel agent-panel">
@@ -20,27 +20,33 @@ export function CreatorPanel() {
       <div className="muted small">Your uploaded leads and the media you have sent to Studio</div>
 
       <div className="kpi-grid">
-        <div className="kpi"><h3>Leads Uploaded</h3><div className="num">{myLeads.length}</div></div>
+        <div className="kpi"><h3>Leads Uploaded</h3><div className="num">{leads.length}</div></div>
         <div className="kpi"><h3>Converted</h3><div className="num">{converted}</div></div>
-        <div className="kpi"><h3>Conversion Rate</h3><div className="num">{myLeads.length ? Math.round((converted / myLeads.length) * 100) : 0}%</div></div>
-        <div className="kpi"><h3>Commission Pending</h3><div className="num">₹45,000</div></div>
+        <div className="kpi">
+          <h3>Conversion Rate</h3>
+          <div className="num">{leads.length ? Math.round((converted / leads.length) * 100) : 0}%</div>
+        </div>
+        <div className="kpi"><h3>Media Submitted</h3><div className="num">{media.length}</div></div>
       </div>
 
       <div className="subsection">
         <h4>Your Lead Tracker</h4>
         <div className="muted small">Only leads you sourced — you cannot see other partners&apos; leads</div>
         <div className="pipeline">
-          {stages.map(({ stage, items }) => (
-            <div className="pipeline-column" key={stage}>
-              <h5>{stage} ({items.length})</h5>
-              {items.map((it) => (
-                <div className="pipeline-card" key={it.id}>
-                  <strong>{it.name}</strong>
-                  <div className="small muted">{it.source} • {it.budget}</div>
-                </div>
-              ))}
-            </div>
-          ))}
+          {STAGES.map((stage) => {
+            const items = leads.filter((l) => l.status === stage);
+            return (
+              <div className="pipeline-column" key={stage}>
+                <h5>{stage} ({items.length})</h5>
+                {items.map((it) => (
+                  <div className="pipeline-card" key={it.id}>
+                    <strong>{it.name}</strong>
+                    <div className="small muted">{it.source || '—'} • {it.budget || '—'}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -48,17 +54,21 @@ export function CreatorPanel() {
         <h4>Raw Media — Editing Status</h4>
         <div className="muted small">What Studio is doing with the reels and shorts you uploaded</div>
         <div style={{ marginTop: 8 }}>
-          {studio.map((s) => (
-            <div className="ver-row" key={s.id}>
-              <div className="grow">
-                <strong>{s.title}</strong>
-                <div className="small muted">Submitted by you</div>
+          {media.length === 0 ? (
+            <div className="small muted">You have not uploaded any media yet.</div>
+          ) : (
+            media.map((m) => (
+              <div className="ver-row" key={m.id}>
+                <div className="grow">
+                  <strong>{m.title || m.kind || 'Media item'}</strong>
+                  <div className="small muted">Submitted by you</div>
+                </div>
+                <div className="stack-end">
+                  <div className="small muted">{m.status}</div>
+                </div>
               </div>
-              <div className="stack-end">
-                <div className="small muted">{s.status}</div>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
         <div style={{ marginTop: 10 }}>
           <button className="btn" onClick={() => navigate('/media-upload')}>Upload Raw Media</button>{' '}
@@ -69,49 +79,60 @@ export function CreatorPanel() {
   );
 }
 
-/* ---------- Xspace Studio work queue ----------
-   Raw media in, what is being edited, and what is still pending. */
+/* ---------- Xspace Studio work queue ---------- */
 export function StudioWorkPanel() {
-  const { studio, projects, update, addAudit, currentUser } = useDashboard();
+  const { media, projects, refresh } = useDashboard();
   const navigate = useNavigate();
+  const [busy, setBusy] = useState(null);
+  const [error, setError] = useState('');
 
-  const pending = studio.filter((s) => s.status === 'Pending');
-  const inProgress = studio.filter((s) => s.status === 'In Progress');
+  const pending = media.filter((m) => m.status === 'pending');
+  const inProgress = media.filter((m) => m.status === 'in_progress');
+  const delivered = media.filter((m) => m.status === 'delivered');
 
-  function advance(item) {
-    const next = item.status === 'Pending' ? 'In Progress' : 'Delivered';
-    update('studio', (prev) => prev.map((s) => (s.id === item.id ? { ...s, status: next } : s)));
-    addAudit(`Studio item "${item.title}" moved to ${next} by ${currentUser ? currentUser.name : 'studio'}`);
+  async function advance(item) {
+    const next = item.status === 'pending' ? 'in_progress' : 'delivered';
+    setError('');
+    setBusy(item.id);
+    try {
+      await api.media.setStatus(item.id, next);
+      await refresh();
+    } catch (err) {
+      setError(err.message || 'Could not update that item');
+    } finally {
+      setBusy(null);
+    }
   }
 
   return (
     <section className="panel agent-panel">
       <h4>Studio Work Queue</h4>
       <div className="muted small">Raw reels and video from creator and realtor partners</div>
+      {error && <div className="people-error">{error}</div>}
 
       <div className="kpi-grid">
         <div className="kpi"><h3>Pending</h3><div className="num">{pending.length}</div></div>
         <div className="kpi"><h3>In Progress</h3><div className="num">{inProgress.length}</div></div>
+        <div className="kpi"><h3>Delivered</h3><div className="num">{delivered.length}</div></div>
         <div className="kpi"><h3>Projects Accessible</h3><div className="num">{projects.length}</div></div>
-        <div className="kpi"><h3>Media Library</h3><div className="num">24</div></div>
       </div>
 
       <div className="subsection">
         <h4>Pending Works</h4>
         <div style={{ marginTop: 8 }}>
-          {studio.length === 0 ? (
+          {media.length === 0 ? (
             <div className="small muted">Nothing in the queue.</div>
           ) : (
-            studio.map((s) => (
-              <div className="ver-row" key={s.id}>
+            media.map((m) => (
+              <div className="ver-row" key={m.id}>
                 <div className="grow">
-                  <strong>{s.title}</strong>
-                  <div className="small muted">{s.status}</div>
+                  <strong>{m.title || m.kind || 'Media item'}</strong>
+                  <div className="small muted">{m.status}</div>
                 </div>
                 <div className="stack-end">
-                  {s.status !== 'Delivered' && (
-                    <button className="btn" onClick={() => advance(s)}>
-                      {s.status === 'Pending' ? 'Start Edit' : 'Mark Delivered'}
+                  {m.status !== 'delivered' && (
+                    <button className="btn" disabled={busy === m.id} onClick={() => advance(m)}>
+                      {m.status === 'pending' ? 'Start Edit' : 'Mark Delivered'}
                     </button>
                   )}
                 </div>
@@ -123,62 +144,6 @@ export function StudioWorkPanel() {
           <button className="btn-ghost" onClick={() => navigate('/raw-media')}>Raw Media Inbox</button>{' '}
           <button className="btn-ghost" onClick={() => navigate('/media-library')}>Media Library</button>
         </div>
-      </div>
-    </section>
-  );
-}
-
-/* ---------- Commission tracker ----------
-   Partners see only their own row; Founder and Core see the full table
-   (via the Commission Tracker module page). */
-export function CommissionPanel() {
-  const { commissions, userId, currentUser } = useDashboard();
-  const mine = commissions.filter((c) => c.agentId === userId);
-  const rows = mine.length ? mine : [{ agent: currentUser ? currentUser.name : 'You', pending: '₹0', paid: '₹0' }];
-
-  return (
-    <section className="panel">
-      <h4>Commission Tracker</h4>
-      <div className="muted small">Your position only</div>
-      <div style={{ marginTop: 10 }}>
-        {rows.map((c) => (
-          <div className="ver-row" key={c.agent}>
-            <div className="grow">
-              <strong>{c.agent}</strong>
-              <div className="small muted">Paid {c.paid} • Pending {c.pending}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ---------- Issues raised by this partner ---------- */
-export function MyIssuesPanel() {
-  const { tickets, userId } = useDashboard();
-  const mine = tickets.filter((t) => t.raiser === userId).slice().reverse();
-
-  return (
-    <section className="panel">
-      <h4>Your Issues &amp; Queries</h4>
-      <div className="muted small">Raised by you, tracked to resolution</div>
-      <div style={{ marginTop: 10 }}>
-        {mine.length === 0 ? (
-          <div className="small muted">You have not raised anything yet.</div>
-        ) : (
-          mine.map((t) => (
-            <div className="ver-row" key={t.id}>
-              <div className="grow">
-                <strong>{t.title}</strong>
-                <div className="small muted">{t.category} • {t.priority} • {t.status}</div>
-              </div>
-              <div className="stack-end">
-                <div className="small muted">{timeAgo(t.createdAt)}</div>
-              </div>
-            </div>
-          ))
-        )}
       </div>
     </section>
   );

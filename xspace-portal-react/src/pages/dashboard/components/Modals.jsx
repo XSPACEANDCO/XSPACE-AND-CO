@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { timeAgo } from '../../../lib/time';
-import { ROLES, ROLE_KEYS } from '../../../lib/roleConfig';
+import { ROLES } from '../../../lib/roleConfig';
+import api from '../../../lib/api';
 import { useDashboard } from '../DashboardStore';
 
 /* Shared shell: backdrop click closes, same markup the original used. */
@@ -14,14 +15,25 @@ function ModalShell({ onClose, labelledBy, children }) {
   );
 }
 
-/* ---------- Notification Center ---------- */
-export function NotificationCenter({ onClose, onRaiseTicket }) {
-  const { role, notifications } = useDashboard();
+/* ---------- Notification Center ----------
+   Real rows from /dashboard/notifications, which already returns only what is
+   addressed to you or broadcast to your role. Marking one read persists. */
+export function NotificationCenter({ onClose }) {
+  const { notifications, refresh } = useDashboard();
   const [filter, setFilter] = useState('all');
+  const [busy, setBusy] = useState(false);
 
-  let items = notifications.slice().reverse().filter((n) => !n.role || n.role === role || n.role === 'all');
-  if (filter === 'unread') items = items.filter((i) => !i.read);
-  else if (filter !== 'all') items = items.filter((i) => i.type === filter.replace(/s$/, ''));
+  const items = notifications.filter((n) => (filter === 'unread' ? !n.read : true));
+
+  async function markRead(id) {
+    setBusy(true);
+    try {
+      await api.dashboard.markRead(id);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <ModalShell onClose={onClose} labelledBy="notifTitle">
@@ -30,12 +42,8 @@ export function NotificationCenter({ onClose, onRaiseTicket }) {
         <select value={filter} onChange={(e) => setFilter(e.target.value)}>
           <option value="all">All</option>
           <option value="unread">Unread</option>
-          <option value="approvals">Approvals</option>
-          <option value="tickets">Tickets</option>
-          <option value="tasks">Tasks</option>
         </select>
         <div className="push">
-          <button className="btn" onClick={onRaiseTicket}>Raise Query</button>{' '}
           <button className="btn-ghost" onClick={onClose}>Close</button>
         </div>
       </div>
@@ -51,8 +59,15 @@ export function NotificationCenter({ onClose, onRaiseTicket }) {
                   <strong>{n.title}</strong>
                   <div className="small muted">{n.body}</div>
                 </div>
-                <div className="small muted">{timeAgo(n.ts)}</div>
+                <div className="small muted">{timeAgo(n.createdAt)}</div>
               </div>
+              {!n.read && (
+                <div style={{ marginTop: 8 }}>
+                  <button className="btn-ghost" disabled={busy} onClick={() => markRead(n.id)}>
+                    Mark read
+                  </button>
+                </div>
+              )}
             </div>
           ))
         )}
@@ -61,182 +76,47 @@ export function NotificationCenter({ onClose, onRaiseTicket }) {
   );
 }
 
-/* ---------- Raise a Query / Ticket ---------- */
-export function TicketModal({ onClose }) {
-  const { addTicket, addNotification, addAudit, currentUser } = useDashboard();
-  const [category, setCategory] = useState('listing');
-  const [priority, setPriority] = useState('medium');
-  const [title, setTitle] = useState('');
-  const [desc, setDesc] = useState('');
-
-  function create() {
-    if (!title.trim() || !desc.trim()) {
-      alert('Please enter title & description');
-      return;
-    }
-    addTicket({ category, priority, title: title.trim(), desc: desc.trim() });
-    addNotification({ type: 'ticket', title: `Ticket: ${title.trim()}`, body: desc.trim(), role: 'core' });
-    addAudit(`Ticket created: ${title.trim()} by ${currentUser ? currentUser.name : 'user'}`);
-    alert('Ticket created (demo).');
-    onClose();
-  }
-
-  return (
-    <ModalShell onClose={onClose} labelledBy="ticketTitle">
-      <h3 id="ticketTitle">Raise a Query / Ticket</h3>
-      <div className="modal-row">
-        <div style={{ flex: 1 }}>
-          <label className="small">Category</label>
-          <br />
-          <select className="full" value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="listing">Listing</option>
-            <option value="legal">Legal</option>
-            <option value="visit">Visit</option>
-            <option value="media">Media / Studio</option>
-            <option value="payment">Payment / Commission</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-        <div style={{ width: 140 }}>
-          <label className="small">Priority</label>
-          <br />
-          <select className="full" value={priority} onChange={(e) => setPriority(e.target.value)}>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
-        </div>
-      </div>
-
-      <div style={{ marginTop: 10 }}>
-        <label className="small">Title</label>
-        <input className="full" placeholder="Brief title" value={title} onChange={(e) => setTitle(e.target.value)} />
-      </div>
-
-      <div style={{ marginTop: 10 }}>
-        <label className="small">Description</label>
-        <textarea className="full" rows={5} placeholder="Describe the issue" value={desc} onChange={(e) => setDesc(e.target.value)} />
-      </div>
-
-      <div className="modal-actions">
-        <button className="btn" onClick={create}>Create Ticket</button>
-        <button className="btn-ghost" onClick={onClose}>Cancel</button>
-      </div>
-    </ModalShell>
-  );
-}
-
-/* ---------- Contact Core (partner roles only) ---------- */
-export function ContactCoreModal({ onClose }) {
-  const { addTicket, addNotification, addAudit, currentUser } = useDashboard();
-  const [showContacts, setShowContacts] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [message, setMessage] = useState('');
-
-  function send() {
-    const msg = message.trim();
-    if (!msg) {
-      alert('Please enter a message');
-      return;
-    }
-    const who = currentUser ? currentUser.name : 'Partner';
-    addTicket({ category: 'internal_contact', priority: 'medium', title: 'Partner message to Core', desc: msg });
-    addNotification({ type: 'ticket', title: `Partner message from ${who}`, body: msg, role: 'core' });
-    addAudit(`Partner message sent to Core: ${who}`);
-    alert('Message sent to Core team (demo). A ticket has been created.');
-    onClose();
-  }
-
-  return (
-    <ModalShell onClose={onClose} labelledBy="contactCoreTitle">
-      <h3 id="contactCoreTitle">Contact Core Team</h3>
-
-      <div style={{ marginTop: 12 }}>
-        <div className="small muted">
-          Quick contact options — Core Team will receive a notification / ticket when you send a message.
-        </div>
-
-        <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-          <button
-            className="btn"
-            onClick={() => {
-              setShowContacts((v) => !v);
-              setShowForm(false);
-            }}
-          >
-            View Core Contacts
-          </button>
-          <button
-            className="btn"
-            onClick={() => {
-              setShowForm(true);
-              setShowContacts(false);
-            }}
-          >
-            Send Message to Core
-          </button>
-          <button className="btn-ghost" onClick={onClose}>Close</button>
-        </div>
-
-        {showContacts && (
-          <div style={{ marginTop: 12 }}>
-            <div className="contact-card">
-              <div><strong>Core Team</strong></div>
-              <div className="small muted">Karthik (Core) — +91 90000 00002 • karthik@xspace.co</div>
-              <div className="spacer-8" />
-              <div className="small muted">
-                If urgent, call directly. Otherwise use "Send Message" and Core will get a ticket.
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showForm && (
-          <div style={{ marginTop: 12 }}>
-            <label className="small">Message to Core</label>
-            <br />
-            <textarea
-              className="full"
-              rows={4}
-              placeholder="Describe the issue or request to Core team"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
-            <div className="modal-actions">
-              <button className="btn" onClick={send}>Send</button>
-              <button className="btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
-            </div>
-          </div>
-        )}
-      </div>
-    </ModalShell>
-  );
-}
-
-/* ---------- Profile ---------- */
+/* ---------- Profile ----------
+   Name and photo are yours to change. Role is not: letting someone edit their
+   own role here would hand every partner a Founder account, which is the whole
+   point of the access model. It is shown as text, and the server would refuse
+   the change anyway — only a Founder can call PATCH /users/:id with a role. */
 export function ProfileModal({ onClose }) {
-  const { currentUser, update, addAudit, switchRole, role } = useDashboard();
-  const [form, setForm] = useState({ name: '', email: '', role: 'realtor', presence: 'online' });
+  const { currentUser, refresh } = useDashboard();
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [photoNote, setPhotoNote] = useState('');
+  const fileRef = useRef(null);
 
   useEffect(() => {
-    if (currentUser) {
-      setForm({
-        name: currentUser.name,
-        email: currentUser.email,
-        role: currentUser.role,
-        presence: currentUser.presence || 'online',
-      });
-    }
+    if (currentUser) setName(currentUser.name || '');
   }, [currentUser]);
 
-  function save() {
-    if (!currentUser) return;
-    update('users', (prev) => prev.map((u) => (u.id === currentUser.id ? { ...u, ...form } : u)));
-    addAudit(`Profile updated: ${form.name}`);
-    /* Changing your own role re-scopes the whole dashboard, as before. */
-    if (role !== form.role) switchRole(form.role);
-    onClose();
+  async function save() {
+    setError('');
+    if (!name.trim()) return setError('Name cannot be empty');
+    setBusy(true);
+    try {
+      await api.users.updateProfile({ name: name.trim() });
+      await refresh();
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Could not save your profile');
+    } finally {
+      setBusy(false);
+    }
   }
+
+  /* Opens the device gallery / file picker. Storing the image needs somewhere
+     to put it (object storage, not the database), so for now this confirms the
+     pick and leaves the upload itself to that work. */
+  function onPick(e) {
+    const file = e.target.files?.[0];
+    if (file) setPhotoNote(`${file.name} selected — photo storage is not wired up yet.`);
+  }
+
+  const role = currentUser?.role;
 
   return (
     <ModalShell onClose={onClose} labelledBy="profileTitle">
@@ -245,46 +125,45 @@ export function ProfileModal({ onClose }) {
         <div className="profile-side">
           <div className="profile-avatar-large" />
           <div style={{ marginTop: 8 }}>
-            <button className="btn-ghost" onClick={() => alert('Upload photo (demo)')}>Upload</button>
+            <button className="btn-ghost" onClick={() => fileRef.current?.click()}>
+              Upload
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={onPick}
+            />
           </div>
         </div>
+
         <div className="profile-fields">
           <label className="small">Full name</label>
           <br />
-          <input className="full" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input className="full" value={name} onChange={(e) => setName(e.target.value)} />
 
-          {/* Real classNames, not style={{}} — a previous version keyed mobile
-              overrides off `div[style]` attribute selectors, which also
-              matched the presence row below (it has an inline style too) and
-              silently miscentered it. Named classes can't collide that way. */}
           <div className="profile-row">
             <div className="profile-field-grow">
               <label className="small">Email</label>
               <br />
-              <input className="full" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <input className="full" value={currentUser?.email || ''} readOnly />
             </div>
             <div className="profile-field-role">
               <label className="small">Role</label>
               <br />
-              <select className="full" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-                {ROLE_KEYS.map((k) => (
-                  <option key={k} value={k}>
-                    {ROLES[k].label}
-                  </option>
-                ))}
-              </select>
+              <div className="profile-role-fixed">{role ? ROLES[role]?.label || role : '—'}</div>
             </div>
           </div>
 
+          {photoNote && <div className="small muted" style={{ marginTop: 8 }}>{photoNote}</div>}
+          {error && <div className="people-error" style={{ marginTop: 8 }}>{error}</div>}
+
           <div className="presence-row">
-            <label className="small">Presence</label>
-            <select value={form.presence} onChange={(e) => setForm({ ...form, presence: e.target.value })}>
-              <option value="online">Online</option>
-              <option value="away">Away</option>
-              <option value="dnd">Do not disturb</option>
-            </select>
             <div className="push">
-              <button className="btn" onClick={save}>Save</button>{' '}
+              <button className="btn" disabled={busy} onClick={save}>
+                {busy ? 'Saving…' : 'Save'}
+              </button>{' '}
               <button className="btn-ghost" onClick={onClose}>Close</button>
             </div>
           </div>

@@ -1,18 +1,23 @@
+import { useNavigate } from 'react-router-dom';
 import { timeAgo } from '../../../lib/time';
-import { funnelSummary, groupByStage, leadsForRole } from '../../../lib/metrics';
+import { ROLES } from '../../../lib/roleConfig';
 import { useDashboard } from '../DashboardStore';
 
-/* ---------- Lead Funnel ---------- */
+const STAGES = ['Discovery', 'Engaged', 'Site Visit', 'Decision', 'Closed'];
+
+/* ---------- Lead Funnel ----------
+   Stage totals come from /dashboard/funnel (counted in SQL, scoped to the
+   role); the cards under each column come from the same scoped /leads. */
 export function LeadFunnelPanel() {
-  const { role, userId, leads } = useDashboard();
-  const scoped = leadsForRole(leads, role, userId);
-  const { discovery, engaged, conversion, scopeLabel } = funnelSummary(scoped, role);
-  const stages = groupByStage(scoped);
+  const { funnel, leads } = useDashboard();
+
+  const discovery = funnel?.stages?.find((s) => s.stage === 'Discovery')?.count ?? 0;
+  const engaged = funnel?.stages?.find((s) => s.stage === 'Engaged')?.count ?? 0;
 
   return (
     <section className="panel" title="Lead Funnel — Pre-qualification Stage Analysis">
       <h4>
-        Lead Funnel <span className="lead-scope">{scopeLabel}</span>
+        Lead Funnel <span className="lead-scope">{funnel?.scope || ''}</span>
       </h4>
       <div className="muted small">Pre-qualification Stage Analysis</div>
 
@@ -27,26 +32,29 @@ export function LeadFunnelPanel() {
         </div>
         <div className="lead-metric">
           <h5>Conversion Rate (D → E)</h5>
-          <div className="val">{conversion}%</div>
+          <div className="val">{funnel?.conversionRate ?? 0}%</div>
         </div>
       </div>
 
       <div className="pipeline">
-        {stages.map(({ stage, items }) => (
-          <div className="pipeline-column" key={stage}>
-            <h5>
-              {stage} ({items.length})
-            </h5>
-            {items.map((it) => (
-              <div className="pipeline-card" key={it.id}>
-                <strong>{it.name}</strong>
-                <div className="small muted">
-                  {it.source} • {it.budget}
+        {STAGES.map((stage) => {
+          const items = leads.filter((l) => l.status === stage);
+          return (
+            <div className="pipeline-column" key={stage}>
+              <h5>
+                {stage} ({items.length})
+              </h5>
+              {items.map((it) => (
+                <div className="pipeline-card" key={it.id}>
+                  <strong>{it.name}</strong>
+                  <div className="small muted">
+                    {it.source || '—'} • {it.budget || '—'}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        ))}
+              ))}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -54,25 +62,28 @@ export function LeadFunnelPanel() {
 
 /* ---------- Studio Journey ---------- */
 export function StudioPanel() {
-  const { studio } = useDashboard();
+  const { media } = useDashboard();
+  const navigate = useNavigate();
 
   return (
     <section className="panel">
       <h4>Studio Journey</h4>
       <div className="muted small">Shoots, edits and media uploads</div>
       <div className="studio-tiles">
-        {studio.length === 0 ? (
+        {media.length === 0 ? (
           <div className="small muted">No studio tasks</div>
         ) : (
-          studio.map((s) => (
-            <div className="studio-tile" key={s.id}>
+          media.slice(0, 8).map((m) => (
+            <div className="studio-tile" key={m.id}>
               <div className="row">
                 <div>
-                  <strong>{s.title}</strong>
-                  <div className="small muted">{s.status}</div>
+                  <strong>{m.title || m.kind || 'Media item'}</strong>
+                  <div className="small muted">{m.status}</div>
                 </div>
                 <div>
-                  <button className="btn-ghost" onClick={() => alert('Open studio item (demo)')}>Open</button>
+                  <button className="btn-ghost" onClick={() => navigate('/media-library')}>
+                    Open
+                  </button>
                 </div>
               </div>
             </div>
@@ -83,30 +94,41 @@ export function StudioPanel() {
   );
 }
 
-/* ---------- Team Overview ---------- */
+/* ---------- Team Overview ----------
+   Presence is derived server-side from each person's last request, so this is
+   who is actually around rather than a column that always read "online". */
 export function TeamPanel() {
   const { users } = useDashboard();
+  const navigate = useNavigate();
+  const online = users.filter((u) => u.presence === 'online').length;
 
   return (
     <section className="panel">
       <h4>Team Overview</h4>
-      <div className="muted small">Quick access to team health &amp; access</div>
+      <div className="muted small">
+        {online} of {users.length} active now
+      </div>
       <div className="team-list">
         {users.map((u) => (
           <div className="team-item" key={u.id}>
             <div style={{ width: 42 }}>
               <div className="team-avatar" />
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <strong>{u.name}</strong>
               <div className="small muted">{u.email}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div className="small muted">{u.role}</div>
-              <div className="small muted">{u.presence}</div>
+              <div className="small muted">{ROLES[u.role]?.label || u.role}</div>
+              <div className={`presence-tag ${u.presence}`}>{u.presence}</div>
             </div>
           </div>
         ))}
+      </div>
+      <div style={{ marginTop: 10 }}>
+        <button className="btn-ghost" onClick={() => navigate('/teams')}>
+          Open Teams
+        </button>
       </div>
     </section>
   );
@@ -115,24 +137,31 @@ export function TeamPanel() {
 /* ---------- Projects Snapshot ---------- */
 export function ProjectsSnapshotPanel() {
   const { projects } = useDashboard();
+  const navigate = useNavigate();
 
   return (
     <section className="panel">
       <h4>Projects Snapshot</h4>
       <div style={{ marginTop: 8 }}>
-        {projects.map((p) => (
-          <div className="project-item" key={p.id}>
-            <div>
-              <strong>{p.name}</strong>
-              <div className="small muted">
-                {p.builder} • {p.status} • {p.units} units
+        {projects.length === 0 ? (
+          <div className="small muted">No projects yet.</div>
+        ) : (
+          projects.map((p) => (
+            <div className="project-item" key={p.id}>
+              <div>
+                <strong>{p.name}</strong>
+                <div className="small muted">
+                  {p.builder} • {p.status} • {p.units} units
+                </div>
+              </div>
+              <div>
+                <button className="btn-ghost" onClick={() => navigate('/projects')}>
+                  Open
+                </button>
               </div>
             </div>
-            <div>
-              <button className="btn-ghost" onClick={() => alert('Open project details (demo)')}>Open</button>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </section>
   );
@@ -141,19 +170,25 @@ export function ProjectsSnapshotPanel() {
 /* ---------- Audit Log ---------- */
 export function AuditPanel() {
   const { audit } = useDashboard();
-  const items = audit.slice().reverse();
 
   return (
     <section className="panel">
       <h4>Audit Log</h4>
       <div className="muted small">Last important actions</div>
       <div className="audit-log">
-        {items.map((a) => (
-          <div className="audit-item" key={a.id}>
-            <div className="text">{a.text}</div>
-            <div className="small muted">{timeAgo(a.ts)}</div>
-          </div>
-        ))}
+        {audit.length === 0 ? (
+          <div className="small muted">Nothing logged yet.</div>
+        ) : (
+          audit.map((a) => (
+            <div className="audit-item" key={a.id}>
+              <div className="text">{a.text}</div>
+              <div className="small muted">
+                {a.actorName ? `${a.actorName} • ` : ''}
+                {timeAgo(a.createdAt)}
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </section>
   );

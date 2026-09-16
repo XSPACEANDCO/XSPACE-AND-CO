@@ -47,12 +47,6 @@ export const MODULES = {
   visits: { roles: ['founder', 'core', 'realtor'], scope: { founder: 'all', core: 'all', realtor: 'own' } },
   verifications: { roles: INTERNAL },
 
-  commissions: {
-    roles: ['founder', 'core', 'realtor', 'creator'],
-    scope: { founder: 'all', core: 'all', realtor: 'own', creator: 'own' },
-  },
-  finances: { roles: ['founder'] },
-
   mediaUpload: { roles: ['creator', 'realtor', 'studio'] },
   rawMedia: { roles: ['studio', 'founder', 'core'] },
   mediaLibrary: { roles: ['studio', 'founder', 'core'] },
@@ -61,8 +55,6 @@ export const MODULES = {
 
   areaUpdates: { roles: ['realtor'] },
 
-  issues: { roles: ROLES, scope: { founder: 'all', core: 'all', realtor: 'own', creator: 'own', studio: 'own' } },
-  communication: { roles: ['realtor', 'studio', 'founder', 'core'] },
   rules: { roles: ['realtor', 'creator', 'studio'] },
 
   /* One directory for every account — core team and all three partner kinds.
@@ -103,12 +95,8 @@ export const WRITE_RULES = {
   'visits:write': ['founder', 'core', 'realtor'],
   'visits:resolve': INTERNAL,
   'verifications:write': INTERNAL,
-  'commissions:write': ['founder'],
-  'commissions:pay': ['founder'],
   'media:upload': ['creator', 'realtor', 'studio'],
   'media:process': ['studio', 'founder', 'core'],
-  'tickets:create': ROLES,
-  'tickets:resolve': INTERNAL,
   'users:write': ['founder'],
   /* Coarse gate on the create/reset endpoints; CAN_CREATE_ROLES decides
      which specific roles each of these may actually create. */

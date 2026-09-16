@@ -14,8 +14,6 @@ import listingRoutes from './routes/listings.js';
 import projectRoutes from './routes/projects.js';
 import visitRoutes from './routes/visits.js';
 import verificationRoutes from './routes/verifications.js';
-import ticketRoutes from './routes/tickets.js';
-import commissionRoutes from './routes/commissions.js';
 import mediaRoutes from './routes/media.js';
 import userRoutes from './routes/users.js';
 
@@ -62,8 +60,6 @@ export function createApp() {
   app.use('/api/projects', projectRoutes);
   app.use('/api/visits', visitRoutes);
   app.use('/api/verifications', verificationRoutes);
-  app.use('/api/tickets', ticketRoutes);
-  app.use('/api/commissions', commissionRoutes);
   app.use('/api/media', mediaRoutes);
   app.use('/api/users', userRoutes);
 

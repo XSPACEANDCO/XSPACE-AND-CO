@@ -1,6 +1,6 @@
 import { bearerFrom, verifyToken } from './auth.js';
 import { canAccess, canDo, scopeFor, seesEverything } from './rbac.js';
-import { one } from './db.js';
+import { one, query } from './db.js';
 
 /* Populates req.user from the bearer token. 401 if absent or invalid.
 
@@ -14,11 +14,20 @@ export async function requireAuth(req, res, next) {
   const payload = verifyToken(token);
   if (!payload) return res.status(401).json({ error: 'Invalid or expired token' });
 
-  const user = await one('SELECT id, name, email, role, active FROM users WHERE id = $1', [
-    payload.sub,
-  ]);
+  const user = await one(
+    'SELECT id, name, email, role, active, last_seen_at FROM users WHERE id = $1',
+    [payload.sub]
+  );
   if (!user) return res.status(401).json({ error: 'User no longer exists' });
   if (!user.active) return res.status(403).json({ error: 'Account is deactivated' });
+
+  /* Presence comes from this, not from a column nobody writes. Touched at
+     most once a minute per user, and not awaited — a heartbeat is never worth
+     adding latency to the request it rode in on. */
+  const lastSeen = user.last_seen_at ? new Date(user.last_seen_at).getTime() : 0;
+  if (Date.now() - lastSeen > 60_000) {
+    query('UPDATE users SET last_seen_at = now() WHERE id = $1', [user.id]).catch(() => {});
+  }
 
   req.user = user;
   next();

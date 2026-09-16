@@ -35,7 +35,12 @@ for (const role of ['creator', 'realtor', 'studio']) {
       const status = req.query.status || 'all';
 
       const rows = await many(
-        `SELECT u.id, u.name, u.email, u.username, u.phone, u.role, u.presence, u.active,
+        `SELECT u.id, u.name, u.email, u.username, u.phone, u.role, CASE
+                  WHEN u.last_seen_at IS NULL THEN 'offline'
+                  WHEN u.last_seen_at > now() - interval '5 minutes' THEN 'online'
+                  WHEN u.last_seen_at > now() - interval '30 minutes' THEN 'away'
+                  ELSE 'offline'
+                END AS presence, u.last_seen_at, u.active,
                 u.areas, u.platform, u.handle, u.skill, u.kyc_status, u.created_at,
                 COUNT(DISTINCT l.id)::int AS lead_count,
                 COUNT(DISTINCT li.id)::int AS listing_count,
@@ -73,7 +78,12 @@ router.get(
   requireModule('team'),
   asyncHandler(async (req, res) => {
     const rows = await many(
-      `SELECT id, name, email, username, phone, role, presence, active, kyc_status, created_at
+      `SELECT id, name, email, username, phone, role, CASE
+                WHEN last_seen_at IS NULL THEN 'offline'
+                WHEN last_seen_at > now() - interval '5 minutes' THEN 'online'
+                WHEN last_seen_at > now() - interval '30 minutes' THEN 'away'
+                ELSE 'offline'
+              END AS presence, last_seen_at, active, kyc_status, created_at
          FROM users WHERE role = ANY($1) ORDER BY role, name`,
       [INTERNAL_ROLES]
     );
