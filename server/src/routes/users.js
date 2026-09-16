@@ -130,11 +130,20 @@ router.get(
   })
 );
 
-/* Own profile + KYC. Partners can edit their details but never their own role,
-   KYC status or active flag. */
+/* Own profile. Every signed-in role can read and edit their own name, phone
+   and photo — this is not the same thing as the "Profile & KYC" sidebar
+   module (bank details, KYC documents), which stays partner-only. It used to
+   share that module's gate, which is why a Founder or Core member opening
+   the profile popup from the top bar got "Your role cannot access
+   profileKyc" back for trying to edit their own name: that gate was built
+   for the KYC screen, not for this. requireAuth (applied to all of /api in
+   app.js) is enough here — nobody edits anyone's profile but their own,
+   since every update below is scoped to req.user.id.
+
+   Partners can edit their details but never their own role, KYC status or
+   active flag — those columns are simply not in the UPDATE below. */
 router.get(
   '/me/profile',
-  requireModule('profileKyc'),
   asyncHandler(async (req, res) => {
     const user = await one('SELECT * FROM users WHERE id = $1', [req.user.id]);
     res.json({ user: publicUser(user) });
@@ -143,7 +152,6 @@ router.get(
 
 router.patch(
   '/me/profile',
-  requireModule('profileKyc'),
   asyncHandler(async (req, res) => {
     const user = await one(
       `UPDATE users SET
