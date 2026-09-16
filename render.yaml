@@ -11,7 +11,12 @@ services:
     runtime: node
     plan: free
     # Build the frontend, then install the server's own dependencies.
-    buildCommand: cd xspace-portal-react && npm ci && npm run build && cd ../server && npm ci
+    #
+    # --include=dev on the frontend install: NODE_ENV=production below applies
+    # during the build step too, and a plain `npm ci` skips devDependencies
+    # under NODE_ENV=production — which is where vite lives. Without this the
+    # build fails with "Cannot find module '.../vite/bin/vite.js'".
+    buildCommand: cd xspace-portal-react && npm ci --include=dev && npm run build && cd ../server && npm ci
     startCommand: cd server && npm start
     healthCheckPath: /api/health
     envVars:
