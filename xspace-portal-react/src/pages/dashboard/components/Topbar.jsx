@@ -4,7 +4,14 @@ import { setToken } from '../../../lib/api';
 import { ROLES, ROLE_KEYS, normalizeRole, seesEverything } from '../../../lib/roleConfig';
 import { useDashboard } from '../DashboardStore';
 
-export default function Topbar({ theme, onToggleTheme, onOpenNotifications, onOpenProfile, onOpenContactCore }) {
+export default function Topbar({
+  theme,
+  onToggleTheme,
+  onOpenMenu,
+  onOpenNotifications,
+  onOpenProfile,
+  onOpenContactCore,
+}) {
   const { role, currentUser, notifications, switchRole } = useDashboard();
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -28,9 +35,19 @@ export default function Topbar({ theme, onToggleTheme, onOpenNotifications, onOp
 
   return (
     <header className="topbar" role="banner">
+      {/* Opens the sidebar as an off-canvas drawer below the desktop
+          breakpoint; dashboard.css hides this button above it, where the
+          sidebar is always visible and there is nothing to open. */}
+      <button className="menu-btn btn-ghost" title="Menu" aria-label="Open menu" onClick={onOpenMenu}>
+        ☰
+      </button>
+
       <div className="top-left">
+        {/* The greeting is the first thing to go when space is tight — the
+            role itself is the part worth keeping. */}
         <div className="welcome">
-          Welcome back, <strong>{ROLES[r].label}</strong>
+          <span className="welcome-prefix">Welcome back, </span>
+          <strong>{ROLES[r].label}</strong>
         </div>
         {showSearch && <input className="search" placeholder="Search listings, projects, clients..." />}
       </div>
@@ -53,7 +70,7 @@ export default function Topbar({ theme, onToggleTheme, onOpenNotifications, onOp
 
         {isPartner && (
           <button className="btn-ghost" title="Contact Core Team" onClick={onOpenContactCore}>
-            📞 Contact Core
+            📞 <span className="btn-label">Contact Core</span>
           </button>
         )}
 
@@ -74,8 +91,9 @@ export default function Topbar({ theme, onToggleTheme, onOpenNotifications, onOp
           <div className="mini-name">{currentUser ? currentUser.name : 'You'}</div>
         </div>
 
-        <button className="btn-ghost" onClick={logout}>
-          Logout
+        <button className="btn-ghost" title="Logout" onClick={logout}>
+          <span className="btn-label">Logout</span>
+          <span className="btn-icon" aria-hidden="true">⏻</span>
         </button>
       </div>
     </header>

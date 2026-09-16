@@ -18,14 +18,24 @@ function Shell({ children }) {
   const [modal, setModal] = useState(null);
   const close = () => setModal(null);
 
+  /* Below the desktop breakpoint the sidebar becomes an off-canvas drawer
+     (see dashboard.css) instead of a permanent column — this state is what
+     opens and closes it. Harmless above the breakpoint, where CSS ignores
+     the "open" class and the sidebar is always visible. */
+  const [navOpen, setNavOpen] = useState(false);
+
   return (
-    <div className="page-dashboard">
-      <Sidebar />
+    <div className={'page-dashboard' + (navOpen ? ' nav-open' : '')}>
+      <Sidebar onNavigate={() => setNavOpen(false)} />
+      {navOpen && (
+        <div className="sidebar-backdrop" onClick={() => setNavOpen(false)} aria-hidden="true" />
+      )}
 
       <div className="main">
         <Topbar
           theme={theme}
           onToggleTheme={toggleTheme}
+          onOpenMenu={() => setNavOpen((v) => !v)}
           onOpenNotifications={() => setModal('notifications')}
           onOpenProfile={() => setModal('profile')}
           onOpenContactCore={() => setModal('contactCore')}

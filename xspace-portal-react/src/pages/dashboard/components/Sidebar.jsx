@@ -2,13 +2,21 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ROLES, modulesForRole, normalizeRole } from '../../../lib/roleConfig';
 import { useDashboard } from '../DashboardStore';
 
-export default function Sidebar() {
+/* onNavigate: called after picking a destination, so the mobile drawer
+   closes itself instead of staying open over the page it just opened. A
+   no-op on desktop, where the sidebar is a permanent column anyway. */
+export default function Sidebar({ onNavigate }) {
   const { role } = useDashboard();
   const navigate = useNavigate();
   const location = useLocation();
 
   const r = normalizeRole(role);
   const modules = modulesForRole(r);
+
+  function go(to) {
+    navigate(to);
+    onNavigate?.();
+  }
 
   return (
     <nav className="sidebar" aria-label="Main navigation">
@@ -24,7 +32,7 @@ export default function Sidebar() {
             key={m.key}
             type="button"
             className={'nav-item' + (location.pathname === m.to ? ' active' : '')}
-            onClick={() => navigate(m.to)}
+            onClick={() => go(m.to)}
           >
             {m.label}
           </button>

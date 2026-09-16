@@ -125,14 +125,39 @@
   display: flex;
   gap: 12px;
   align-items: center;
+  min-width: 0;
+  /* Take the space the right-hand controls do not need, so the role label
+     only ellipsises when it genuinely cannot fit. */
+  flex: 1 1 auto;
 }
 .page-dashboard .top-right {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-shrink: 0;
 }
 .page-dashboard .welcome {
   font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Opens the sidebar drawer below the desktop breakpoint. Hidden above it —
+   the sidebar is a permanent column there, with nothing to open. */
+.page-dashboard .menu-btn {
+  display: none;
+  flex: 0 0 auto;
+  font-size: 18px;
+  line-height: 1;
+  padding: 8px 10px;
+}
+
+/* Icon/label pairs that collapse to icon-only once space is tight. Both
+   render always; only one shows at a time, decided by the breakpoint below. */
+.page-dashboard .btn-icon {
+  display: none;
 }
 
 .page-dashboard .workspace {
@@ -179,6 +204,16 @@
   gap: 14px;
   align-items: start;
 }
+
+/* Grid and flex items default to min-width:auto, meaning they refuse to
+   shrink below their min-content width. The lead funnel is five 220px
+   columns, so without this every panel holding one demands ~1130px and gets
+   clipped on a phone — the pipeline's own overflow-x:auto never gets a
+   chance to scroll. Letting the item shrink is what hands scrolling back to
+   the pipeline, where it belongs. */
+.page-dashboard .layout > * {
+  min-width: 0;
+}
 .page-dashboard .panel {
   background: var(--panel);
   border-radius: 12px;
@@ -186,6 +221,7 @@
   box-sizing: border-box;
   border: 1px solid rgba(255, 255, 255, 0.03);
   overflow: hidden;
+  min-width: 0;
 }
 .page-dashboard .panel + .panel {
   margin-top: 12px;
@@ -655,10 +691,110 @@
   .page-dashboard .layout {
     grid-template-columns: 1fr;
   }
+
+  /* The sidebar becomes an off-canvas drawer instead of disappearing with no
+     replacement. Closed by default: pinned off the left edge, slid in by
+     adding .nav-open on the shell (see PortalLayout.jsx). */
   .page-dashboard .sidebar {
-    display: none;
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 82vw;
+    max-width: 300px;
+    z-index: 220;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
+    background: var(--bg);
   }
+  .page-dashboard.nav-open .sidebar {
+    transform: translateX(0);
+  }
+  .page-dashboard .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 210;
+  }
+
+  .page-dashboard .menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Desktop padding and gaps cost ~30px here, which is the difference
+     between "Realtor Partner" fitting and being cut to "Realtor Par…". */
+  .page-dashboard .topbar {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .page-dashboard .top-right {
+    gap: 6px;
+  }
+
   .page-dashboard .search {
     min-width: 140px;
+  }
+
+  /* Labels give way to icons so the row never has to squeeze both. */
+  .page-dashboard .btn-label {
+    display: none;
+  }
+  .page-dashboard .btn-icon {
+    display: inline;
+  }
+  .page-dashboard .profile-mini .mini-name {
+    display: none;
+  }
+
+  /* Buttons and nav rows sized for a finger, not a mouse pointer. */
+  .page-dashboard .btn,
+  .page-dashboard .btn-ghost {
+    padding: 10px 12px;
+    min-height: 40px;
+  }
+  .page-dashboard .nav-item {
+    padding: 13px 12px;
+    font-size: 16px;
+  }
+
+  .page-dashboard .workspace {
+    padding: 14px;
+  }
+
+  /* Full-width sheet rather than a centered card with side margins. */
+  .page-dashboard .modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 88vh;
+    overflow-y: auto;
+    border-radius: 16px 16px 0 0;
+  }
+  .page-dashboard .modal-backdrop {
+    align-items: flex-end;
+  }
+}
+
+@media (max-width: 680px) {
+  /* "Welcome back, Creator Partner" truncates to "Welcome b…" at this width,
+     which tells you nothing. Drop the greeting and keep the role. */
+  .page-dashboard .welcome-prefix {
+    display: none;
+  }
+
+  /* The search field cannot shrink below its min-width, so on a phone it runs
+     underneath the buttons on the right instead of giving way. Founder/Core
+     search belongs on a screen with room for it. */
+  .page-dashboard .topbar .search {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Two per row rather than one: the cards hold a label and a number, so a
+     full-width card is mostly empty space and doubles the scrolling. */
+  .page-dashboard .kpi {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 0;
   }
 }
