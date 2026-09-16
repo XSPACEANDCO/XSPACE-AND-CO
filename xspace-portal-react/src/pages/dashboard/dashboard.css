@@ -587,6 +587,27 @@
 }
 .page-dashboard .profile-fields {
   flex: 1;
+  min-width: 0;
+}
+.page-dashboard .profile-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.page-dashboard .profile-field-grow {
+  flex: 1;
+  min-width: 0;
+}
+.page-dashboard .profile-field-role {
+  width: 140px;
+  flex: 0 0 auto;
+}
+.page-dashboard .presence-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 /* lead scope label */
@@ -772,6 +793,53 @@
   }
   .page-dashboard .modal-backdrop {
     align-items: flex-end;
+  }
+
+  /* ── Profile popup: stack everything vertically on mobile ── */
+
+  /* Avatar + upload above fields, centred */
+  .page-dashboard .profile-body {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .page-dashboard .profile-side {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* Email + Role go from side-by-side to stacked, each full width — the
+     140px Role column has no room to justify itself on a phone. */
+  .page-dashboard .profile-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .page-dashboard .profile-field-role {
+    width: 100%;
+  }
+
+  /* Presence: label above select above the Save/Close pair, matching the
+     top-label layout every other field in this form already uses — not
+     centred, which is what the old `div[style]` selector accidentally did
+     by also matching this row (see the comment in Modals.jsx). */
+  .page-dashboard .presence-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .page-dashboard .presence-row select {
+    width: 100%;
+  }
+  .page-dashboard .presence-row .push {
+    margin-left: 0;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+  .page-dashboard .presence-row .push .btn,
+  .page-dashboard .presence-row .push .btn-ghost {
+    flex: 1;
   }
 }
 

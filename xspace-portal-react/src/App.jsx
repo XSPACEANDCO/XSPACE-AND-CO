@@ -1,7 +1,11 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-dom';
 import RequireAuth from './routes/RequireAuth';
 import RequireModule from './routes/RequireModule';
 import { ROUTES } from './lib/roleConfig';
+import { App as CapApp } from '@capacitor/app';
+
+
 
 import Login from './pages/Login';
 import Dashboard from './pages/dashboard/Dashboard';
@@ -11,6 +15,9 @@ import Listings from './pages/Listings';
 import ListingView from './pages/ListingView';
 import SiteVisits from './pages/SiteVisits';
 import Teams from './pages/Teams';
+
+/* Pages where pressing back exits the app rather than navigating further back. */
+const ROOT_PAGES = new Set(['/dashboard', '/login', '/']);
 
 /* Module routes that already have a screen. Everything else in the registry
    renders ModulePage, which states what the spec says belongs there. Both go
@@ -31,6 +38,24 @@ const BUILT = {
 const guard = (el) => <RequireAuth>{el}</RequireAuth>;
 
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  /* Android hardware back button — navigate back inside the app instead of
+     closing it. Exit only when there is nowhere left to go (root pages).   */
+  useEffect(() => {
+    const handler = CapApp.addListener('backButton', () => {
+      if (ROOT_PAGES.has(location.pathname)) {
+        // Already at a root page — exit the app.
+        CapApp.exitApp();
+      } else {
+        // Go back one step in React Router history.
+        navigate(-1);
+      }
+    });
+    return () => { handler.then(h => h.remove()); };
+  }, [location.pathname, navigate]);
+
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />

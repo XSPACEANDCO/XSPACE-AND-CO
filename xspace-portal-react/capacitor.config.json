@@ -1,0 +1,10 @@
+{
+  "appId": "co.xspace.portal",
+  "appName": "Xspace & Co.",
+  "webDir": "dist",
+  "server": {
+    "url": "https://xspace-portal.onrender.com",
+    "androidScheme": "https",
+    "cleartextTrafficPermitted": false
+  }
+}

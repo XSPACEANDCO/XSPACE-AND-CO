@@ -253,13 +253,17 @@ export function ProfileModal({ onClose }) {
           <br />
           <input className="full" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <div style={{ flex: 1 }}>
+          {/* Real classNames, not style={{}} — a previous version keyed mobile
+              overrides off `div[style]` attribute selectors, which also
+              matched the presence row below (it has an inline style too) and
+              silently miscentered it. Named classes can't collide that way. */}
+          <div className="profile-row">
+            <div className="profile-field-grow">
               <label className="small">Email</label>
               <br />
               <input className="full" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </div>
-            <div style={{ width: 140 }}>
+            <div className="profile-field-role">
               <label className="small">Role</label>
               <br />
               <select className="full" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
@@ -272,7 +276,7 @@ export function ProfileModal({ onClose }) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+          <div className="presence-row">
             <label className="small">Presence</label>
             <select value={form.presence} onChange={(e) => setForm({ ...form, presence: e.target.value })}>
               <option value="online">Online</option>

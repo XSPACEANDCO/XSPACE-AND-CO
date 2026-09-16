@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Xspace &amp; Co.</string>
+    <string name="title_activity_main">Xspace &amp; Co.</string>
+    <string name="package_name">co.xspace.portal</string>
+    <string name="custom_url_scheme">co.xspace.portal</string>
+</resources>
