@@ -35,8 +35,15 @@ export const MODULES = {
 
   partnerDashboards: { roles: INTERNAL },
 
-  crm: { roles: INTERNAL, scope: { founder: 'all', core: 'all' } },
-  leadTracker: { roles: ['realtor', 'creator'], scope: { realtor: 'own', creator: 'own' } },
+  /* One CRM. It used to be two modules pointing at the same screen — `crm`
+     for the internal team and `leadTracker` for partners — so the sidebar
+     showed two entries that opened the identical page. The difference was
+     never the screen, only which rows the server hands back, and that is
+     exactly what `scope` already expresses. */
+  crm: {
+    roles: [...INTERNAL, 'realtor', 'creator'],
+    scope: { founder: 'all', core: 'all', realtor: 'own', creator: 'own' },
+  },
   leadUploads: { roles: ['creator'] },
 
   listings: { roles: ['founder', 'core', 'realtor'], scope: { founder: 'all', core: 'all', realtor: 'own' } },

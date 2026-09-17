@@ -215,13 +215,28 @@ export default function Teams() {
     setRevealed(({ [userId]: _gone, ...rest }) => rest);
   }
 
-  function copyLogin(u) {
-    const text = `Xspace & Co. Portal\nUsername: ${u.username}\nPassword: ${revealed[u.id]}`;
+  /* Copy the password on its own.
+
+     This used to copy a three-line block — a heading, the username and the
+     password — which is right for pasting into a chat and wrong for pasting
+     into a login box. People did the latter and got "Invalid username or
+     password" back, with no way to tell why. "Copy all" below still produces
+     the block for handing over. */
+  function copyText(userId, text, kind) {
     navigator.clipboard?.writeText(text).then(
-      () => setCopied(u.id),
+      () => setCopied(`${userId}:${kind}`),
       () => setCopied('')
     );
   }
+
+  const copyPassword = (u) => copyText(u.id, String(revealed[u.id] || '').trim(), 'pw');
+
+  const copyLogin = (u) =>
+    copyText(
+      u.id,
+      `Xspace & Co. Portal\nUsername: ${u.username}\nPassword: ${String(revealed[u.id] || '').trim()}`,
+      'all'
+    );
 
   const current = GROUPS.find((g) => g.key === tab);
   const canCreateHere = !current || creatable.includes(current.role);
@@ -350,8 +365,14 @@ export default function Teams() {
                         ) : shown ? (
                           <span className="tcard-pwrow">
                             <code className="tcard-pw">{shown}</code>
+                            {/* Password only — this is the one that gets
+                                pasted into a login box. */}
+                            <button className="teams-link" onClick={() => copyPassword(u)}>
+                              {copied === `${u.id}:pw` ? 'Copied' : 'Copy password'}
+                            </button>
+                            {/* Username and password together, for sending. */}
                             <button className="teams-link" onClick={() => copyLogin(u)}>
-                              {copied === u.id ? 'Copied' : 'Copy'}
+                              {copied === `${u.id}:all` ? 'Copied' : 'Copy all'}
                             </button>
                             <button className="teams-link" onClick={() => hide(u.id)}>
                               Hide

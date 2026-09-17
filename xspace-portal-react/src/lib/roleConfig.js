@@ -61,19 +61,15 @@ export const MODULES = [
   },
 
   /* ---- Shared operational modules ---- */
+  /* One CRM for everybody. There were two entries here — CRM and Lead
+     Tracker — both opening /clients, differing only in which rows the server
+     returned. That is `scope`, not a second module. */
   {
     key: 'crm',
     label: '👥 CRM',
     to: '/clients',
-    roles: ALL_INTERNAL,
-    scope: { founder: 'all', core: 'all' },
-  },
-  {
-    key: 'leadTracker',
-    label: '🎯 Lead Tracker',
-    to: '/clients',
-    roles: ['realtor', 'creator'],
-    scope: { realtor: 'own', creator: 'own' },
+    roles: [...ALL_INTERNAL, 'realtor', 'creator'],
+    scope: { founder: 'all', core: 'all', realtor: 'own', creator: 'own' },
   },
   {
     key: 'leadUploads',
@@ -263,8 +259,8 @@ export function canSee(panelId, role) {
 }
 
 /* ---- Route-level access ----
-   A route can back more than one module (CRM and Lead Tracker both open
-   /clients), so a role gets in if ANY module mapped to that route allows it. */
+   A route can back more than one module, so a role gets in if ANY module
+   mapped to that route allows it. */
 export function modulesForRoute(to) {
   return MODULES.filter((m) => m.to === to);
 }

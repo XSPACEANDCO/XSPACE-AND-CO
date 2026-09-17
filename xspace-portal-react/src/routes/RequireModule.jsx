@@ -5,10 +5,9 @@ import { getRole } from '../lib/storage';
 
 /* Route-level permission gate.
 
-   A route may back more than one module — /clients is CRM for Founder and Core
-   and Lead Tracker for partners — so the role gets in if any module mapped to
-   the route allows it. Pages that exist render; the rest fall through to
-   ModulePage, which describes what belongs there.
+   A route may back more than one module, so the role gets in if any module
+   mapped to the route allows it. Pages that exist render; the rest fall
+   through to ModulePage, which describes what belongs there.
 
    This is front-end gating only. It decides what to paint, not what the user
    is allowed to have; the same checks have to exist on the server. */

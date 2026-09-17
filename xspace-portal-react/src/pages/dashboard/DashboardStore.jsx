@@ -85,7 +85,7 @@ export function DashboardProvider({ children }) {
       ['funnel', () => api.dashboard.funnel(), true],
       ['activity', () => api.dashboard.activity(), true],
       ['notifications', () => api.dashboard.notifications(), true],
-      ['leads', () => api.leads.list(), may('crm') || may('leadTracker')],
+      ['leads', () => api.leads.list(), may('crm')],
       ['listings', () => api.listings.list(), may('listings')],
       ['projects', () => api.projects.list(), may('projects')],
       ['visits', () => api.visits.list(), may('visits')],

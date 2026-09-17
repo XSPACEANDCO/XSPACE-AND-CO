@@ -53,7 +53,15 @@ router.post(
   loginLimiter,
   asyncHandler(async (req, res) => {
     const identifier = identifierFrom(req);
-    const { password } = req.body || {};
+
+    /* Trimmed, because these passwords are handed over rather than chosen:
+       somebody copies one out of the Teams page and pastes it into a phone.
+       A trailing space picked up by that selection used to come back as
+       "Invalid username or password", which sends people hunting for a
+       mistyped character that isn't there. Generated passwords are base64url
+       and a Founder-set one is trimmed on the way in, so no real password can
+       begin or end with a space and nothing is weakened by ignoring one. */
+    const password = typeof req.body?.password === 'string' ? req.body.password.trim() : '';
     if (!identifier || !password) {
       return res.status(400).json({ error: 'Username and password are required' });
     }

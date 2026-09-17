@@ -7,12 +7,11 @@ import { ALL_STATUSES, canAdvance, isValidPropertyType } from '../leadStatus.js'
 
 const router = Router();
 
-/* /clients backs two modules: CRM for Founder/Core, Lead Tracker for partners.
-   Let either through, then scope the rows. */
-function leadModule(req, res, next) {
-  const key = seesEverything(req.user.role) ? 'crm' : 'leadTracker';
-  return requireModule(key)(req, res, next);
-}
+/* /clients backs one module for everybody. It used to back two — CRM for
+   Founder/Core and Lead Tracker for partners — which put two sidebar entries
+   on the same screen. Access is the same gate now; who sees which rows is
+   scopeClause below. */
+const leadModule = requireModule('crm');
 
 /* Partners see leads they own OR sourced. Founder and Core see everything.
    Enforced in SQL so there is no path that returns rows and filters later. */

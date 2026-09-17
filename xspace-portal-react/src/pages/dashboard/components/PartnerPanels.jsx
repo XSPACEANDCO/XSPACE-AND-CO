@@ -31,7 +31,7 @@ export function CreatorPanel() {
       </div>
 
       <div className="subsection">
-        <h4>Your Lead Tracker</h4>
+        <h4>Your Leads</h4>
         <div className="muted small">Only leads you sourced — you cannot see other partners&apos; leads</div>
         <div className="pipeline">
           {FUNNEL_BUCKETS.map(({ stage, statuses }) => {

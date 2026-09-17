@@ -180,7 +180,9 @@ router.post(
   '/',
   requirePermission('users:invite'),
   asyncHandler(async (req, res) => {
-    const { name, email, role, password, phone, areas, platform, handle, skill } = req.body || {};
+    const { name, email, role, phone, areas, platform, handle, skill } = req.body || {};
+    /* Trimmed to match the login route, which ignores surrounding spaces. */
+    const password = typeof req.body?.password === 'string' ? req.body.password.trim() : '';
     const username = String(req.body?.username || '').trim().toLowerCase();
     if (!name || !email || !role || !username) {
       return res.status(400).json({ error: 'name, username, email and role are required' });
@@ -270,11 +272,12 @@ router.post(
         error: `Your role cannot reset a ${target.role} password`,
       });
     }
-    if (req.body?.password && req.body.password.length < 8) {
+    const chosen = typeof req.body?.password === 'string' ? req.body.password.trim() : '';
+    if (chosen && chosen.length < 8) {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
 
-    const issued = req.body?.password || generatePassword();
+    const issued = chosen || generatePassword();
     await one('UPDATE users SET password_hash = $2 WHERE id = $1 RETURNING id', [
       target.id,
       await hashPassword(issued),

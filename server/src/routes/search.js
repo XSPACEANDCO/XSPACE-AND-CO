@@ -36,7 +36,7 @@ router.get(
     const groups = [];
 
     /* ---- Clients / leads ---- */
-    if (canAccess('crm', req.user.role) || canAccess('leadTracker', req.user.role)) {
+    if (canAccess('crm', req.user.role)) {
       const rows = await many(
         `SELECT id, name, phone, status, budget, preferred_area
            FROM leads
