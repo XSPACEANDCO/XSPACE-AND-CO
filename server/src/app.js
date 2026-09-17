@@ -16,6 +16,8 @@ import visitRoutes from './routes/visits.js';
 import verificationRoutes from './routes/verifications.js';
 import mediaRoutes from './routes/media.js';
 import userRoutes from './routes/users.js';
+import fileRoutes, { publicFileRouter } from './routes/files.js';
+import searchRoutes from './routes/search.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -36,10 +38,11 @@ export function createApp() {
     app.use(cors({ origin: config.corsOrigins, credentials: true }));
   }
 
-  /* Listing photos arrive as base64 inside the JSON body, which inflates them
-     by about a third — a 3 MB image needs roughly 4 MB of room. The photo
-     route enforces the real per-image cap; this only has to be above it. */
-  app.use(express.json({ limit: '6mb' }));
+  /* Photos and documents arrive as base64 inside the JSON body, which
+     inflates them by about a third — an 8 MB file needs roughly 11 MB of
+     room. The upload routes enforce the real per-file caps; this only has to
+     sit above them. */
+  app.use(express.json({ limit: '12mb' }));
 
   /* Render pings this to decide whether the instance is healthy. */
   app.get('/api/health', (req, res) => {
@@ -54,6 +57,12 @@ export function createApp() {
 
   app.use('/api/auth', authRoutes);
 
+  /* Reading an uploaded file is authorised by the unguessable key in its URL
+     rather than by a header, because <img>, <video> and <a href> cannot send
+     one. It therefore has to be mounted before the token gate. Uploading is
+     a different route and does need a token — see routes/files.js. */
+  app.use('/api/files', publicFileRouter);
+
   /* Everything past here needs a valid token. */
   app.use('/api', requireAuth);
 
@@ -64,7 +73,9 @@ export function createApp() {
   app.use('/api/visits', visitRoutes);
   app.use('/api/verifications', verificationRoutes);
   app.use('/api/media', mediaRoutes);
+  app.use('/api/files', fileRoutes);
   app.use('/api/users', userRoutes);
+  app.use('/api/search', searchRoutes);
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'Unknown API route' }));
 

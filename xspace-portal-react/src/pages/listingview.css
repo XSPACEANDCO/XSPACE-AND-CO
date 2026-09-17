@@ -163,3 +163,15 @@
 .page-listingview .hot {
   color: #fb923c;
 }
+
+/* Amenity icons — see lib/amenityIcons.js */
+.page-listingview .amenity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.page-listingview .amenity-icon {
+  flex: 0 0 auto;
+  font-size: 15px;
+  line-height: 1;
+}

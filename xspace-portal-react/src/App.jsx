@@ -15,6 +15,9 @@ import LeadView from './pages/LeadView';
 import Listings from './pages/Listings';
 import ListingView from './pages/ListingView';
 import Projects from './pages/Projects';
+import MediaUpload from './pages/MediaUpload';
+import RawMedia from './pages/RawMedia';
+import MediaLibrary from './pages/MediaLibrary';
 import SiteVisits from './pages/SiteVisits';
 import Teams from './pages/Teams';
 
@@ -38,6 +41,11 @@ const BUILT = {
   '/listings': shell(<Listings />),
   '/projects': shell(<Projects />),
   '/site-visits': shell(<SiteVisits />),
+
+  /* Media pipeline: upload -> edit -> review. See server/src/routes/media.js */
+  '/media-upload': shell(<MediaUpload />),
+  '/raw-media': shell(<RawMedia />),
+  '/media-library': shell(<MediaLibrary />),
 
   /* Accounts. Four rosters behind four tabs — see pages/Teams.jsx. Brings its
      own PortalLayout. This is where a Founder creates Core members and a

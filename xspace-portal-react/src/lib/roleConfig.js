@@ -183,6 +183,21 @@ export const MODULES = [
   },
 ];
 
+/* Founder and Core reach everything.
+   Mirrors the same construction in server/src/rbac.js, which is the copy that
+   actually enforces it — this one only decides what the sidebar paints. They
+   run the company: there is no screen they are not entitled to open. Applying
+   it here once means a module added later inherits it instead of quietly
+   locking them out, which is how they ended up unable to open their own
+   profile. Partner rows are untouched. */
+for (const m of MODULES) {
+  m.roles = [...new Set([...ALL_INTERNAL, ...m.roles])];
+  if (m.scope) {
+    m.scope.founder = 'all';
+    m.scope.core = 'all';
+  }
+}
+
 const MODULE_BY_KEY = Object.fromEntries(MODULES.map((m) => [m.key, m]));
 
 /* Older sessions (and the original demo) used `agent` for what is now the

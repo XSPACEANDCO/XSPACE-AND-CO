@@ -4,7 +4,7 @@ import { many, one, query } from '../db.js';
 import { asyncHandler, requireModule, requirePermission } from '../middleware.js';
 import { hashPassword } from '../auth.js';
 import { config } from '../config.js';
-import { canCreateRole, isInternal, INTERNAL_ROLES, ROLES } from '../rbac.js';
+import { canAdminister, canCreateRole, isInternal, INTERNAL_ROLES, ROLES } from '../rbac.js';
 import { newId, recordAudit } from '../helpers.js';
 import { publicUser } from './auth.js';
 
@@ -284,7 +284,7 @@ router.post(
   })
 );
 
-/* Role, KYC and deactivation — Founder only. */
+/* Role, KYC and deactivation. */
 router.patch(
   '/:id',
   requirePermission('users:write'),
@@ -297,6 +297,17 @@ router.patch(
 
     const target = await one('SELECT * FROM users WHERE id = $1', [req.params.id]);
     if (!target) return res.status(404).json({ error: 'User not found' });
+
+    /* Core can administer partners; only a Founder administers Founders and
+       Core. Without this, Core reaching every module would also mean Core
+       could switch off a Founder. */
+    if (!canAdminister(req.user.role, target.role)) {
+      return res.status(403).json({ error: `Your role cannot modify a ${target.role} account` });
+    }
+    /* Nor promote someone into a role you could not have created. */
+    if (role && !canAdminister(req.user.role, role)) {
+      return res.status(403).json({ error: `Your role cannot grant the ${role} role` });
+    }
 
     /* Promoting a partner into the internal team counts against the cap. */
     if (role && isInternal(role) && !isInternal(target.role)) {
@@ -356,6 +367,12 @@ router.delete(
 
     const target = await one('SELECT * FROM users WHERE id = $1', [req.params.id]);
     if (!target) return res.status(404).json({ error: 'User not found' });
+
+    /* Deleting follows the same hierarchy as creating — Core deletes partners,
+       only a Founder deletes a Founder or a Core member. */
+    if (!canAdminister(req.user.role, target.role)) {
+      return res.status(403).json({ error: `Your role cannot delete a ${target.role} account` });
+    }
 
     if (target.role === 'founder') {
       const { n } = await one(

@@ -65,6 +65,25 @@ export const MODULES = {
   settings: { roles: ROLES },
 };
 
+/* Founder and Core reach everything.
+
+   They run the company: there is no screen they are not entitled to look at,
+   and no record they are not allowed to see. Rather than remembering to list
+   them on every row above — which is how they ended up locked out of their
+   own profile, the lead tracker and the media tools — the rule is applied
+   here, once, to the whole registry. A module added later inherits it for
+   free.
+
+   Partner rows stay exactly as written: adding Founder and Core to a module
+   does not widen it for anybody else. */
+for (const m of Object.values(MODULES)) {
+  m.roles = [...new Set([...INTERNAL_ROLES, ...m.roles])];
+  if (m.scope) {
+    m.scope.founder = 'all';
+    m.scope.core = 'all';
+  }
+}
+
 export function canAccess(moduleKey, role) {
   const m = MODULES[moduleKey];
   return Boolean(m) && m.roles.includes(role);
@@ -84,9 +103,21 @@ export function modulesForRole(role) {
   return Object.keys(MODULES).filter((k) => MODULES[k].roles.includes(role));
 }
 
+/* Same rule as the module registry: Founder and Core may perform every
+   action. What they may perform it *on* is still bounded — CAN_CREATE_ROLES
+   below keeps the account hierarchy intact, so a Core member having
+   `users:write` does not make them able to touch a Founder's account. */
+function withInternal(rules) {
+  const out = {};
+  for (const [action, roles] of Object.entries(rules)) {
+    out[action] = [...new Set([...INTERNAL_ROLES, ...roles])];
+  }
+  return out;
+}
+
 /* Writes are narrower than reads in a few places — seeing the verification
    queue is not the same as clearing an item on it. */
-export const WRITE_RULES = {
+export const WRITE_RULES = withInternal({
   'projects:write': INTERNAL,
   'listings:write': ['founder', 'core', 'realtor'],
   'listings:verify': INTERNAL,
@@ -97,11 +128,14 @@ export const WRITE_RULES = {
   'verifications:write': INTERNAL,
   'media:upload': ['creator', 'realtor', 'studio'],
   'media:process': ['studio', 'founder', 'core'],
+  /* Approving edited media, or sending it back with notes. The editor does
+     the work; Founder and Core decide whether it ships. */
+  'media:review': INTERNAL,
   'users:write': ['founder'],
   /* Coarse gate on the create/reset endpoints; CAN_CREATE_ROLES decides
      which specific roles each of these may actually create. */
   'users:invite': INTERNAL,
-};
+});
 
 /* ---------------------------------------------------------------------------
    Who can create whom.
@@ -127,6 +161,18 @@ export const CAN_CREATE_ROLES = {
 export function canCreateRole(actorRole, targetRole) {
   const allowed = CAN_CREATE_ROLES[actorRole];
   return Array.isArray(allowed) && allowed.includes(targetRole);
+}
+
+/* Acting *on* an existing account — editing, deactivating, deleting, resetting
+   a password — follows the same hierarchy as creating one.
+
+   Founder and Core can now reach every module, which is what makes this
+   necessary rather than incidental: without it, giving Core `users:write`
+   would also hand them the ability to delete a Founder. You may administer an
+   account whose role you could have created, so Core administers partners and
+   only a Founder administers Founders and Core. */
+export function canAdminister(actorRole, targetRole) {
+  return canCreateRole(actorRole, targetRole);
 }
 
 /* Any account creation at all — used to gate the endpoint before the specific

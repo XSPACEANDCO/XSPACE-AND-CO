@@ -3,6 +3,7 @@ import { KEYS, removeRaw } from '../../../lib/storage';
 import api, { setToken } from '../../../lib/api';
 import { ROLES, normalizeRole, seesEverything } from '../../../lib/roleConfig';
 import { useDashboard } from '../DashboardStore';
+import GlobalSearch from './GlobalSearch';
 
 export default function Topbar({
   theme,
@@ -48,7 +49,7 @@ export default function Topbar({
           <span className="welcome-prefix">Welcome back, </span>
           <strong>{ROLES[r]?.label || ''}</strong>
         </div>
-        {showSearch && <input className="search" placeholder="Search listings, projects, clients..." />}
+        {showSearch && <GlobalSearch />}
       </div>
 
       <div className="top-right">

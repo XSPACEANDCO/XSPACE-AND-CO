@@ -264,3 +264,257 @@ html[data-theme='light'] body[data-page='dashboard'] {
   color: var(--muted);
   opacity: 1;
 }
+
+/* ============================================================
+   FileField — upload a file or paste a link (components/FileField.jsx)
+   ============================================================ */
+.file-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 10px;
+}
+.file-field .ff-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+.file-field .ff-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+.file-field .ff-url {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  background: var(--glass);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-family: inherit;
+  font-size: 14px;
+}
+.file-field .ff-url:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.file-field .ff-btn {
+  background: var(--accent);
+  color: #04120c;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.file-field .ff-btn.ghost {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+.file-field .ff-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+/* A chosen-but-not-yet-sent file is visibly not part of the record yet. */
+.file-field .ff-picked {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 7px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+.file-field .ff-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.file-field .ff-name.link {
+  color: var(--accent);
+  text-decoration: none;
+}
+.file-field .ff-name.link:hover {
+  text-decoration: underline;
+}
+.file-field .ff-hint {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-style: normal;
+}
+.file-field .ff-error {
+  font-size: 12px;
+  color: #fca5a5;
+}
+
+/* ============================================================
+   AmenityList — one amenity per box (components/AmenityList.jsx)
+   ============================================================ */
+.amenity-list .al-boxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+.amenity-list .al-box {
+  position: relative;
+  min-width: 0;
+}
+.amenity-list .al-box input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--glass);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 30px 9px 11px;
+  font-family: inherit;
+  font-size: 14px;
+}
+.amenity-list .al-box input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.amenity-list .al-remove {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  line-height: 18px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+}
+.amenity-list .al-remove:hover {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+}
+.amenity-list .al-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 10px;
+}
+.amenity-list .al-suggest-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.amenity-list .al-chip {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.amenity-list .al-chip:hover {
+  border-style: solid;
+  border-color: var(--accent);
+  color: var(--fg);
+}
+.listing-form .lf-amenity-note {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+/* ============================================================
+   Global search (pages/dashboard/components/GlobalSearch.jsx)
+   ============================================================ */
+.gsearch {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  max-width: 460px;
+}
+.gsearch-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  z-index: 70;
+  padding: 6px;
+}
+.gsearch-note {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.gsearch-label {
+  padding: 8px 10px 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.gsearch-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--fg);
+  cursor: pointer;
+  min-width: 0;
+}
+.gsearch-item:hover {
+  background: var(--glass);
+}
+.gsearch-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gsearch-sub {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gsearch-badge {
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .gsearch {
+    max-width: none;
+  }
+}

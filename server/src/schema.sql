@@ -256,6 +256,52 @@ CREATE TABLE IF NOT EXISTS media (
 CREATE INDEX IF NOT EXISTS media_uploaded_by_idx ON media (uploaded_by);
 CREATE INDEX IF NOT EXISTS media_status_idx ON media (status);
 
+-- The editing round trip.
+--
+-- Raw media arrives from a creator or realtor, Studio claims and edits it,
+-- and then re-uploads the finished cut. That finished cut is a second file,
+-- not a replacement: the original has to survive so the work can be redone if
+-- the edit is rejected. Founder and Core then either approve it or send it
+-- back with notes, which is what these columns record.
+ALTER TABLE media ADD COLUMN IF NOT EXISTS edited_url    TEXT;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS edited_at     TIMESTAMPTZ;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS edited_by     TEXT REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS review_notes  TEXT;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS reviewed_at   TIMESTAMPTZ;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS reviewed_by   TEXT REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS revision      INTEGER NOT NULL DEFAULT 0;
+
+-- 'delivered' now means "edited and waiting on review" rather than "finished",
+-- so two more states are needed at the end of the pipeline. The original CHECK
+-- constraint predates them and would reject both.
+ALTER TABLE media DROP CONSTRAINT IF EXISTS media_status_check;
+ALTER TABLE media ADD CONSTRAINT media_status_check CHECK (
+  status IN ('pending','in_progress','delivered','approved','changes_requested','rejected')
+);
+
+-- Uploaded files: brochures, floor plans, price sheets, raw and edited media.
+--
+-- Same reasoning as listing_photos — Render wipes the filesystem on every
+-- deploy, so the database is the only storage that survives. Held as base64
+-- text rather than bytea because the local PGlite store and hosted Postgres
+-- disagree about how binary round-trips, and text behaves identically on both.
+--
+-- access_key is a capability: a long random string that makes the URL
+-- unguessable. It exists because a browser fetching <a href> or <video src>
+-- cannot attach an Authorization header, so the link itself has to carry the
+-- right to read the file. Knowing a file's id is not enough without it.
+CREATE TABLE IF NOT EXISTS uploads (
+  id           TEXT PRIMARY KEY,
+  access_key   TEXT NOT NULL,
+  filename     TEXT NOT NULL,
+  content_type TEXT NOT NULL,
+  data         TEXT NOT NULL,
+  bytes        INTEGER NOT NULL DEFAULT 0,
+  uploaded_by  TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS uploads_uploaded_by_idx ON uploads (uploaded_by);
+
 CREATE TABLE IF NOT EXISTS notifications (
   id         TEXT PRIMARY KEY,
   user_id    TEXT REFERENCES users(id) ON DELETE CASCADE,

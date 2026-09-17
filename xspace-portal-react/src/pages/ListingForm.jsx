@@ -1,6 +1,8 @@
 import {
   BHK_OPTIONS, PROPERTY_TYPES, configKindFor, configLabelFor,
 } from '../lib/leadStatus';
+import AmenityList from '../components/AmenityList';
+import FileField from '../components/FileField';
 
 /* The listing sheet as an input form.
 
@@ -210,31 +212,45 @@ export default function ListingForm({ value, onChange }) {
 
       <fieldset>
         <legend>Amenities</legend>
-        <Field label="One per line" hint="Typed, not picked from a fixed list — add whatever this property actually has">
-          <textarea
-            rows={5}
-            value={value.amenities}
-            onChange={set('amenities')}
-            placeholder={'Swimming Pool\nGymnasium\nClubhouse\n24×7 Security'}
-          />
-        </Field>
+        <div className="lf-amenity-note">
+          One per box — add whatever this property actually has.
+        </div>
+        <AmenityList value={value.amenities} onChange={(next) => onChange((f) => ({ ...f, amenities: next }))} />
       </fieldset>
 
       <fieldset>
         <legend>Media &amp; Documents</legend>
+        {/* Each of these takes a file from the device or a pasted link. */}
         <div className="lf-grid">
-          <Field label="Video link" hint="Walkthrough / drone / reel">
-            <input value={value.videoLink} onChange={set('videoLink')} placeholder="Instagram / YouTube link" />
-          </Field>
-          <Field label="Brochure link">
-            <input value={value.brochureUrl} onChange={set('brochureUrl')} placeholder="https://… (PDF)" />
-          </Field>
-          <Field label="Floor plan link">
-            <input value={value.floorPlanUrl} onChange={set('floorPlanUrl')} placeholder="https://… (PDF)" />
-          </Field>
-          <Field label="Price sheet link">
-            <input value={value.priceSheetUrl} onChange={set('priceSheetUrl')} placeholder="https://… (PDF)" />
-          </Field>
+          <FileField
+            label="Brochure"
+            value={value.brochureUrl}
+            onChange={(url) => onChange((f) => ({ ...f, brochureUrl: url }))}
+            accept="application/pdf,image/*"
+            hint="PDF, up to 8 MB"
+          />
+          <FileField
+            label="Floor plan"
+            value={value.floorPlanUrl}
+            onChange={(url) => onChange((f) => ({ ...f, floorPlanUrl: url }))}
+            accept="application/pdf,image/*"
+            hint="PDF or image, up to 8 MB"
+          />
+          <FileField
+            label="Price sheet"
+            value={value.priceSheetUrl}
+            onChange={(url) => onChange((f) => ({ ...f, priceSheetUrl: url }))}
+            accept="application/pdf,image/*"
+            hint="PDF, up to 8 MB"
+          />
+          <FileField
+            label="Video"
+            value={value.videoLink}
+            onChange={(url) => onChange((f) => ({ ...f, videoLink: url }))}
+            accept="video/*"
+            placeholder="Instagram / YouTube link, or upload a clip"
+            hint="Walkthrough / drone / reel. Long video belongs on a link — only clips under 8 MB can be uploaded."
+          />
         </div>
       </fieldset>
 

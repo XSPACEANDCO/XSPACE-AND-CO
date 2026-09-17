@@ -1,0 +1,246 @@
+/* The three media screens — upload, raw inbox, library.
+   Rendered inside PortalLayout's workspace, so they inherit the shell's
+   palette and paint no background of their own. */
+
+.page-media {
+  color: var(--fg);
+}
+.page-media h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+.page-media .media-head {
+  margin-bottom: 14px;
+}
+.page-media .small {
+  font-size: 13px;
+}
+.page-media .muted {
+  color: var(--muted);
+}
+.page-media .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.page-media .media-error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+.page-media .media-saved {
+  color: #34d399;
+  font-size: 13px;
+}
+.page-media .media-empty {
+  padding: 10px 0;
+}
+
+.page-media .media-form {
+  margin-bottom: 14px;
+}
+.page-media .media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.page-media .mf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+  min-width: 0;
+  margin-top: 10px;
+}
+.page-media .mf-field > span {
+  color: var(--muted);
+}
+.page-media .mf-field input,
+.page-media .mf-field select,
+.page-media .mf-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--glass);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-family: inherit;
+  font-size: 14px;
+}
+.page-media .mf-field textarea {
+  resize: vertical;
+}
+.page-media .media-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+/* ---- rows ---- */
+.page-media .media-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+.page-media .media-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--glass);
+  min-width: 0;
+}
+/* Anything needing a decision or a re-edit is worth spotting at a glance. */
+.page-media .media-row.flagged {
+  border-color: rgba(245, 158, 11, 0.5);
+}
+.page-media .media-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.page-media .media-note {
+  margin-top: 6px;
+  color: var(--muted);
+}
+.page-media .media-callout {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.page-media .media-links {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.page-media .media-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--accent);
+  text-decoration: none;
+}
+.page-media .media-link:hover {
+  text-decoration: underline;
+}
+.page-media .media-link.muted-link {
+  color: var(--muted);
+}
+
+/* ---- status badges ---- */
+.page-media .media-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  white-space: nowrap;
+  background: rgba(148, 163, 184, 0.18);
+  color: #cbd5e1;
+}
+.page-media .media-badge.wait {
+  background: rgba(148, 163, 184, 0.18);
+  color: #cbd5e1;
+}
+.page-media .media-badge.work {
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+}
+.page-media .media-badge.review {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fcd34d;
+}
+.page-media .media-badge.changes {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+}
+.page-media .media-badge.ok {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+}
+
+/* ---- modal ---- */
+.page-media .modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 60;
+}
+.page-media .modal {
+  width: 100%;
+  max-width: 520px;
+  max-height: 86vh;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  box-sizing: border-box;
+}
+.page-media .modal h3 {
+  margin: 0 0 4px;
+}
+.page-media .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.page-media .btn {
+  background: var(--accent);
+  color: #04120c;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.page-media .btn-ghost {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.page-media .btn:disabled,
+.page-media .btn-ghost:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  .page-media .media-row-actions {
+    width: 100%;
+  }
+  .page-media .media-row-actions .btn,
+  .page-media .media-row-actions .btn-ghost {
+    flex: 1;
+  }
+}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../lib/api';
 import { propertyLabel } from '../lib/leadStatus';
+import { splitAmenity } from '../lib/amenityIcons';
 import ListingForm, { fromListing, toPayload } from './ListingForm';
 import ListingPhotos from './ListingPhotos';
 import './listingview.css';
@@ -228,9 +229,18 @@ export default function ListingView() {
                 <div className="small">No amenities recorded for this listing.</div>
               ) : (
                 <div className="amenities">
-                  {amenities.map((a) => (
-                    <div className="amenity" key={a}>{a}</div>
-                  ))}
+                  {amenities.map((a) => {
+                    /* Listings entered before the icons existed may already
+                       start with an emoji — reuse it rather than adding a
+                       second one. */
+                    const { icon, label } = splitAmenity(a);
+                    return (
+                      <div className="amenity" key={a}>
+                        <span className="amenity-icon" aria-hidden="true">{icon}</span>
+                        {label}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

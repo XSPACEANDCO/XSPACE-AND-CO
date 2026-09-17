@@ -171,7 +171,21 @@ export const api = {
     library: () => get('/media/library'),
     pending: () => get('/media/pending'),
     setStatus: (id, status) => patch(`/media/${id}/status`, { status }),
+    /* Studio hands the finished cut back for review. */
+    deliver: (id, editedUrl, note) => post(`/media/${id}/deliver`, { editedUrl, note }),
+    /* Founder/Core approve it, or send it back carrying the reason. */
+    approve: (id, notes) => post(`/media/${id}/review`, { decision: 'approve', notes }),
+    requestChanges: (id, notes) => post(`/media/${id}/review`, { decision: 'changes', notes }),
   },
+
+  /* Uploads land in the database and come back as a URL that a plain <a>,
+     <img> or <video> can fetch — see server/src/routes/files.js. */
+  files: {
+    upload: (dataUrl, filename) => post('/files', { dataUrl, filename }),
+  },
+
+  /* Scoped to what you may open and which rows you may see — server side. */
+  search: (q) => get('/search' + qs({ q })),
 
   users: {
     creators: (opts = {}) => get('/users/creators' + qs(opts)),

@@ -9,7 +9,6 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "seed": "node src/seed.js",
     "check:rbac": "node scripts/check-rbac.js",
     "test": "node --test",
     "user": "node scripts/user.js"
