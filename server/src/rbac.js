@@ -57,7 +57,7 @@ export const MODULES = {
   rawMedia: { roles: ['studio', 'founder', 'core'] },
   mediaLibrary: { roles: ['studio', 'founder', 'core'] },
   pendingWorks: { roles: ['studio'] },
-  quickTools: { roles: ['studio'] },
+  quickTools: { roles: ['realtor', 'studio'] },
 
   /* Creator partner's own content, schedule, results and payouts. */
   myContent: { roles: ['creator'] },

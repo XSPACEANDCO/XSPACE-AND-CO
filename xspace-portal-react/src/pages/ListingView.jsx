@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../lib/api';
-import { propertyLabel } from '../lib/leadStatus';
+import { propertyFullLabel } from '../lib/leadStatus';
 import { splitAmenity } from '../lib/amenityIcons';
 import { GOV_PORTALS } from '../lib/links';
 import ListingForm, { fromListing, isLand, toPayload } from './ListingForm';
@@ -185,7 +185,7 @@ Its photos and verification go with it. This cannot be undone.`))
         {editing ? (
           <form className="section" onSubmit={save} autoComplete="off">
             <h3>Edit listing</h3>
-            {land ? (
+            {isLand(form) ? (
               <LandForm value={form} onChange={setForm} />
             ) : (
               <ListingForm value={form} onChange={setForm} />
@@ -244,7 +244,7 @@ Its photos and verification go with it. This cannot be undone.`))
                   <Grid
                     rows={[
                       ['Builder', listing.builder],
-                      ['Property Type', propertyLabel(listing.property_type)],
+                      ['Property Type', propertyFullLabel(listing.property_type, listing.property_subtype)],
                       ['Configuration', listing.configuration],
                       ['Possession', listing.possession],
                     ]}

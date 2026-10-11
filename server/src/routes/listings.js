@@ -3,7 +3,7 @@ import { many, one } from '../db.js';
 import { asyncHandler, requireModule, requirePermission } from '../middleware.js';
 import { seesEverything } from '../rbac.js';
 import { newId, notify, publishVerifiedListing, recordActivity, recordAudit, safeUrl } from '../helpers.js';
-import { isValidPropertyType } from '../leadStatus.js';
+import { isValidPropertyType, isValidSubtype } from '../leadStatus.js';
 
 const router = Router();
 
@@ -23,6 +23,7 @@ const FIELDS = [
   /* Project snapshot */
   ['builder', 'builder'],
   ['propertyType', 'property_type'],
+  ['propertySubtype', 'property_subtype'],
   ['configuration', 'configuration'],
   ['possession', 'possession'],
   /* Unit details */
@@ -166,6 +167,9 @@ router.post(
     if (!isValidPropertyType(clean(body.propertyType) || undefined)) {
       return res.status(400).json({ error: 'Unknown property type' });
     }
+    if (!isValidSubtype(clean(body.propertyType), clean(body.propertySubtype))) {
+      return res.status(400).json({ error: 'That sub-type does not belong to this property type' });
+    }
     if (badUrlField(body)) {
       return res.status(400).json({ error: 'Document and video links must start with http:// or https://' });
     }
@@ -218,6 +222,12 @@ router.patch(
     const body = req.body || {};
     if (!isValidPropertyType(clean(body.propertyType) || undefined)) {
       return res.status(400).json({ error: 'Unknown property type' });
+    }
+    /* Checked against the type the listing will have after this edit. */
+    const nextType = 'propertyType' in body ? clean(body.propertyType) : existing.property_type;
+    const nextSub = 'propertySubtype' in body ? clean(body.propertySubtype) : existing.property_subtype;
+    if (!isValidSubtype(nextType, nextSub)) {
+      return res.status(400).json({ error: 'That sub-type does not belong to this property type' });
     }
     if (badUrlField(body)) {
       return res.status(400).json({ error: 'Document and video links must start with http:// or https://' });

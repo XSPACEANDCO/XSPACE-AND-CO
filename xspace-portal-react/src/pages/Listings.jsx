@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 import ListingForm, { EMPTY_LAND, EMPTY_LISTING, isLand, toPayload } from './ListingForm';
 import LandForm from './LandForm';
-import { propertyLabel } from '../lib/leadStatus';
+import { propertyFullLabel } from '../lib/leadStatus';
 import './listings.css';
 
 /* Submitted inventory, from the database.
@@ -21,23 +21,23 @@ export default function Listings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  /* null when closed, otherwise which sheet is open: 'property' or 'land'. */
-  const [formKind, setFormKind] = useState(null);
-  const formOpen = formKind !== null;
+  /* One "Add Property" sheet. Which fields it shows follows the property
+     type picked at the top of it — Land swaps in the land sheet. */
+  const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_LISTING);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState('');
   const [verifying, setVerifying] = useState(null);
   const [deleting, setDeleting] = useState(null);
 
-  /* "Add Listing" on a dashboard lands here with ?new=1. */
+  /* "Add Listing" on a dashboard lands here with ?new=1 (?new=land starts
+     with Land already picked). */
   const [params, setParams] = useSearchParams();
   useEffect(() => {
     const wanted = params.get('new');
     if (wanted) {
-      const kind = wanted === 'land' ? 'land' : 'property';
-      setForm(kind === 'land' ? EMPTY_LAND : EMPTY_LISTING);
-      setFormKind(kind);
+      setForm(wanted === 'land' ? EMPTY_LAND : EMPTY_LISTING);
+      setFormOpen(true);
       params.delete('new');
       setParams(params, { replace: true });
     }
@@ -70,7 +70,7 @@ export default function Listings() {
     try {
       const out = await api.listings.create(toPayload(form));
       setForm(EMPTY_LISTING);
-      setFormKind(null);
+      setFormOpen(false);
       /* Straight to the listing so photos can be added — they attach to a
          listing id, which only exists once it has been saved. */
       navigate('/listings/' + out.listing.id);
@@ -95,10 +95,10 @@ export default function Listings() {
     }
   }
 
-  function openForm(kind) {
+  function openForm() {
     setFormError('');
-    setForm(kind === 'land' ? EMPTY_LAND : EMPTY_LISTING);
-    setFormKind(kind);
+    setForm(EMPTY_LISTING);
+    setFormOpen(true);
   }
 
   /* Founder and Core can delete any listing; a realtor only ever has their
@@ -137,12 +137,9 @@ Its photos and verification go with it. This cannot be undone.`))
 
           <div className="top-bar-actions">
             {formOpen ? (
-              <button onClick={() => setFormKind(null)}>Cancel</button>
+              <button onClick={() => setFormOpen(false)}>Cancel</button>
             ) : (
-              <>
-                <button onClick={() => openForm('property')}>+ Add Property</button>
-                <button onClick={() => openForm('land')}>+ Add Land</button>
-              </>
+              <button onClick={openForm}>+ Add Property</button>
             )}
           </div>
         </div>
@@ -151,8 +148,8 @@ Its photos and verification go with it. This cannot be undone.`))
 
         {formOpen && (
           <form className="add-listing" onSubmit={submit} autoComplete="off">
-            <h3 className="form-kind">{formKind === 'land' ? 'New land listing' : 'New property listing'}</h3>
-            {formKind === 'land' ? (
+            <h3 className="form-kind">{isLand(form) ? 'New land listing' : 'New property listing'}</h3>
+            {isLand(form) ? (
               <LandForm value={form} onChange={setForm} />
             ) : (
               <ListingForm value={form} onChange={setForm} />
@@ -177,7 +174,7 @@ Its photos and verification go with it. This cannot be undone.`))
           <p className="small">Loading listings…</p>
         ) : listings.length === 0 ? (
           <p className="small">
-            Nothing waiting to be verified. Use “Add Property” or “Add Land” to submit inventory — verified
+            Nothing waiting to be verified. Use “Add Property” to submit inventory — verified
             listings are on the Projects page.
           </p>
         ) : (
@@ -200,7 +197,7 @@ Its photos and verification go with it. This cannot be undone.`))
                     <div className="small">
                       {isLand(l)
                         ? `🌾 Land${l.extent ? ` • ${l.extent}` : ''}`
-                        : propertyLabel(l.property_type) || ''}
+                        : propertyFullLabel(l.property_type, l.property_subtype)}
                     </div>
                     {l.high_demand && <div className="small hot">🔥 High Demand</div>}
                   </td>

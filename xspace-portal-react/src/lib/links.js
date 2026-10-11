@@ -27,14 +27,34 @@ export const GOV_PORTALS = [
         hint: 'Building permit and tax records inside GHMC limits',
       },
       {
+        label: 'BuildNow — building permissions',
+        href: 'https://buildnow.telangana.gov.in/',
+        hint: 'Telangana building-permission system that replaced TS-bPASS — permit number and approved plan',
+      },
+      {
         label: 'TS-bPASS — building permission & layout approval',
         href: 'https://tsbpass.telangana.gov.in/',
-        hint: 'Single-window permissions issued outside the older systems',
+        hint: 'Permissions issued before BuildNow',
       },
       {
         label: 'DTCP Telangana — town planning',
         href: 'https://dtcp.telangana.gov.in/',
         hint: 'Layout approvals outside HMDA and GHMC limits',
+      },
+    ],
+  },
+  {
+    group: 'Property tax',
+    links: [
+      {
+        label: 'GHMC property tax',
+        href: 'https://www.ghmc.gov.in/',
+        hint: 'Inside GHMC limits — Online Services → Property Tax; search by PTIN for owner and dues',
+      },
+      {
+        label: 'e-Municipality — municipal property tax',
+        href: 'https://emunicipal.telangana.gov.in/',
+        hint: 'Property tax in the other Telangana municipalities and corporations',
       },
     ],
   },

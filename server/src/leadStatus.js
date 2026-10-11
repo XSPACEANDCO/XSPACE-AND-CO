@@ -60,8 +60,33 @@ export const PROPERTY_TYPES = [
   { key: 'gated', label: 'Gated Community Apartments', config: 'bhk' },
   { key: 'gated_highrise', label: 'Gated Community High-Rise', config: 'bhk' },
   { key: 'land', label: 'Land', config: 'acres' },
-  { key: 'commercial', label: 'Commercial', config: 'sft' },
+  {
+    key: 'commercial',
+    label: 'Commercial',
+    config: 'sft',
+    subtypes: [
+      { key: 'office_space', label: 'Office Space' },
+      { key: 'shops', label: 'Shops' },
+    ],
+  },
+  {
+    key: 'industrial',
+    label: 'Industrial',
+    config: 'sft',
+    subtypes: [
+      { key: 'open_plot', label: 'Open Plot' },
+      { key: 'godown', label: 'Godown' },
+      { key: 'industry', label: 'Industry' },
+    ],
+  },
 ];
+
+/* Commercial and industrial are each several different things — an office
+   floor is not a shop, a godown is not a factory — so they carry a sub-type.
+   The other types have none. */
+export function subtypesFor(propertyType) {
+  return PROPERTY_TYPES.find((p) => p.key === propertyType)?.subtypes || [];
+}
 
 export const BHK_OPTIONS = ['1 BHK', '2 BHK', '2.5 BHK', '3 BHK', '3.5 BHK', '4 BHK', '4+ BHK'];
 
@@ -71,4 +96,11 @@ export function configKindFor(propertyType) {
 
 export function isValidPropertyType(value) {
   return !value || PROPERTY_TYPES.some((p) => p.key === value);
+}
+
+/* A sub-type has to belong to the property type it is filed under. Empty is
+   always allowed — it is optional, and clears it. */
+export function isValidSubtype(propertyType, subtype) {
+  if (!subtype) return true;
+  return subtypesFor(propertyType).some((s) => s.key === subtype);
 }

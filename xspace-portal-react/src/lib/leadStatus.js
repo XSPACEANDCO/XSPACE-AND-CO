@@ -68,8 +68,33 @@ export const PROPERTY_TYPES = [
   { key: 'gated', label: 'Gated Community Apartments', config: 'bhk' },
   { key: 'gated_highrise', label: 'Gated Community High-Rise', config: 'bhk' },
   { key: 'land', label: 'Land', config: 'acres' },
-  { key: 'commercial', label: 'Commercial', config: 'sft' },
+  {
+    key: 'commercial',
+    label: 'Commercial',
+    config: 'sft',
+    subtypes: [
+      { key: 'office_space', label: 'Office Space' },
+      { key: 'shops', label: 'Shops' },
+    ],
+  },
+  {
+    key: 'industrial',
+    label: 'Industrial',
+    config: 'sft',
+    subtypes: [
+      { key: 'open_plot', label: 'Open Plot' },
+      { key: 'godown', label: 'Godown' },
+      { key: 'industry', label: 'Industry' },
+    ],
+  },
 ];
+
+/* Commercial and industrial are each several different things — an office
+   floor is not a shop, a godown is not a factory — so they carry a sub-type.
+   The other types have none. */
+export function subtypesFor(propertyType) {
+  return PROPERTY_TYPES.find((p) => p.key === propertyType)?.subtypes || [];
+}
 
 export const BHK_OPTIONS = ['1 BHK', '2 BHK', '2.5 BHK', '3 BHK', '3.5 BHK', '4 BHK', '4+ BHK'];
 
@@ -92,3 +117,12 @@ export function configLabelFor(propertyType) {
 
 /* What the temperature chip shows in the client list. */
 export const TEMP_LABELS = { hot: '🔥 Hot', warm: '🌤️ Warm', cold: '❄️ Cold' };
+
+export function subtypeLabel(propertyType, subtype) {
+  return subtypesFor(propertyType).find((s) => s.key === subtype)?.label || '';
+}
+
+/* "Commercial · Office Space", or just "Villa". */
+export function propertyFullLabel(propertyType, subtype) {
+  return [propertyLabel(propertyType), subtypeLabel(propertyType, subtype)].filter(Boolean).join(' · ');
+}

@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { many, one, query } from '../db.js';
+import { many, one } from '../db.js';
 import { asyncHandler, requireModule, requirePermission } from '../middleware.js';
 import { seesEverything } from '../rbac.js';
 import { newId, notify, recordAudit } from '../helpers.js';
-import { ALL_STATUSES, canAdvance, isValidPropertyType } from '../leadStatus.js';
+import { ALL_STATUSES, canAdvance, isValidPropertyType, isValidSubtype } from '../leadStatus.js';
 
 const router = Router();
 
@@ -106,11 +106,14 @@ router.post(
   asyncHandler(async (req, res) => {
     const {
       name, phone, source, budget, listingId, temperature, status,
-      propertyType, configuration, preferredArea, timeline, sourceMediaId, followUpAt,
+      propertyType, propertySubtype, configuration, preferredArea, timeline, sourceMediaId, followUpAt,
     } = req.body || {};
     if (!name) return res.status(400).json({ error: 'name is required' });
     if (!isValidPropertyType(propertyType)) {
       return res.status(400).json({ error: 'Unknown property type' });
+    }
+    if (!isValidSubtype(propertyType, propertySubtype)) {
+      return res.status(400).json({ error: 'That sub-type does not belong to this property type' });
     }
     if (status && !ALL_STATUSES.includes(status)) {
       return res.status(400).json({ error: 'Unknown status' });
@@ -127,13 +130,13 @@ router.post(
     const lead = await one(
       `INSERT INTO leads (id, name, phone, source, budget, status, temperature, assigned_to,
                           created_by, listing_id, property_type, configuration, preferred_area, timeline,
-                          source_media_id, follow_up_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+                          source_media_id, follow_up_at, property_subtype)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
       [
         id, name, phone || null, source || null, budget || null,
         status || 'New', temperature || 'warm', assignedTo, req.user.id, listingId || null,
         propertyType || null, configuration || null, preferredArea || null, timeline || null,
-        sourceMediaId || null, parseDate(followUpAt),
+        sourceMediaId || null, parseDate(followUpAt), propertySubtype || null,
       ]
     );
     if (assignedTo !== req.user.id) {
@@ -174,6 +177,13 @@ router.patch(
     if (!isValidPropertyType(req.body.propertyType)) {
       return res.status(400).json({ error: 'Unknown property type' });
     }
+    /* Checked against the type the lead will have after this edit. An empty
+       string clears the sub-type (it is written, unlike null). */
+    const nextType = req.body.propertyType ?? existing.property_type;
+    const nextSub = req.body.propertySubtype ?? existing.property_subtype;
+    if (!isValidSubtype(nextType, nextSub)) {
+      return res.status(400).json({ error: 'That sub-type does not belong to this property type' });
+    }
 
     /* Reassignment is a Founder/Core-only field. */
     const wantsReassign = req.body.assignedTo && req.body.assignedTo !== existing.assigned_to;
@@ -208,6 +218,7 @@ router.patch(
          notes = COALESCE($14, notes),
          source_media_id = COALESCE($15, source_media_id),
          follow_up_at = CASE WHEN $16::boolean THEN $17::timestamptz ELSE follow_up_at END,
+         property_subtype = NULLIF(COALESCE($18, property_subtype), ''),
          last_interaction_at = now()
        WHERE id = $1 RETURNING *`,
       [
@@ -217,6 +228,7 @@ router.patch(
         req.body.propertyType ?? null, req.body.configuration ?? null,
         req.body.preferredArea ?? null, req.body.timeline ?? null, req.body.notes ?? null,
         req.body.sourceMediaId || null, setsFollowUp, parseDate(req.body.followUpAt),
+        req.body.propertySubtype ?? null,
       ]
     );
 
@@ -243,8 +255,15 @@ router.delete(
   leadModule,
   requirePermission('leads:assign'),
   asyncHandler(async (req, res) => {
-    await query('DELETE FROM leads WHERE id = $1', [req.params.id]);
-    await recordAudit(`Lead ${req.params.id} deleted`, req.user.id, 'lead', req.params.id);
+    /* Deleting a client takes their history with it (site visits cascade),
+       so it is the Founder's decision alone — Core can reassign or drop a
+       lead, not erase it. */
+    if (req.user.role !== 'founder') {
+      return res.status(403).json({ error: 'Only a Founder can delete a client' });
+    }
+    const lead = await one('DELETE FROM leads WHERE id = $1 RETURNING id, name', [req.params.id]);
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    await recordAudit(`Lead ${lead.name} deleted`, req.user.id, 'lead', lead.id);
     res.json({ ok: true });
   })
 );

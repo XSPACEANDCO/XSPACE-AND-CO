@@ -207,3 +207,24 @@
   outline: none;
   border-color: var(--accent);
 }
+
+/* Founder-only: remove a client from the CRM. */
+.page-clients .delete-btn {
+  background: transparent;
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-theme='light'] .page-clients .delete-btn {
+  color: #b91c1c;
+}
+.page-clients .delete-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

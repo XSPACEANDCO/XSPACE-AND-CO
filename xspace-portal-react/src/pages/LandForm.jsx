@@ -1,5 +1,5 @@
 import FileField from '../components/FileField';
-import { APPROVALS, Field, NEGOTIATION, TITLE_STATUS } from './ListingForm';
+import { APPROVALS, Field, NEGOTIATION, PropertyTypeFields, TITLE_STATUS } from './ListingForm';
 
 /* The listing sheet for land.
 
@@ -10,8 +10,9 @@ import { APPROVALS, Field, NEGOTIATION, TITLE_STATUS } from './ListingForm';
    None of the flat's fields — carpet area, UDS, facing, possession — mean
    anything here, so land gets its own form rather than half of that one.
 
-   Same state shape as ListingForm (EMPTY_LAND), so Listings and ListingView
-   save it through the same endpoints. */
+   Same state shape as ListingForm, so Listings and ListingView save it
+   through the same endpoints — and the property-type picker at the top is the
+   same one, so changing it away from Land switches back to that form. */
 
 export const LAND_KINDS = [
   'Agricultural land',
@@ -49,9 +50,9 @@ function Select({ value, onChange, options }) {
 export default function LandForm({ value, onChange }) {
   const set = (key) => (e) => {
     const next = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    onChange((f) => ({ ...f, [key]: next, propertyType: 'land' }));
+    onChange((f) => ({ ...f, [key]: next }));
   };
-  const setUrl = (key) => (url) => onChange((f) => ({ ...f, [key]: url, propertyType: 'land' }));
+  const setUrl = (key) => (url) => onChange((f) => ({ ...f, [key]: url }));
 
   return (
     <div className="listing-form">
@@ -61,6 +62,7 @@ export default function LandForm({ value, onChange }) {
           <Field label="Listing title">
             <input value={value.title} onChange={set('title')} placeholder="e.g. 4 acres – Shankarpally" required />
           </Field>
+          <PropertyTypeFields value={value} onChange={onChange} />
           <Field label="Land type">
             <Select value={value.landKind} onChange={set('landKind')} options={LAND_KINDS} />
           </Field>
