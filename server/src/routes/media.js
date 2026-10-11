@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { many, one } from '../db.js';
 import { asyncHandler, requireAuth, requireModule, requirePermission } from '../middleware.js';
-import { seesEverything } from '../rbac.js';
-import { newId, notify, recordAudit } from '../helpers.js';
+import { canDo, seesEverything } from '../rbac.js';
+import { newId, notify, recordAudit, safeUrl } from '../helpers.js';
 
 const router = Router();
 
@@ -14,9 +14,12 @@ const router = Router();
 
    The states run:
 
-     pending ─▶ in_progress ─▶ delivered ─▶ approved
-                    ▲              │
-                    └── changes_requested (with notes)
+     pending ─▶ in_progress ─▶ qc ─▶ delivered ─▶ approved
+                    ▲                     │
+                    └──── changes_requested (with notes)
+
+   "qc" is Studio checking its own cut before handing it over. It is optional:
+   an editor can deliver straight from in_progress.
 
    "delivered" means the editor has re-uploaded a finished cut and it is
    waiting on review — not that it has shipped. Only `approved` is final,
@@ -40,22 +43,51 @@ const MEDIA_SELECT = `
     LEFT JOIN users rv ON rv.id = m.reviewed_by
     LEFT JOIN projects p ON p.id = m.project_id`;
 
-/* Upload: creator, realtor or studio. */
+const PRIORITIES = ['high', 'normal'];
+const BLOCKERS = ['raw_media', 'property_info', 'creator_feedback'];
+
+/* A due date arrives as whatever the form sent; anything unparseable is
+   treated as "not given" rather than stored as garbage. */
+function parseDue(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/* Upload: creator, realtor or studio.
+
+   The file is optional. Without one this is a production request — "make a
+   reel of this project by Friday" — and it waits on raw media until somebody
+   attaches the footage (PATCH /:id/meta). */
 router.post(
   '/',
   requireModule('mediaUpload'),
   requirePermission('media:upload'),
   asyncHandler(async (req, res) => {
-    const { title, kind, url, projectId, note } = req.body || {};
+    const { title, kind, url, projectId, note, dueAt, priority } = req.body || {};
     if (!title) return res.status(400).json({ error: 'title is required' });
+    if (priority && !PRIORITIES.includes(priority)) {
+      return res.status(400).json({ error: `priority must be one of ${PRIORITIES.join(', ')}` });
+    }
+    if (safeUrl(url) === undefined) {
+      return res.status(400).json({ error: 'The link must start with http:// or https://' });
+    }
 
     const id = newId('m');
     const media = await one(
-      `INSERT INTO media (id, title, kind, url, project_id, uploaded_by, note)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [id, title, kind || 'reel', url || null, projectId || null, req.user.id, note || null]
+      `INSERT INTO media (id, title, kind, url, project_id, uploaded_by, note, due_at, priority, blocked_on)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [
+        id, title, kind || 'reel', url || null, projectId || null, req.user.id, note || null,
+        parseDue(dueAt), priority || 'normal', url ? null : 'raw_media',
+      ]
     );
-    await notify({ role: 'studio', type: 'media', title: `New raw media: ${title}`, body: note });
+    await notify({
+      role: 'studio',
+      type: 'media',
+      title: url ? `New raw media: ${title}` : `New production request: ${title}`,
+      body: note,
+    });
     await recordAudit(`Media ${title} uploaded`, req.user.id, 'media', id);
     res.status(201).json({ media });
   })
@@ -88,9 +120,10 @@ router.get(
   asyncHandler(async (req, res) => {
     const rows = await many(
       `${MEDIA_SELECT}
-        WHERE m.status IN ('pending','in_progress','changes_requested')
+        WHERE m.status IN ('pending','in_progress','qc','changes_requested')
         ORDER BY
-          CASE m.status WHEN 'changes_requested' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,
+          CASE m.status WHEN 'changes_requested' THEN 0 WHEN 'in_progress' THEN 1
+                        WHEN 'qc' THEN 1 ELSE 2 END,
           m.created_at ASC`
     );
     res.json({ media: rows, canReview: seesEverything(req.user.role) });
@@ -115,17 +148,35 @@ router.get(
   })
 );
 
-/* Everything still queued for the signed-in studio partner. */
+/* The whole board, every state — what the Studio dashboard counts its
+   pipeline from. Same audience as the raw inbox, so the same gate. */
+router.get(
+  '/board',
+  requireModule('rawMedia'),
+  asyncHandler(async (req, res) => {
+    const rows = await many(
+      `${MEDIA_SELECT}
+        ORDER BY m.created_at DESC
+        LIMIT 500`
+    );
+    res.json({ media: rows });
+  })
+);
+
+/* Everything still queued for the signed-in studio partner: their own work
+   plus whatever nobody has picked up yet. Due first, then high priority,
+   then oldest — the order it should be worked in. */
 router.get(
   '/pending',
   requireModule('pendingWorks'),
   asyncHandler(async (req, res) => {
     const rows = await many(
-      `SELECT m.*, p.name AS project_name
-         FROM media m LEFT JOIN projects p ON p.id = m.project_id
-        WHERE m.status IN ('pending','in_progress','changes_requested')
+      `${MEDIA_SELECT}
+        WHERE m.status IN ('pending','in_progress','qc','changes_requested')
           AND (m.claimed_by = $1 OR m.claimed_by IS NULL)
-        ORDER BY m.created_at ASC`,
+        ORDER BY m.due_at ASC NULLS LAST,
+                 CASE m.priority WHEN 'high' THEN 0 ELSE 1 END,
+                 m.created_at ASC`,
       [req.user.id]
     );
     res.json({ media: rows });
@@ -137,29 +188,121 @@ router.patch(
   requirePermission('media:process'),
   asyncHandler(async (req, res) => {
     const { status } = req.body || {};
-    const allowed = ['pending', 'in_progress', 'delivered', 'rejected'];
-    if (!allowed.includes(status)) {
-      return res.status(400).json({ error: `status must be one of ${allowed.join(', ')}` });
+
+    /* The moves Studio can make from this button. Handing a cut over for
+       approval is not one of them — that is /deliver, which requires the
+       edited file — and nothing moves an approved cut: approval is final. It
+       used to accept any status from any status, so an approved reel could
+       be knocked back to "pending", or "delivered" set with no cut attached. */
+    const NEXT = {
+      pending: ['in_progress', 'rejected'],
+      in_progress: ['qc', 'pending', 'rejected'],
+      qc: ['in_progress', 'rejected'],
+      changes_requested: ['in_progress', 'rejected'],
+      delivered: [],
+      approved: [],
+      rejected: [],
+    };
+    const existing = await one('SELECT * FROM media WHERE id = $1', [req.params.id]);
+    if (!existing) return res.status(404).json({ error: 'Media not found' });
+    if (!(NEXT[existing.status] || []).includes(status)) {
+      return res.status(409).json({
+        error: `Cannot move this item from ${existing.status.replace('_', ' ')} to ${String(status).replace('_', ' ')}`,
+      });
+    }
+    /* Rejecting outright is a Founder/Core decision, not an editor's. */
+    if (status === 'rejected' && !seesEverything(req.user.role)) {
+      return res.status(403).json({ error: 'Only Founder or Core can reject an item' });
     }
 
     const media = await one(
       `UPDATE media SET status=$2,
-              claimed_by = CASE WHEN $2 = 'in_progress' THEN $3 ELSE claimed_by END,
-              delivered_at = CASE WHEN $2 = 'delivered' THEN now() ELSE delivered_at END
+              claimed_by = CASE WHEN $2 = 'in_progress' THEN $3
+                                WHEN $2 = 'pending' THEN NULL ELSE claimed_by END
         WHERE id=$1 RETURNING *`,
       [req.params.id, status, req.user.id]
     );
-    if (!media) return res.status(404).json({ error: 'Media not found' });
 
     /* Close the loop for whoever uploaded it. */
     if (media.uploaded_by) {
       await notify({
         userId: media.uploaded_by,
         type: 'media',
-        title: `"${media.title}" is now ${status.replace('_', ' ')}`,
+        title: `"${media.title}" is now ${status === 'qc' ? 'in Studio QC' : status.replace('_', ' ')}`,
       });
     }
     await recordAudit(`Media ${media.title} -> ${status}`, req.user.id, 'media', media.id);
+    res.json({ media });
+  })
+);
+
+/* ---------- Scheduling and bookkeeping ----------
+
+   The fields around an item rather than its state: when it is due, how
+   urgent it is, what it is stuck on, the footage itself if it arrived after
+   the request, and how many people saw the published piece.
+
+   Studio, Founder and Core may set any of them. The uploader may attach
+   footage and record views on their own item, and nothing else — a creator
+   does not get to reprioritise Studio's queue. */
+router.patch(
+  '/:id/meta',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const existing = await one('SELECT * FROM media WHERE id = $1', [req.params.id]);
+    if (!existing) return res.status(404).json({ error: 'Media not found' });
+
+    const processes = canDo('media:process', req.user.role);
+    const owns = existing.uploaded_by === req.user.id;
+    if (!processes && !owns) return res.status(404).json({ error: 'Media not found' });
+
+    const body = req.body || {};
+    const studioOnly = ['dueAt', 'priority', 'blockedOn'].filter((k) => k in body);
+    if (!processes && studioOnly.length) {
+      return res.status(403).json({ error: 'Only Studio, Founder or Core can change scheduling' });
+    }
+    if (body.url && !safeUrl(body.url)) {
+      return res.status(400).json({ error: 'The link must start with http:// or https://' });
+    }
+    if (body.priority && !PRIORITIES.includes(body.priority)) {
+      return res.status(400).json({ error: `priority must be one of ${PRIORITIES.join(', ')}` });
+    }
+    if (body.blockedOn && !BLOCKERS.includes(body.blockedOn)) {
+      return res.status(400).json({ error: `blockedOn must be one of ${BLOCKERS.join(', ')}` });
+    }
+    let views = null;
+    if ('views' in body && body.views !== '' && body.views !== null) {
+      views = Number.parseInt(body.views, 10);
+      if (!Number.isFinite(views) || views < 0) {
+        return res.status(400).json({ error: 'views must be a whole number' });
+      }
+    }
+
+    /* Each field is only written when it was sent, so a request that sets
+       the due date does not wipe the blocker. '' clears a field. */
+    const sets = [];
+    const params = [req.params.id];
+    const put = (col, value) => {
+      params.push(value);
+      sets.push(`${col} = $${params.length}`);
+    };
+    if ('dueAt' in body) put('due_at', parseDue(body.dueAt));
+    if ('priority' in body) put('priority', body.priority || 'normal');
+    if ('blockedOn' in body) put('blocked_on', body.blockedOn || null);
+    if ('views' in body) put('views', views);
+    if (body.url) {
+      put('url', String(body.url).trim());
+      /* The footage was the thing it was waiting for. */
+      if (existing.blocked_on === 'raw_media' && !('blockedOn' in body)) put('blocked_on', null);
+    }
+    if (!sets.length) return res.json({ media: existing });
+
+    const media = await one(`UPDATE media SET ${sets.join(', ')} WHERE id = $1 RETURNING *`, params);
+
+    if (body.url && !existing.url) {
+      await notify({ role: 'studio', type: 'media', title: `Raw media attached: ${media.title}` });
+    }
+    await recordAudit(`Media ${media.title} details updated`, req.user.id, 'media', media.id);
     res.json({ media });
   })
 );
@@ -176,11 +319,14 @@ router.post(
     if (!editedUrl) {
       return res.status(400).json({ error: 'Upload the edited file, or paste a link to it' });
     }
+    if (!safeUrl(editedUrl)) {
+      return res.status(400).json({ error: 'The link must start with http:// or https://' });
+    }
 
     const existing = await one('SELECT * FROM media WHERE id = $1', [req.params.id]);
     if (!existing) return res.status(404).json({ error: 'Media not found' });
-    if (existing.status === 'approved') {
-      return res.status(409).json({ error: 'That cut has already been approved' });
+    if (existing.status === 'approved' || existing.status === 'rejected') {
+      return res.status(409).json({ error: `That item has already been ${existing.status}` });
     }
 
     const media = await one(

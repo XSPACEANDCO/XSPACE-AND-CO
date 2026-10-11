@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import api from '../../lib/api';
-import { canAccess, normalizeRole } from '../../lib/roleConfig';
+import { canAccess, normalizeRole, seesEverything } from '../../lib/roleConfig';
 
 /* Everything the portal shows, read from the API.
 
@@ -28,6 +28,7 @@ const EMPTY = {
   verifications: [],
   audit: [],
   media: [],
+  earnings: null,
   /* Kept so the panels ported from the original keep rendering; the
      server has no equivalent yet. */
   leadsContributed: [],
@@ -86,13 +87,18 @@ export function DashboardProvider({ children }) {
       ['activity', () => api.dashboard.activity(), true],
       ['notifications', () => api.dashboard.notifications(), true],
       ['leads', () => api.leads.list(), may('crm')],
-      ['listings', () => api.listings.list(), may('listings')],
+      /* The whole book, not just the verification queue — a realtor's "My
+         Listings" includes the ones already verified. */
+      ['listings', () => api.listings.list({ include: 'all' }), may('listings')],
       ['projects', () => api.projects.list(), may('projects')],
       ['visits', () => api.visits.list(), may('visits')],
       ['verifications', () => api.verifications.list(), may('verifications')],
       ['audit', () => api.dashboard.audit(), role === 'founder'],
       ['team', () => api.users.team(), may('team')],
-      ['media', () => (may('rawMedia') ? api.media.raw() : api.media.mine()), true],
+      /* Studio, Founder and Core get every state (the Studio pipeline counts
+         approved and awaiting-review work too); everyone else their own. */
+      ['media', () => (may('rawMedia') ? api.media.board() : api.media.mine()), true],
+      ['earnings', () => api.dashboard.earnings(), may('earnings') && !seesEverything(role)],
     ];
 
     const active = wanted.filter(([, , allowed]) => allowed);
@@ -107,6 +113,7 @@ export function DashboardProvider({ children }) {
       if (key === 'snapshot') setCards(payload.cards || []);
       else if (key === 'funnel') setFunnel(payload);
       else if (key === 'team') next.users = payload.team || [];
+      else if (key === 'earnings') next.earnings = payload.earnings || null;
       else next[key] = payload[key] || [];
     });
 

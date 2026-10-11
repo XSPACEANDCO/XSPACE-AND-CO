@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { copyText } from '../lib/clipboard';
 import PortalLayout from './dashboard/PortalLayout';
 import api from '../lib/api';
 import { ROLES, creatableRoles, roleLabel } from '../lib/roleConfig';
@@ -222,17 +223,16 @@ export default function Teams() {
      into a login box. People did the latter and got "Invalid username or
      password" back, with no way to tell why. "Copy all" below still produces
      the block for handing over. */
-  function copyText(userId, text, kind) {
-    navigator.clipboard?.writeText(text).then(
-      () => setCopied(`${userId}:${kind}`),
-      () => setCopied('')
-    );
+  async function copyFor(userId, text, kind) {
+    const ok = await copyText(text);
+    setCopied(ok ? `${userId}:${kind}` : '');
+    if (!ok) setError('Could not copy — press and hold the password to copy it by hand');
   }
 
-  const copyPassword = (u) => copyText(u.id, String(revealed[u.id] || '').trim(), 'pw');
+  const copyPassword = (u) => copyFor(u.id, String(revealed[u.id] || '').trim(), 'pw');
 
   const copyLogin = (u) =>
-    copyText(
+    copyFor(
       u.id,
       `Xspace & Co. Portal\nUsername: ${u.username}\nPassword: ${String(revealed[u.id] || '').trim()}`,
       'all'

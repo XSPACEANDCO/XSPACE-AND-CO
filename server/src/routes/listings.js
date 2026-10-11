@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { many, one } from '../db.js';
 import { asyncHandler, requireModule, requirePermission } from '../middleware.js';
 import { seesEverything } from '../rbac.js';
-import { newId, notify, recordActivity, recordAudit } from '../helpers.js';
+import { newId, notify, publishVerifiedListing, recordActivity, recordAudit, safeUrl } from '../helpers.js';
 import { isValidPropertyType } from '../leadStatus.js';
 
 const router = Router();
@@ -49,7 +49,34 @@ const FIELDS = [
   ['priceSheetUrl', 'price_sheet_url'],
   ['highDemand', 'high_demand'],
   ['notes', 'notes'],
+  /* Land — used instead of the unit fields when property_type is 'land' */
+  ['landKind', 'land_kind'],
+  ['extent', 'extent'],
+  ['priceBasis', 'price_basis'],
+  ['village', 'village'],
+  ['mandal', 'mandal'],
+  ['district', 'district'],
+  ['zoning', 'zoning'],
+  ['conversion', 'conversion'],
+  ['roadAccess', 'road_access'],
+  ['frontage', 'frontage'],
+  ['boundaries', 'boundaries'],
+  ['utilities', 'utilities'],
+  ['landmarks', 'landmarks'],
+  ['pattadar', 'pattadar'],
+  ['passbook', 'passbook'],
+  ['ecStatus', 'ec_status'],
+  ['litigation', 'litigation'],
+  ['layoutPlanUrl', 'layout_plan_url'],
 ];
+
+/* Fields rendered as links. They must be web links or the portal's own
+   uploads — see safeUrl in helpers.js. */
+const URL_FIELDS = new Set(['videoLink', 'brochureUrl', 'floorPlanUrl', 'priceSheetUrl', 'layoutPlanUrl']);
+
+function badUrlField(body) {
+  return [...URL_FIELDS].find((k) => k in body && safeUrl(body[k]) === undefined);
+}
 
 /* Blank strings from an untouched form field are stored as NULL rather than
    as '', so "not filled in" reads the same everywhere. */
@@ -116,9 +143,14 @@ router.get(
     );
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
 
-    const media = await many('SELECT * FROM media WHERE project_id = $1 ORDER BY created_at DESC', [
-      listing.project_id,
-    ]);
+    /* Finished, approved media only for a partner — other partners' raw
+       uploads for the same project are not theirs to see. */
+    const media = await many(
+      `SELECT * FROM media WHERE project_id = $1
+          AND ($2::boolean IS TRUE OR status = 'approved')
+        ORDER BY created_at DESC`,
+      [listing.project_id, seesEverything(req.user.role)]
+    );
     res.json({ listing, media });
   })
 );
@@ -133,6 +165,9 @@ router.post(
 
     if (!isValidPropertyType(clean(body.propertyType) || undefined)) {
       return res.status(400).json({ error: 'Unknown property type' });
+    }
+    if (badUrlField(body)) {
+      return res.status(400).json({ error: 'Document and video links must start with http:// or https://' });
     }
 
     /* Build the insert from whichever fields were actually supplied, so a
@@ -184,6 +219,9 @@ router.patch(
     if (!isValidPropertyType(clean(body.propertyType) || undefined)) {
       return res.status(400).json({ error: 'Unknown property type' });
     }
+    if (badUrlField(body)) {
+      return res.status(400).json({ error: 'Document and video links must start with http:// or https://' });
+    }
 
     /* Only the fields actually present in the request are touched. A field
        sent as "" is cleared; one left out keeps its value. COALESCE could not
@@ -214,57 +252,33 @@ router.post(
   '/:id/verify',
   requirePermission('listings:verify'),
   asyncHandler(async (req, res) => {
-    let listing = await one(
-      `UPDATE listings SET verified = TRUE, verified_at = now(), verified_by = $2
-        WHERE id = $1 RETURNING *`,
-      [req.params.id, req.user.id]
-    );
+    const listing = await publishVerifiedListing(req.params.id, req.user.id);
+    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+    res.json({ listing });
+  })
+);
+
+/* Delete a listing outright.
+
+   Founder and Core can delete anything; a realtor only what scopeClause
+   lets them see, i.e. their own. Its photos and verification row go with it
+   (ON DELETE CASCADE); leads and visits that pointed at it keep their history
+   and simply lose the link (ON DELETE SET NULL). */
+router.delete(
+  '/:id',
+  requirePermission('listings:write'),
+  asyncHandler(async (req, res) => {
+    const { where, params } = scopeClause(req.user, 2);
+    const listing = await one(`SELECT l.id, l.title FROM listings l WHERE l.id = $1 ${where}`, [
+      req.params.id,
+      ...params,
+    ]);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
 
-    /* Verified inventory is what the Projects page is for, so verifying is
-       also what puts it there. A listing submitted against an existing project
-       just joins it; a standalone one gets a project of its own, carrying over
-       the details Core just checked. */
-    if (!listing.project_id) {
-      const project = await one(
-        `INSERT INTO projects (id, name, builder, rera, status, units, possession, brochure_url)
-         VALUES ($1,$2,$3,$4,'Verified',1,$5,$6) RETURNING *`,
-        [
-          newId('p'),
-          listing.title,
-          listing.builder || null,
-          listing.rera_number || null,
-          listing.possession || null,
-          listing.brochure_url || null,
-        ]
-      );
-      listing = await one('UPDATE listings SET project_id = $2 WHERE id = $1 RETURNING *', [
-        listing.id,
-        project.id,
-      ]);
-      await recordAudit(
-        `Project ${project.name} created from verified listing`,
-        req.user.id,
-        'project',
-        project.id
-      );
-    }
-
-    await one(
-      `UPDATE verifications SET status='verified', finished_at=now(),
-              started_at = COALESCE(started_at, now()), assigned_to=$2
-        WHERE listing_id=$1 AND status <> 'verified' RETURNING id`,
-      [req.params.id, req.user.id]
-    );
-    await recordAudit(`Listing ${listing.title} verified`, req.user.id, 'listing', listing.id);
-    if (listing.submitted_by) {
-      await notify({
-        userId: listing.submitted_by,
-        type: 'verification',
-        title: `Your listing "${listing.title}" was verified`,
-      });
-    }
-    res.json({ listing });
+    await one('DELETE FROM listings WHERE id = $1 RETURNING id', [listing.id]);
+    await recordActivity(`${req.user.name} deleted listing ${listing.title}`, req.user.id);
+    await recordAudit(`Listing ${listing.title} deleted`, req.user.id, 'listing', listing.id);
+    res.json({ deleted: true, id: listing.id });
   })
 );
 

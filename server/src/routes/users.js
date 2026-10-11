@@ -5,7 +5,7 @@ import { asyncHandler, requireModule, requirePermission } from '../middleware.js
 import { hashPassword } from '../auth.js';
 import { config } from '../config.js';
 import { canAdminister, canCreateRole, isInternal, INTERNAL_ROLES, ROLES } from '../rbac.js';
-import { newId, recordAudit } from '../helpers.js';
+import { newId, notify, recordAudit, safeUrl } from '../helpers.js';
 import { publicUser } from './auth.js';
 
 const router = Router();
@@ -42,19 +42,19 @@ for (const role of ['creator', 'realtor', 'studio']) {
                   ELSE 'offline'
                 END AS presence, u.last_seen_at, u.active,
                 u.areas, u.platform, u.handle, u.skill, u.kyc_status, u.created_at,
-                COUNT(DISTINCT l.id)::int AS lead_count,
-                COUNT(DISTINCT li.id)::int AS listing_count,
-                COUNT(DISTINCT m.id)::int AS media_count,
-                COALESCE(SUM(c.amount) FILTER (WHERE c.status <> 'paid'), 0) AS commission_pending
+                /* One subquery per table. Joining all four and grouping
+                   multiplied every row by every other — a partner with 3
+                   leads and 2 listings showed their commission 6 times. */
+                (SELECT COUNT(*) FROM leads l
+                  WHERE l.assigned_to = u.id OR l.created_by = u.id)::int AS lead_count,
+                (SELECT COUNT(*) FROM listings li WHERE li.submitted_by = u.id)::int AS listing_count,
+                (SELECT COUNT(*) FROM media m WHERE m.uploaded_by = u.id)::int AS media_count,
+                (SELECT COALESCE(SUM(c.amount), 0) FROM commissions c
+                  WHERE c.user_id = u.id AND c.status <> 'paid') AS commission_pending
            FROM users u
-           LEFT JOIN leads l ON l.assigned_to = u.id OR l.created_by = u.id
-           LEFT JOIN listings li ON li.submitted_by = u.id
-           LEFT JOIN media m ON m.uploaded_by = u.id
-           LEFT JOIN commissions c ON c.user_id = u.id
           WHERE u.role = $1
             AND ($2 = 'all' OR ($2 = 'active') = u.active)
             AND ($3 = '' OR u.name ILIKE '%' || $3 || '%' OR u.email ILIKE '%' || $3 || '%')
-          GROUP BY u.id
           ORDER BY u.name
           LIMIT $4 OFFSET $5`,
         [role, status, q, limit, offset]
@@ -103,30 +103,91 @@ router.get(
   })
 );
 
+/* Every partner's numbers side by side, for Founder and Core.
+
+   Each figure is the same thing that partner's own dashboard counts, so the
+   Founder sees what the partner sees — computed here in SQL rather than by
+   loading every partner's records into the browser. One correlated subquery
+   per figure: joining leads, visits, media and commissions together and
+   grouping would multiply each count by the others.
+
+   Qualified = a lead that has reached "Listings Presented" or later and was
+   not dropped (src/leadStatus.js). */
 router.get(
   '/partner-dashboards',
   requireModule('partnerDashboards'),
   asyncHandler(async (req, res) => {
-    const { limit, offset, page } = pagination(req);
+    const qualified = ['Listings Presented', 'Visit Scheduled', 'Visit Completed', 'Negotiation', 'Token/EOI', 'Closed'];
     const rows = await many(
-      `SELECT u.id, u.name, u.role, u.active,
-              COUNT(DISTINCT l.id)::int AS leads,
-              COUNT(DISTINCT l.id) FILTER (WHERE l.status = 'Closed')::int AS conversions,
-              COUNT(DISTINCT v.id) FILTER (WHERE v.status = 'Completed')::int AS visits_completed,
-              COUNT(DISTINCT m.id)::int AS media_uploaded,
-              COALESCE(SUM(c.amount) FILTER (WHERE c.status = 'paid'), 0) AS commission_paid
+      `SELECT u.id, u.name, u.role, u.active, u.areas, u.platform, u.handle, u.skill,
+              u.kyc_status, u.kyc_submitted_at, u.rules_ack_at, u.last_seen_at, u.created_at,
+              CASE
+                WHEN u.last_seen_at IS NULL THEN 'offline'
+                WHEN u.last_seen_at > now() - interval '2 minutes' THEN 'online'
+                WHEN u.last_seen_at > now() - interval '15 minutes' THEN 'away'
+                ELSE 'offline'
+              END AS presence,
+
+              /* Leads — realtors own them, creators source them. */
+              (SELECT COUNT(*) FROM leads l
+                WHERE l.assigned_to = u.id OR l.created_by = u.id)::int AS leads,
+              (SELECT COUNT(*) FROM leads l
+                WHERE (l.assigned_to = u.id OR l.created_by = u.id)
+                  AND l.status = ANY($2))::int AS qualified,
+              (SELECT COUNT(*) FROM leads l
+                WHERE (l.assigned_to = u.id OR l.created_by = u.id)
+                  AND l.status = 'Closed')::int AS deals,
+              (SELECT COUNT(*) FROM leads l
+                WHERE l.assigned_to = u.id AND l.status NOT IN ('Closed','Dropped')
+                  AND l.follow_up_at < date_trunc('day', now()))::int AS followups_overdue,
+              (SELECT COUNT(*) FROM leads l
+                WHERE l.created_by = u.id AND l.source_media_id IS NOT NULL)::int AS leads_from_content,
+
+              /* Realtor field work. */
+              (SELECT COUNT(*) FROM visits v
+                WHERE v.assigned_to = u.id AND v.status = 'Completed')::int AS visits_completed,
+              (SELECT COUNT(*) FROM visits v
+                WHERE v.assigned_to = u.id AND v.status IN ('Scheduled','Rescheduled')
+                  AND v.scheduled_at >= date_trunc('day', now()))::int AS visits_upcoming,
+              (SELECT COUNT(*) FROM listings li WHERE li.submitted_by = u.id)::int AS listings,
+              (SELECT COUNT(*) FROM listings li
+                WHERE li.submitted_by = u.id AND li.verified)::int AS listings_verified,
+              (SELECT COUNT(*) FROM area_updates au
+                WHERE au.user_id = u.id AND au.created_at > now() - interval '30 days')::int AS area_updates_30d,
+
+              /* Creator content. */
+              (SELECT COUNT(*) FROM media m WHERE m.uploaded_by = u.id)::int AS content_submitted,
+              (SELECT COUNT(*) FROM media m
+                WHERE m.uploaded_by = u.id AND m.status = 'approved')::int AS content_published,
+              (SELECT COALESCE(SUM(m.views), 0) FROM media m
+                WHERE m.uploaded_by = u.id AND m.status = 'approved')::bigint AS reach,
+
+              /* Studio production — work this editor has claimed. */
+              (SELECT COUNT(*) FROM media m
+                WHERE m.claimed_by = u.id AND m.status IN ('in_progress','qc'))::int AS in_production,
+              (SELECT COUNT(*) FROM media m
+                WHERE m.claimed_by = u.id AND m.status = 'delivered')::int AS awaiting_approval,
+              (SELECT COUNT(*) FROM media m
+                WHERE m.claimed_by = u.id AND m.status = 'changes_requested')::int AS revisions,
+              (SELECT COUNT(*) FROM media m
+                WHERE m.claimed_by = u.id AND m.status = 'approved'
+                  AND m.reviewed_at > now() - interval '30 days')::int AS approved_30d,
+              (SELECT COUNT(*) FROM media m
+                WHERE m.claimed_by = u.id
+                  AND m.status IN ('pending','in_progress','qc','changes_requested')
+                  AND m.due_at < now())::int AS overdue,
+
+              (SELECT COALESCE(SUM(c.amount), 0) FROM commissions c
+                WHERE c.user_id = u.id AND c.status <> 'paid')::float AS commission_due,
+              (SELECT COALESCE(SUM(c.amount), 0) FROM commissions c
+                WHERE c.user_id = u.id AND c.status = 'paid')::float AS commission_paid
          FROM users u
-         LEFT JOIN leads l ON l.assigned_to = u.id OR l.created_by = u.id
-         LEFT JOIN visits v ON v.assigned_to = u.id
-         LEFT JOIN media m ON m.uploaded_by = u.id
-         LEFT JOIN commissions c ON c.user_id = u.id
         WHERE u.role <> ALL($1)
-        GROUP BY u.id
         ORDER BY u.role, u.name
-        LIMIT $2 OFFSET $3`,
-      [INTERNAL_ROLES, limit, offset]
+        LIMIT 500`,
+      [INTERNAL_ROLES, qualified]
     );
-    res.json({ dashboards: rows, page, limit });
+    res.json({ dashboards: rows });
   })
 );
 
@@ -153,6 +214,11 @@ router.get(
 router.patch(
   '/me/profile',
   asyncHandler(async (req, res) => {
+    if ('name' in (req.body || {}) && !String(req.body.name || '').trim()) {
+      return res.status(400).json({ error: 'Name cannot be empty' });
+    }
+    /* Presence is derived from activity (requireAuth), never set by hand. */
+    if (req.body) delete req.body.presence;
     const user = await one(
       `UPDATE users SET
          name = COALESCE($2, name), phone = COALESCE($3, phone),
@@ -166,6 +232,160 @@ router.patch(
         req.body.skill ?? null,
       ]
     );
+    res.json({ user: publicUser(user) });
+  })
+);
+
+/* ---------------------------------------------------------------------------
+   KYC.
+
+   A partner submits identity and payout details; Founder or Core verify or
+   send it back with a reason. Submitting (or resubmitting) always returns the
+   account to 'pending', so changing a bank account after verification cannot
+   quietly inherit the old approval.
+   --------------------------------------------------------------------------- */
+const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const UPI_RE = /^[\w.-]+@[a-zA-Z]{2,}$/;
+
+function text(v) {
+  if (v === undefined || v === null) return null;
+  const t = String(v).trim();
+  return t === '' ? null : t;
+}
+
+router.post(
+  '/me/kyc',
+  asyncHandler(async (req, res) => {
+    if (isInternal(req.user.role)) {
+      return res.status(400).json({ error: 'KYC is for partner accounts' });
+    }
+    const b = req.body || {};
+    const pan = text(b.panNumber)?.toUpperCase() || null;
+    const aadhaar = text(b.aadhaarLast4);
+    const ifsc = text(b.bankIfsc)?.toUpperCase() || null;
+    const account = text(b.bankAccount)?.replace(/\s+/g, '') || null;
+    const upi = text(b.upiId);
+
+    const problems = [];
+    if (!pan || !PAN_RE.test(pan)) problems.push('a valid PAN (e.g. ABCDE1234F)');
+    if (!aadhaar || !/^\d{4}$/.test(aadhaar)) problems.push('the last 4 digits of Aadhaar');
+    if (!safeUrl(b.panDocUrl)) problems.push('a copy of the PAN card');
+    if (!safeUrl(b.aadhaarDocUrl)) problems.push('a copy of the Aadhaar card');
+    if (!text(b.address)) problems.push('your address');
+    /* Payouts need either a bank account or a UPI id — and a bank account
+       needs all of its parts. */
+    const hasBank = account || ifsc || text(b.bankHolder);
+    if (hasBank) {
+      if (!account || !/^\d{9,18}$/.test(account)) problems.push('a bank account number (9–18 digits)');
+      if (!ifsc || !IFSC_RE.test(ifsc)) problems.push('a valid IFSC (e.g. HDFC0001234)');
+      if (!text(b.bankHolder)) problems.push("the account holder's name");
+    }
+    if (upi && !UPI_RE.test(upi)) problems.push('a valid UPI id (e.g. name@okhdfc)');
+    if (!hasBank && !upi) problems.push('bank details or a UPI id for payouts');
+    if (problems.length) {
+      return res.status(400).json({ error: `Please provide ${problems.join(', ')}.` });
+    }
+
+    const user = await one(
+      `UPDATE users SET
+         pan_number = $2, aadhaar_last4 = $3, address = $4, rera_agent_no = $5,
+         pan_doc_url = $6, aadhaar_doc_url = $7,
+         bank_holder = $8, bank_account = $9, bank_ifsc = $10, bank_name = $11, upi_id = $12,
+         kyc_status = 'pending', kyc_submitted_at = now(), kyc_note = NULL,
+         kyc_reviewed_at = NULL, kyc_reviewed_by = NULL
+       WHERE id = $1 RETURNING *`,
+      [
+        req.user.id, pan, aadhaar, text(b.address), text(b.reraAgentNo),
+        text(b.panDocUrl), text(b.aadhaarDocUrl),
+        text(b.bankHolder), account, ifsc, text(b.bankName), upi,
+      ]
+    );
+
+    for (const role of INTERNAL_ROLES) {
+      await notify({ role, type: 'kyc', title: `KYC submitted by ${user.name}`, body: `${user.role} partner — review in Profile & KYC` });
+    }
+    await recordAudit(`KYC submitted by ${user.name}`, req.user.id, 'user', user.id);
+    res.json({ user: publicUser(user) });
+  })
+);
+
+/* Partners and their KYC, for Founder and Core to review. Submitted and
+   waiting first. */
+router.get(
+  '/kyc-queue',
+  requireModule('team'),
+  asyncHandler(async (req, res) => {
+    const rows = await many(
+      `SELECT u.id, u.name, u.email, u.phone, u.role, u.kyc_status, u.kyc_note,
+              u.kyc_submitted_at, u.kyc_reviewed_at, rv.name AS kyc_reviewed_by_name,
+              u.pan_number, u.aadhaar_last4, u.address, u.rera_agent_no,
+              u.pan_doc_url, u.aadhaar_doc_url,
+              u.bank_holder, u.bank_account, u.bank_ifsc, u.bank_name, u.upi_id,
+              u.rules_ack_at
+         FROM users u
+         LEFT JOIN users rv ON rv.id = u.kyc_reviewed_by
+        WHERE u.role = ANY($1) AND u.active
+        ORDER BY
+          CASE WHEN u.kyc_status = 'pending' AND u.kyc_submitted_at IS NOT NULL THEN 0
+               WHEN u.kyc_status = 'pending' THEN 2
+               ELSE 1 END,
+          u.kyc_submitted_at DESC NULLS LAST, u.name`,
+      [['realtor', 'creator', 'studio']]
+    );
+    res.json({ partners: rows });
+  })
+);
+
+router.post(
+  '/:id/kyc-review',
+  requirePermission('users:invite'),
+  asyncHandler(async (req, res) => {
+    const { decision } = req.body || {};
+    const note = text(req.body?.note);
+    if (!['verify', 'reject'].includes(decision)) {
+      return res.status(400).json({ error: "decision must be 'verify' or 'reject'" });
+    }
+    if (decision === 'reject' && !note) {
+      return res.status(400).json({ error: 'Say what needs fixing — the partner only sees this note' });
+    }
+
+    const target = await one('SELECT * FROM users WHERE id = $1', [req.params.id]);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (!canAdminister(req.user.role, target.role)) {
+      return res.status(403).json({ error: `Your role cannot review a ${target.role} account` });
+    }
+    if (!target.kyc_submitted_at) {
+      return res.status(409).json({ error: 'This partner has not submitted KYC yet' });
+    }
+
+    const user = await one(
+      `UPDATE users SET kyc_status = $2, kyc_note = $3, kyc_reviewed_at = now(), kyc_reviewed_by = $4
+        WHERE id = $1 RETURNING *`,
+      [target.id, decision === 'verify' ? 'verified' : 'rejected', note, req.user.id]
+    );
+    await notify({
+      userId: user.id,
+      type: 'kyc',
+      title: decision === 'verify' ? 'Your KYC is verified' : 'Your KYC needs changes',
+      body: note,
+    });
+    await recordAudit(
+      `KYC for ${user.name} ${decision === 'verify' ? 'verified' : 'sent back'}`,
+      req.user.id,
+      'user',
+      user.id
+    );
+    res.json({ user: publicUser(user) });
+  })
+);
+
+/* "I have read the rules for my role." */
+router.post(
+  '/me/rules-ack',
+  asyncHandler(async (req, res) => {
+    const user = await one('UPDATE users SET rules_ack_at = now() WHERE id = $1 RETURNING *', [req.user.id]);
+    await recordAudit(`${user.name} acknowledged the partner rules`, req.user.id, 'user', user.id);
     res.json({ user: publicUser(user) });
   })
 );
@@ -278,10 +498,12 @@ router.post(
     }
 
     const issued = chosen || generatePassword();
-    await one('UPDATE users SET password_hash = $2 WHERE id = $1 RETURNING id', [
-      target.id,
-      await hashPassword(issued),
-    ]);
+    /* token_version moves on, so anyone still signed in with the old
+       password is signed out on their next request. */
+    await one(
+      'UPDATE users SET password_hash = $2, token_version = token_version + 1 WHERE id = $1 RETURNING id',
+      [target.id, await hashPassword(issued)]
+    );
     await recordAudit(`Password reset for ${target.email}`, req.user.id, 'user', target.id);
     res.json({ password: issued, note: 'Shown once — only the hash is stored.' });
   })
@@ -293,6 +515,15 @@ router.patch(
   requirePermission('users:write'),
   asyncHandler(async (req, res) => {
     const { role, kycStatus, active } = req.body || {};
+    if (kycStatus !== undefined && !['pending', 'verified', 'rejected'].includes(kycStatus)) {
+      return res.status(400).json({ error: 'Unknown KYC status' });
+    }
+    if (active !== undefined && typeof active !== 'boolean') {
+      return res.status(400).json({ error: 'active must be true or false' });
+    }
+    if (role !== undefined && !ROLES.includes(role)) {
+      return res.status(400).json({ error: 'Unknown role' });
+    }
 
     if (req.params.id === req.user.id && active === false) {
       return res.status(400).json({ error: 'You cannot deactivate your own account' });

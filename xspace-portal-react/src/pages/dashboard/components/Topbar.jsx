@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { KEYS, removeRaw } from '../../../lib/storage';
 import api, { setToken } from '../../../lib/api';
 import { ROLES, normalizeRole, seesEverything } from '../../../lib/roleConfig';
@@ -14,8 +14,12 @@ export default function Topbar({
 }) {
   const { role, currentUser, notifications } = useDashboard();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const r = normalizeRole(role);
+  /* Partner dashboards open with their own "Welcome back, <name>" header, so
+     the top bar does not say it a second time there. */
+  const greetHere = seesEverything(r) || location.pathname !== '/dashboard';
 
   /* Global search is a Founder/Core tool — partners only ever see their own
      records, so there is nothing for them to search across. */
@@ -46,7 +50,7 @@ export default function Topbar({
         {/* The greeting is the first thing to go when space is tight — the
             role itself is the part worth keeping. */}
         <div className="welcome">
-          <span className="welcome-prefix">Welcome back, </span>
+          {greetHere && <span className="welcome-prefix">Welcome back, </span>}
           <strong>{ROLES[r]?.label || ''}</strong>
         </div>
         {showSearch && <GlobalSearch />}
@@ -66,9 +70,17 @@ export default function Topbar({
           <div className="mini-name">{currentUser ? currentUser.name : 'You'}</div>
         </div>
 
-        <button className="btn-ghost" title="Logout" onClick={logout}>
+        <button className="btn-ghost logout-btn" title="Logout" aria-label="Logout" onClick={logout}>
           <span className="btn-label">Logout</span>
-          <span className="btn-icon" aria-hidden="true">⏻</span>
+          {/* Drawn, not a ⏻ character: many Android fonts have no glyph for
+              it and showed an empty box. */}
+          <svg className="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
         </button>
       </div>
     </header>

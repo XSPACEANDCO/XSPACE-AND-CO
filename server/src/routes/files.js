@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { Router } from 'express';
 import { one } from '../db.js';
 import { asyncHandler } from '../middleware.js';
@@ -88,7 +88,9 @@ publicFileRouter.get(
     );
     /* Same answer for "no such file" and "wrong key", so the endpoint cannot
        be used to discover which ids exist. */
-    if (!file || file.access_key !== req.params.key) {
+    const given = Buffer.from(String(req.params.key));
+    const expected = Buffer.from(file ? file.access_key : '');
+    if (!file || given.length !== expected.length || !timingSafeEqual(given, expected)) {
       return res.status(404).json({ error: 'File not found' });
     }
 
@@ -98,9 +100,14 @@ publicFileRouter.get(
     /* The key never changes for a given file, so the bytes never change
        either — it is safe to cache hard. */
     res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+    /* A header value must be plain ASCII with no line breaks: a filename
+       like "ब्रोशर.pdf" or one carrying a newline used to throw here and turn
+       the download into a 500. The ASCII fallback keeps the name readable to
+       old clients; filename* carries the real one. */
+    const ascii = file.filename.replace(/[^\x20-\x7e]|["\\]/g, '_') || 'file';
     res.setHeader(
       'Content-Disposition',
-      `inline; filename="${file.filename.replace(/["\\]/g, '')}"`
+      `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(file.filename)}`
     );
     res.end(buffer);
   })

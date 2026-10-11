@@ -44,7 +44,6 @@ export const MODULES = {
     roles: [...INTERNAL, 'realtor', 'creator'],
     scope: { founder: 'all', core: 'all', realtor: 'own', creator: 'own' },
   },
-  leadUploads: { roles: ['creator'] },
 
   listings: { roles: ['founder', 'core', 'realtor'], scope: { founder: 'all', core: 'all', realtor: 'own' } },
   projects: {
@@ -59,6 +58,12 @@ export const MODULES = {
   mediaLibrary: { roles: ['studio', 'founder', 'core'] },
   pendingWorks: { roles: ['studio'] },
   quickTools: { roles: ['studio'] },
+
+  /* Creator partner's own content, schedule, results and payouts. */
+  myContent: { roles: ['creator'] },
+  contentCalendar: { roles: ['creator'] },
+  performance: { roles: ['creator'] },
+  earnings: { roles: ['creator'] },
 
   areaUpdates: { roles: ['realtor'] },
 

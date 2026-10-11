@@ -53,10 +53,12 @@ export const FUNNEL_BUCKETS = [
    is counted in bedrooms, land in acres and a shop in square feet — one
    dropdown cannot serve all three. */
 export const PROPERTY_TYPES = [
-  { key: 'apartment', label: 'Apartment', config: 'bhk' },
-  { key: 'gated', label: 'Gated Community', config: 'bhk' },
   { key: 'standalone', label: 'Standalone', config: 'bhk' },
   { key: 'villa', label: 'Villa', config: 'bhk' },
+  { key: 'independent_house', label: 'Independent House', config: 'bhk' },
+  { key: 'semi_gated', label: 'Semi-Gated Apartments', config: 'bhk' },
+  { key: 'gated', label: 'Gated Community Apartments', config: 'bhk' },
+  { key: 'gated_highrise', label: 'Gated Community High-Rise', config: 'bhk' },
   { key: 'land', label: 'Land', config: 'acres' },
   { key: 'commercial', label: 'Commercial', config: 'sft' },
 ];

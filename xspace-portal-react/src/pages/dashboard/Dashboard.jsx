@@ -2,8 +2,9 @@ import { canSee } from '../../lib/roleConfig';
 import PortalLayout from './PortalLayout';
 import { useDashboard } from './DashboardStore';
 
-import RealtorPanel from './components/RealtorPanel';
-import { CreatorPanel, StudioWorkPanel } from './components/PartnerPanels';
+import RealtorDashboard from './partner/RealtorDashboard';
+import CreatorDashboard from './partner/CreatorDashboard';
+import StudioDashboard from './partner/StudioDashboard';
 import {
   ActivityPanel, ApprovalsPanel, DailySnapshot, LeadsLegalPanel, VerificationPanel,
 } from './components/LeftPanels';
@@ -34,6 +35,12 @@ function DashboardBody() {
     );
   }
 
+  /* Each partner has a dashboard of their own, built around their job
+     rather than the company's KPI strip — see ./partner/. */
+  if (role === 'realtor') return <RealtorDashboard />;
+  if (role === 'creator') return <CreatorDashboard />;
+  if (role === 'studio') return <StudioDashboard />;
+
   return (
     <>
       <DailySnapshot cards={cards} />
@@ -43,11 +50,6 @@ function DashboardBody() {
         <div>
           {canSee('approvalsPanel', role) && <ApprovalsPanel />}
           {canSee('activityPanel', role) && <ActivityPanel />}
-
-          {/* role-specific working panel */}
-          {canSee('realtorPanel', role) && <RealtorPanel />}
-          {canSee('creatorPanel', role) && <CreatorPanel />}
-          {canSee('studioWorkPanel', role) && <StudioWorkPanel />}
 
           {canSee('verificationPanel', role) && <VerificationPanel />}
           {canSee('leadsLegalPanel', role) && <LeadsLegalPanel />}

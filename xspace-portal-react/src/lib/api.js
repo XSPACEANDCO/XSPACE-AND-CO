@@ -105,8 +105,13 @@ export const api = {
       await api.auth.goOffline();
       setToken(null);
     },
-    changePassword: (currentPassword, newPassword) =>
-      post('/auth/change-password', { currentPassword, newPassword }),
+    /* Changing the password signs out every other session; the server
+       hands this one a fresh token so it is not signed out with them. */
+    changePassword: async (currentPassword, newPassword) => {
+      const out = await post('/auth/change-password', { currentPassword, newPassword });
+      if (out?.token) setToken(out.token);
+      return out;
+    },
   },
 
   dashboard: {
@@ -116,8 +121,12 @@ export const api = {
     audit: () => get('/dashboard/audit'),
     notifications: () => get('/dashboard/notifications'),
     markRead: (id) => post(`/dashboard/notifications/${id}/read`),
+    earnings: () => get('/dashboard/earnings'),
     areaUpdates: () => get('/dashboard/area-updates'),
-    addAreaUpdate: (area, note) => post('/dashboard/area-updates', { area, note }),
+    /* { area, note, category, link } */
+    addAreaUpdate: (data) => post('/dashboard/area-updates', data),
+    removeAreaUpdate: (id) => del(`/dashboard/area-updates/${id}`),
+    markAllRead: () => post('/dashboard/notifications/read-all'),
   },
 
   leads: {
@@ -136,6 +145,7 @@ export const api = {
     create: (data) => post('/listings', data),
     update: (id, data) => patch(`/listings/${id}`, data),
     verify: (id) => post(`/listings/${id}/verify`),
+    remove: (id) => del(`/listings/${id}`),
     photos: (id) => get(`/listings/${id}/photos`),
     addPhoto: (id, dataUrl, caption) => post(`/listings/${id}/photos`, { dataUrl, caption }),
     removePhoto: (id, photoId) => del(`/listings/${id}/photos/${photoId}`),
@@ -170,6 +180,10 @@ export const api = {
     raw: () => get('/media/raw'),
     library: () => get('/media/library'),
     pending: () => get('/media/pending'),
+    /* Every state at once — the Studio dashboard's pipeline. */
+    board: () => get('/media/board'),
+    /* Due date, priority, blocker, late footage, views. */
+    updateMeta: (id, data) => patch(`/media/${id}/meta`, data),
     setStatus: (id, status) => patch(`/media/${id}/status`, { status }),
     /* Studio hands the finished cut back for review. */
     deliver: (id, editedUrl, note) => post(`/media/${id}/deliver`, { editedUrl, note }),
@@ -195,6 +209,11 @@ export const api = {
     partnerDashboards: () => get('/users/partner-dashboards'),
     profile: () => get('/users/me/profile'),
     updateProfile: (data) => patch('/users/me/profile', data),
+    /* Partner KYC: submit, and Founder/Core review. */
+    submitKyc: (data) => post('/users/me/kyc', data),
+    kycQueue: () => get('/users/kyc-queue'),
+    reviewKyc: (id, decision, note) => post(`/users/${id}/kyc-review`, { decision, note }),
+    ackRules: () => post('/users/me/rules-ack'),
     /* Creates the account and returns the password ONCE, for you to pass on. */
     create: (data) => post('/users', data),
     resetPassword: (id, password) => post(`/users/${id}/reset-password`, { password }),

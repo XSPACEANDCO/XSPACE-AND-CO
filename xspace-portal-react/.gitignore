@@ -7,3 +7,6 @@ dist-mobile
 # Points the mobile build at this machine's LAN address — not portable, and
 # rebuilt from scratch whenever the Android app needs a fresh API URL.
 .env.mobile
+
+# Locally built APKs (scripts/build-local-apk.mjs)
+dist-apk/

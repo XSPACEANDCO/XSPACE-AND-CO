@@ -3,7 +3,7 @@ import { many, one, query } from '../db.js';
 import { asyncHandler, requireAuth, requireModule, requirePermission } from '../middleware.js';
 import { modulesForRole, seesEverything } from '../rbac.js';
 import { FUNNEL_BUCKETS } from '../leadStatus.js';
-import { newId, recordAudit } from '../helpers.js';
+import { newId, recordActivity, recordAudit } from '../helpers.js';
 
 const router = Router();
 
@@ -16,7 +16,7 @@ router.get(
     const { id, role } = req.user;
     const all = seesEverything(role);
 
-    const [leads, listings, projects, visits, verifications, media] =
+    const [leads, listings, projects, visits, verifications] =
       await Promise.all([
         one(
           `SELECT COUNT(*)::int AS total,
@@ -46,14 +46,6 @@ router.get(
                     FILTER (WHERE finished_at IS NOT NULL AND started_at IS NOT NULL)), 0)::int AS avg_hours
              FROM verifications`
         ),
-        one(
-          `SELECT COUNT(*) FILTER (WHERE status = 'pending')::int AS pending,
-                  COUNT(*) FILTER (WHERE status = 'in_progress')::int AS in_progress,
-                  COUNT(*) FILTER (WHERE status = 'delivered')::int AS delivered,
-                  COUNT(*) FILTER (WHERE uploaded_by = $1)::int AS mine
-             FROM media`,
-          [id]
-        ),
       ]);
 
 
@@ -73,27 +65,12 @@ router.get(
         { title: 'Leads Today', num: leads.today },
         { title: 'Active Listings', num: listings.total },
       ],
-      realtor: [
-        { title: 'Assigned Leads', num: leads.total },
-        { title: 'Visits Today', num: visits.today },
-        { title: 'Conversions', num: leads.closed },
-        { title: 'Active Listings', num: listings.total },
-      ],
-      creator: [
-        { title: 'Leads Uploaded', num: leads.total },
-        { title: 'Converted', num: leads.closed },
-        { title: 'Raw Media Submitted', num: media.mine },
-        { title: 'Awaiting Edit', num: media.pending },
-      ],
-      studio: [
-        { title: 'Raw Media In', num: media.pending },
-        { title: 'Edits Pending', num: media.in_progress },
-        { title: 'Delivered', num: media.delivered },
-        { title: 'Projects Accessible', num: projects.total },
-      ],
+      /* Realtor, Creator and Studio dashboards count their own KPI rows
+         from the scoped records they already load — see
+         src/pages/dashboard/partner/. */
     };
 
-    res.json({ role, modules: modulesForRole(role), cards: cards[role] || cards.realtor });
+    res.json({ role, modules: modulesForRole(role), cards: cards[role] || [] });
   })
 );
 
@@ -127,16 +104,43 @@ router.get(
   })
 );
 
+/* Founder and Core see the whole company's feed. A partner sees what the
+   people running the company did, plus their own actions — not every other
+   partner's ("TEJ added listing…" is noise to a creator in another city). */
 router.get(
   '/activity',
   requireAuth,
   asyncHandler(async (req, res) => {
+    const all = seesEverything(req.user.role);
     const rows = await many(
-      `SELECT a.*, u.name AS actor_name FROM activity a
+      `SELECT a.*, u.name AS actor_name, u.role AS actor_role FROM activity a
          LEFT JOIN users u ON u.id = a.actor_id
-        ORDER BY a.created_at DESC LIMIT 20`
+        WHERE $2::boolean IS TRUE OR a.actor_id = $1 OR u.role IN ('founder','core')
+        ORDER BY a.created_at DESC LIMIT 20`,
+      [req.user.id, all]
     );
     res.json({ activity: rows });
+  })
+);
+
+/* What the signed-in partner has earned, from the commissions ledger. */
+router.get(
+  '/earnings',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const totals = await one(
+      `SELECT COALESCE(SUM(amount) FILTER (WHERE status = 'pending'), 0)::float  AS pending,
+              COALESCE(SUM(amount) FILTER (WHERE status = 'approved'), 0)::float AS approved,
+              COALESCE(SUM(amount) FILTER (WHERE status = 'paid'), 0)::float     AS paid,
+              COUNT(*)::int AS entries
+         FROM commissions WHERE user_id = $1`,
+      [req.user.id]
+    );
+    const rows = await many(
+      'SELECT * FROM commissions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
+      [req.user.id]
+    );
+    res.json({ earnings: totals, commissions: rows });
   })
 );
 
@@ -167,10 +171,16 @@ router.get(
   '/notifications',
   requireAuth,
   asyncHandler(async (req, res) => {
+    /* A personal notification carries its own read flag; a role-wide one is
+       read per person, in notification_reads. */
     const rows = await many(
-      `SELECT * FROM notifications
-        WHERE user_id = $1 OR role = $2
-        ORDER BY created_at DESC LIMIT 50`,
+      `SELECT n.id, n.user_id, n.role, n.type, n.title, n.body, n.created_at,
+              CASE WHEN n.user_id IS NOT NULL THEN n.read
+                   ELSE (r.user_id IS NOT NULL) END AS read
+         FROM notifications n
+         LEFT JOIN notification_reads r ON r.notification_id = n.id AND r.user_id = $1
+        WHERE n.user_id = $1 OR (n.user_id IS NULL AND n.role = $2)
+        ORDER BY n.created_at DESC LIMIT 50`,
       [req.user.id, req.user.role]
     );
     res.json({
@@ -180,28 +190,57 @@ router.get(
   })
 );
 
+/* One notification (id) or all of them (null) as read, for this person only.
+   Marking a role-wide one used to set the shared flag, which hid it from
+   everyone else in the role — one Core member clearing an alert cleared it
+   for the whole team. */
+async function markRead(user, id) {
+  await query(
+    `UPDATE notifications SET read = TRUE
+      WHERE user_id = $1 AND read = FALSE AND ($2::text IS NULL OR id = $2)`,
+    [user.id, id]
+  );
+  await query(
+    `INSERT INTO notification_reads (notification_id, user_id)
+     SELECT n.id, $1 FROM notifications n
+      WHERE n.user_id IS NULL AND n.role = $3 AND ($2::text IS NULL OR n.id = $2)
+     ON CONFLICT DO NOTHING`,
+    [user.id, id, user.role]
+  );
+}
+
 router.post(
   '/notifications/:id/read',
   requireAuth,
   asyncHandler(async (req, res) => {
-    await query(
-      'UPDATE notifications SET read = TRUE WHERE id = $1 AND (user_id = $2 OR role = $3)',
-      [req.params.id, req.user.id, req.user.role]
-    );
+    await markRead(req.user, req.params.id);
     res.json({ ok: true });
   })
 );
 
-/* "Keep their area updated inside portal" — realtor partners only. */
+/* Area updates — "keep their area updated inside the portal".
+
+   A realtor partner posts what is changing on the ground in the areas they
+   cover: a new launch, a price move, a flyover, a GO. They see their own
+   feed; Founder and Core see everyone's, which is the point — it is how the
+   company knows twelve micro-markets at once. */
+const AREA_CATEGORIES = ['launch', 'price', 'infrastructure', 'inventory', 'regulation', 'market'];
+
 router.get(
   '/area-updates',
   requireModule('areaUpdates'),
   asyncHandler(async (req, res) => {
+    const all = seesEverything(req.user.role);
     const rows = await many(
-      'SELECT * FROM area_updates WHERE user_id = $1 ORDER BY created_at DESC',
-      [req.user.id]
+      `SELECT au.*, u.name AS user_name
+         FROM area_updates au
+         LEFT JOIN users u ON u.id = au.user_id
+        WHERE $2::boolean IS TRUE OR au.user_id = $1
+        ORDER BY au.created_at DESC
+        LIMIT 300`,
+      [req.user.id, all]
     );
-    res.json({ updates: rows });
+    res.json({ updates: rows, categories: AREA_CATEGORIES, scope: all ? 'all' : 'own' });
   })
 );
 
@@ -209,15 +248,53 @@ router.post(
   '/area-updates',
   requireModule('areaUpdates'),
   asyncHandler(async (req, res) => {
-    const { area, note } = req.body || {};
+    const area = String(req.body?.area || '').trim();
+    const note = String(req.body?.note || '').trim();
+    const category = req.body?.category || 'market';
+    const link = String(req.body?.link || '').trim() || null;
     if (!area || !note) return res.status(400).json({ error: 'area and note are required' });
+    if (!AREA_CATEGORIES.includes(category)) {
+      return res.status(400).json({ error: `category must be one of ${AREA_CATEGORIES.join(', ')}` });
+    }
+    if (link && !/^https?:\/\//i.test(link)) {
+      return res.status(400).json({ error: 'The link must start with http:// or https://' });
+    }
 
     const update = await one(
-      'INSERT INTO area_updates (id, user_id, area, note) VALUES ($1,$2,$3,$4) RETURNING *',
-      [newId('au'), req.user.id, area, note]
+      `INSERT INTO area_updates (id, user_id, area, note, category, link)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [newId('au'), req.user.id, area, note, category, link]
     );
+    await recordActivity(`${req.user.name} posted an area update for ${area}`, req.user.id);
     await recordAudit(`Area update for ${area}`, req.user.id, 'area_update', update.id);
-    res.status(201).json({ update });
+    res.status(201).json({ update: { ...update, user_name: req.user.name } });
+  })
+);
+
+/* Your own, or anyone's if you are Founder/Core. */
+router.delete(
+  '/area-updates/:id',
+  requireModule('areaUpdates'),
+  asyncHandler(async (req, res) => {
+    const row = await one(
+      `DELETE FROM area_updates
+        WHERE id = $1 AND ($3::boolean IS TRUE OR user_id = $2)
+        RETURNING id, area`,
+      [req.params.id, req.user.id, seesEverything(req.user.role)]
+    );
+    if (!row) return res.status(404).json({ error: 'Update not found' });
+    await recordAudit(`Area update for ${row.area} deleted`, req.user.id, 'area_update', row.id);
+    res.json({ deleted: true });
+  })
+);
+
+/* Clear the bell in one go — from Settings. */
+router.post(
+  '/notifications/read-all',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await markRead(req.user, null);
+    res.json({ ok: true });
   })
 );
 

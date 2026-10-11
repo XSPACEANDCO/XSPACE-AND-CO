@@ -1,9 +1,14 @@
 import { Router } from 'express';
 import { many, one } from '../db.js';
 import { asyncHandler, requireModule, requirePermission } from '../middleware.js';
-import { newId, recordAudit } from '../helpers.js';
+import { newId, recordAudit, safeUrl } from '../helpers.js';
 
 const router = Router();
+
+/* What a creator ("upcoming" scope) may see. One list, used by the list,
+   the detail route and search, so the three cannot disagree. */
+export const UPCOMING_STATUSES = ['Upcoming', 'Under Construction', 'New Launch'];
+const UPCOMING_SQL = UPCOMING_STATUSES.map((s) => `'${s}'`).join(',');
 
 router.use(requireModule('projects'));
 
@@ -28,7 +33,7 @@ router.get(
               MAX(l.verified_at)   FILTER (WHERE l.verified) AS verified_at
          FROM projects p
          LEFT JOIN listings l ON l.project_id = p.id
-        ${upcomingOnly ? "WHERE p.status IN ('Upcoming','Under Construction','New Launch')" : ''}
+        ${upcomingOnly ? `WHERE p.status IN (${UPCOMING_SQL})` : ''}
         GROUP BY p.id
         ORDER BY p.created_at DESC`
     );
@@ -40,11 +45,16 @@ router.get(
   '/:id',
   asyncHandler(async (req, res) => {
     const project = await one('SELECT * FROM projects WHERE id = $1', [req.params.id]);
-    if (!project) return res.status(404).json({ error: 'Project not found' });
+    /* The list hides non-upcoming projects from a creator; so must this. */
+    if (!project || (req.scope === 'upcoming' && !UPCOMING_STATUSES.includes(project.status))) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
 
-    const listings = await many('SELECT * FROM listings WHERE project_id = $1', [project.id]);
+    /* Verified inventory only, and finished media: 'delivered' means a cut is
+       still waiting on review, which is not something to show anyone. */
+    const listings = await many('SELECT * FROM listings WHERE project_id = $1 AND verified', [project.id]);
     const media = await many(
-      "SELECT * FROM media WHERE project_id = $1 AND status = 'delivered'",
+      "SELECT * FROM media WHERE project_id = $1 AND status = 'approved'",
       [project.id]
     );
     res.json({ project, listings, media });
@@ -57,6 +67,9 @@ router.post(
   asyncHandler(async (req, res) => {
     const { name, builder, rera, status, units, possession } = req.body || {};
     if (!name) return res.status(400).json({ error: 'name is required' });
+    if (safeUrl(req.body?.brochureUrl) === undefined) {
+      return res.status(400).json({ error: 'The brochure link must start with http:// or https://' });
+    }
 
     const id = newId('p');
     const project = await one(
@@ -73,6 +86,9 @@ router.patch(
   '/:id',
   requirePermission('projects:write'),
   asyncHandler(async (req, res) => {
+    if (safeUrl(req.body?.brochureUrl) === undefined) {
+      return res.status(400).json({ error: 'The brochure link must start with http:// or https://' });
+    }
     const project = await one(
       `UPDATE projects SET
          name = COALESCE($2, name), builder = COALESCE($3, builder),

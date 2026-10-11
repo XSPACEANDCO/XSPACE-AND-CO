@@ -15,11 +15,15 @@ export async function requireAuth(req, res, next) {
   if (!payload) return res.status(401).json({ error: 'Invalid or expired token' });
 
   const user = await one(
-    'SELECT id, name, email, role, active, last_seen_at FROM users WHERE id = $1',
+    'SELECT id, name, email, role, active, last_seen_at, token_version FROM users WHERE id = $1',
     [payload.sub]
   );
   if (!user) return res.status(401).json({ error: 'User no longer exists' });
   if (!user.active) return res.status(403).json({ error: 'Account is deactivated' });
+  /* The password has been changed or reset since this token was issued. */
+  if ((payload.ver || 0) !== (user.token_version || 0)) {
+    return res.status(401).json({ error: 'Your password was changed — please sign in again' });
+  }
 
   /* Presence comes from this, not from a column nobody writes. Touched at
      most every 30 seconds per user, and not awaited — a heartbeat is never
