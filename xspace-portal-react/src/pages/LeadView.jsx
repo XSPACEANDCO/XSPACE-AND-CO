@@ -12,6 +12,15 @@ const STAMP = new Intl.DateTimeFormat('en-IN', {
   day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
 });
 
+/* <input type="datetime-local"> wants local "YYYY-MM-DDTHH:mm", not ISO. */
+function toLocalInput(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function LeadView() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -31,6 +40,9 @@ export default function LeadView() {
   const [note, setNote] = useState('');
   const [noteSaved, setNoteSaved] = useState('');
 
+  const [followUp, setFollowUp] = useState('');
+  const [followSaved, setFollowSaved] = useState('');
+
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -46,6 +58,7 @@ export default function LeadView() {
         timeline: out.lead.timeline || '',
       });
       setNote(out.lead.notes || '');
+      setFollowUp(toLocalInput(out.lead.follow_up_at));
     } catch (err) {
       setError(err.message || 'Could not load this client');
     } finally {
@@ -62,7 +75,9 @@ export default function LeadView() {
     setBusy(true);
     try {
       const out = await api.leads.update(id, body);
-      setLead(out.lead);
+      /* The update returns the bare row; keep the joined names (owner,
+         source content) that only the initial read carries. */
+      setLead((prev) => ({ ...prev, ...out.lead }));
       after?.();
     } catch (err) {
       setError(err.message || 'That change was refused');
@@ -117,6 +132,9 @@ export default function LeadView() {
             </div>
             <div className="muted">📞 {lead.phone || 'No number on file'}</div>
             <div className="muted">🔗 Lead Source: {lead.source || '—'}</div>
+            {lead.source_media_title && (
+              <div className="muted">🎬 From content: {lead.source_media_title}</div>
+            )}
             <div className="muted">👤 Lead Owner: {lead.assigned_to_name || 'Unassigned'}</div>
           </div>
 
@@ -221,6 +239,47 @@ export default function LeadView() {
               {busy ? 'Saving…' : 'Save Requirement'}
             </button>
             {reqSaved && <span className="saved-flag">{reqSaved}</span>}
+          </div>
+        </div>
+
+        {/* FOLLOW-UP — drives the realtor dashboard's follow-up summary. */}
+        <div className="section">
+          <h3>Next Follow-up</h3>
+          <div className="muted">
+            {lead.follow_up_at
+              ? `Scheduled for ${STAMP.format(new Date(lead.follow_up_at))}`
+              : 'No follow-up scheduled.'}
+          </div>
+          <div className="req-grid">
+            <label>
+              <span>Date &amp; time</span>
+              <input type="datetime-local" value={followUp} onChange={(e) => setFollowUp(e.target.value)} />
+            </label>
+          </div>
+          <div className="note-actions">
+            <button
+              disabled={busy || !followUp}
+              onClick={() => patch({ followUpAt: new Date(followUp).toISOString() }, () => {
+                setFollowSaved('Follow-up saved');
+                setTimeout(() => setFollowSaved(''), 2500);
+              })}
+            >
+              Save Follow-up
+            </button>
+            {lead.follow_up_at && (
+              <button
+                className="ghost"
+                disabled={busy}
+                onClick={() => patch({ followUpAt: null }, () => {
+                  setFollowUp('');
+                  setFollowSaved('Marked done');
+                  setTimeout(() => setFollowSaved(''), 2500);
+                })}
+              >
+                Done — clear it
+              </button>
+            )}
+            {followSaved && <span className="saved-flag">{followSaved}</span>}
           </div>
         </div>
 

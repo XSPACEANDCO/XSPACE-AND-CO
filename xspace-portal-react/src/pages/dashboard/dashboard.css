@@ -106,6 +106,24 @@
   background: rgba(255, 255, 255, 0.04);
   font-weight: 600;
 }
+.page-dashboard .nav-entry {
+  display: flex;
+  flex-direction: column;
+}
+.page-dashboard .nav-entry .nav-item {
+  width: 100%;
+}
+/* A non-clickable heading over a run of related items (the creator's
+   Content group), with those items indented beneath it. */
+.page-dashboard .nav-group {
+  padding: 8px 12px 4px;
+  font-size: 15px;
+  color: var(--muted);
+}
+.page-dashboard .nav-item.nav-sub {
+  padding-left: 34px;
+  font-size: 14px;
+}
 
 .page-dashboard .sidebar .footer {
   margin-top: auto;
@@ -893,4 +911,19 @@
 .page-dashboard .profile-role-fixed {
   padding: 9px 0;
   font-size: 14px;
+}
+
+/* The logout icon is an inline SVG (see Topbar.jsx); keep it centred. */
+.page-dashboard .logout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.page-dashboard svg.btn-icon {
+  display: none;
+}
+@media (max-width: 1000px) {
+  .page-dashboard svg.btn-icon {
+    display: block;
+  }
 }

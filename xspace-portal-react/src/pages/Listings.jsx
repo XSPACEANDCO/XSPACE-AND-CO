@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
-import ListingForm, { EMPTY_LISTING, toPayload } from './ListingForm';
+import ListingForm, { EMPTY_LAND, EMPTY_LISTING, isLand, toPayload } from './ListingForm';
+import LandForm from './LandForm';
+import { propertyLabel } from '../lib/leadStatus';
 import './listings.css';
 
 /* Submitted inventory, from the database.
@@ -19,11 +21,27 @@ export default function Listings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [formOpen, setFormOpen] = useState(false);
+  /* null when closed, otherwise which sheet is open: 'property' or 'land'. */
+  const [formKind, setFormKind] = useState(null);
+  const formOpen = formKind !== null;
   const [form, setForm] = useState(EMPTY_LISTING);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState('');
   const [verifying, setVerifying] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+
+  /* "Add Listing" on a dashboard lands here with ?new=1. */
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const wanted = params.get('new');
+    if (wanted) {
+      const kind = wanted === 'land' ? 'land' : 'property';
+      setForm(kind === 'land' ? EMPTY_LAND : EMPTY_LISTING);
+      setFormKind(kind);
+      params.delete('new');
+      setParams(params, { replace: true });
+    }
+  }, [params, setParams]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -52,7 +70,7 @@ export default function Listings() {
     try {
       const out = await api.listings.create(toPayload(form));
       setForm(EMPTY_LISTING);
-      setFormOpen(false);
+      setFormKind(null);
       /* Straight to the listing so photos can be added — they attach to a
          listing id, which only exists once it has been saved. */
       navigate('/listings/' + out.listing.id);
@@ -77,6 +95,31 @@ export default function Listings() {
     }
   }
 
+  function openForm(kind) {
+    setFormError('');
+    setForm(kind === 'land' ? EMPTY_LAND : EMPTY_LISTING);
+    setFormKind(kind);
+  }
+
+  /* Founder and Core can delete any listing; a realtor only ever has their
+     own rows here, and the server enforces the same. */
+  async function remove(id, title) {
+    if (!window.confirm(`Delete "${title}"?
+
+Its photos and verification go with it. This cannot be undone.`))
+      return;
+    setError('');
+    setDeleting(id);
+    try {
+      await api.listings.remove(id);
+      setListings((rows) => rows.filter((l) => l.id !== id));
+    } catch (err) {
+      setError(err.message || 'Could not delete that listing');
+    } finally {
+      setDeleting(null);
+    }
+  }
+
   return (
     <div className="page-listings">
       <div className="container">
@@ -93,9 +136,14 @@ export default function Listings() {
           </div>
 
           <div className="top-bar-actions">
-            <button onClick={() => { setFormOpen((o) => !o); setFormError(''); }}>
-              {formOpen ? 'Cancel' : '+ Add Listing'}
-            </button>
+            {formOpen ? (
+              <button onClick={() => setFormKind(null)}>Cancel</button>
+            ) : (
+              <>
+                <button onClick={() => openForm('property')}>+ Add Property</button>
+                <button onClick={() => openForm('land')}>+ Add Land</button>
+              </>
+            )}
           </div>
         </div>
 
@@ -103,7 +151,12 @@ export default function Listings() {
 
         {formOpen && (
           <form className="add-listing" onSubmit={submit} autoComplete="off">
-            <ListingForm value={form} onChange={setForm} />
+            <h3 className="form-kind">{formKind === 'land' ? 'New land listing' : 'New property listing'}</h3>
+            {formKind === 'land' ? (
+              <LandForm value={form} onChange={setForm} />
+            ) : (
+              <ListingForm value={form} onChange={setForm} />
+            )}
 
             {formError && <div className="listing-error">{formError}</div>}
 
@@ -124,7 +177,7 @@ export default function Listings() {
           <p className="small">Loading listings…</p>
         ) : listings.length === 0 ? (
           <p className="small">
-            Nothing waiting to be verified. Use “Add Listing” to submit inventory — verified
+            Nothing waiting to be verified. Use “Add Property” or “Add Land” to submit inventory — verified
             listings are on the Projects page.
           </p>
         ) : (
@@ -136,7 +189,7 @@ export default function Listings() {
                 <th>Price</th>
                 <th>Submitted By</th>
                 <th>Status</th>
-                {canVerify && <th>Action</th>}
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -144,6 +197,11 @@ export default function Listings() {
                 <tr key={l.id}>
                   <td className="title-cell" onClick={() => navigate('/listings/' + l.id)}>
                     <strong>{l.title}</strong>
+                    <div className="small">
+                      {isLand(l)
+                        ? `🌾 Land${l.extent ? ` • ${l.extent}` : ''}`
+                        : propertyLabel(l.property_type) || ''}
+                    </div>
                     {l.high_demand && <div className="small hot">🔥 High Demand</div>}
                   </td>
                   <td>{l.area || '—'}</td>
@@ -154,9 +212,9 @@ export default function Listings() {
                       {l.verified ? 'Verified' : 'Unverified'}
                     </span>
                   </td>
-                  {canVerify && (
-                    <td>
-                      {!l.verified && (
+                  <td>
+                    <div className="row-actions">
+                      {canVerify && !l.verified && (
                         <button
                           className="action-btn"
                           disabled={verifying === l.id}
@@ -165,8 +223,15 @@ export default function Listings() {
                           {verifying === l.id ? 'Verifying…' : 'Verify'}
                         </button>
                       )}
-                    </td>
-                  )}
+                      <button
+                        className="action-btn danger"
+                        disabled={deleting === l.id}
+                        onClick={() => remove(l.id, l.title)}
+                      >
+                        {deleting === l.id ? 'Deleting…' : 'Delete'}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { many } from '../db.js';
 import { asyncHandler } from '../middleware.js';
-import { canAccess, seesEverything } from '../rbac.js';
+import { canAccess, scopeFor, seesEverything } from '../rbac.js';
+import { UPCOMING_STATUSES } from './projects.js';
 
 const router = Router();
 
@@ -92,10 +93,12 @@ router.get(
       const rows = await many(
         `SELECT id, name, builder, status, rera
            FROM projects
-          WHERE name ILIKE $1 OR builder ILIKE $1 OR rera ILIKE $1
+          WHERE (name ILIKE $1 OR builder ILIKE $1 OR rera ILIKE $1)
+            AND ($2::text[] IS NULL OR status = ANY($2))
           ORDER BY created_at DESC
           LIMIT ${LIMIT_PER_GROUP}`,
-        [like]
+        /* A creator searches only the projects their Projects page shows. */
+        [like, scopeFor('projects', req.user.role) === 'upcoming' ? UPCOMING_STATUSES : null]
       );
       if (rows.length) {
         groups.push({
@@ -129,7 +132,11 @@ router.get(
           items: rows.map((r) => ({
             id: r.id,
             title: r.name,
-            subtitle: [r.username, r.email].filter(Boolean).join(' · ') || null,
+            /* Teams hides a Founder's username from Core; so does search. */
+            subtitle:
+              [req.user.role === 'core' && r.role === 'founder' ? null : r.username, r.email]
+                .filter(Boolean)
+                .join(' · ') || null,
             badge: r.active ? r.role : 'deactivated',
             to: '/teams',
           })),

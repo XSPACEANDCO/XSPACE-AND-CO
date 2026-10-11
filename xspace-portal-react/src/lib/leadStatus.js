@@ -32,6 +32,20 @@ export function canAdvance(from, to) {
   return b > a;
 }
 
+/* Shown real options — the point at which a lead counts as qualified. A
+   dropped lead counts for nothing, whatever stage it reached first. */
+export function isQualified(status) {
+  return status !== DROPPED && statusRank(status) >= statusRank('Listings Presented');
+}
+
+export function reachedVisit(status) {
+  return status !== DROPPED && statusRank(status) >= statusRank('Visit Scheduled');
+}
+
+export function isOpenLead(status) {
+  return status !== DROPPED && status !== 'Closed';
+}
+
 export const FUNNEL_STAGES = ['Discovery', 'Engaged', 'Site Visit', 'Decision', 'Closed'];
 
 export const FUNNEL_BUCKETS = [
@@ -47,10 +61,12 @@ export function bucketFor(status) {
 }
 
 export const PROPERTY_TYPES = [
-  { key: 'apartment', label: 'Apartment', config: 'bhk' },
-  { key: 'gated', label: 'Gated Community', config: 'bhk' },
   { key: 'standalone', label: 'Standalone', config: 'bhk' },
   { key: 'villa', label: 'Villa', config: 'bhk' },
+  { key: 'independent_house', label: 'Independent House', config: 'bhk' },
+  { key: 'semi_gated', label: 'Semi-Gated Apartments', config: 'bhk' },
+  { key: 'gated', label: 'Gated Community Apartments', config: 'bhk' },
+  { key: 'gated_highrise', label: 'Gated Community High-Rise', config: 'bhk' },
   { key: 'land', label: 'Land', config: 'acres' },
   { key: 'commercial', label: 'Commercial', config: 'sft' },
 ];

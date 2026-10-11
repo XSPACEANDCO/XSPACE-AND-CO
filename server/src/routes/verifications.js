@@ -1,12 +1,27 @@
 import { Router } from 'express';
 import { many, one } from '../db.js';
 import { asyncHandler, requireModule, requirePermission } from '../middleware.js';
-import { newId, notify, recordAudit } from '../helpers.js';
+import { newId, notify, publishVerifiedListing, recordAudit } from '../helpers.js';
 
 const router = Router();
 
 /* Live verifications are a Founder/Core desk. Partners never see the queue. */
 router.use(requireModule('verifications'));
+
+/* People read the notifications and audit lines these routes write, so they
+   name the property rather than quoting the verification's internal id —
+   "Verification vf_3a9c… escalated" meant nothing to anyone. */
+async function subjectOf(v) {
+  const row = await one(
+    `SELECT COALESCE(l.title, p.name) AS name
+       FROM verifications v
+       LEFT JOIN listings l ON l.id = v.listing_id
+       LEFT JOIN projects p ON p.id = v.project_id
+      WHERE v.id = $1`,
+    [v.id]
+  );
+  return row?.name ? `"${row.name}"` : `a ${String(v.type || 'listing').toLowerCase()}`;
+}
 
 router.get(
   '/',
@@ -48,7 +63,7 @@ router.post(
       [req.params.id, req.user.id]
     );
     if (!v) return res.status(404).json({ error: 'Verification not found' });
-    await recordAudit(`Verification ${v.id} started`, req.user.id, 'verification', v.id);
+    await recordAudit(`Verification of ${await subjectOf(v)} started`, req.user.id, 'verification', v.id);
     res.json({ verification: v });
   })
 );
@@ -65,10 +80,9 @@ router.post(
     );
     if (!v) return res.status(404).json({ error: 'Verification not found' });
 
-    if (v.listing_id) {
-      await one('UPDATE listings SET verified = TRUE WHERE id = $1 RETURNING id', [v.listing_id]);
-    }
-    await recordAudit(`Verification ${v.id} verified`, req.user.id, 'verification', v.id);
+    /* Same publish step as the listing sheet — into Projects, submitter told. */
+    if (v.listing_id) await publishVerifiedListing(v.listing_id, req.user.id);
+    await recordAudit(`Verification of ${await subjectOf(v)} verified`, req.user.id, 'verification', v.id);
     res.json({ verification: v });
   })
 );
@@ -84,14 +98,21 @@ router.post(
     );
     if (!v) return res.status(404).json({ error: 'Verification not found' });
 
+    const what = await subjectOf(v);
+
     /* Escalation opens a legal ticket so it lands in the Issues tracker too. */
     await one(
       `INSERT INTO tickets (id, title, description, category, priority, raised_by)
        VALUES ($1,$2,$3,'legal','high',$4) RETURNING id`,
-      [newId('t'), `Escalation: verification ${v.id}`, v.notes || 'Escalated to legal', req.user.id]
+      [newId('t'), `Escalation: ${what}`, v.notes || 'Escalated to legal', req.user.id]
     );
-    await notify({ role: 'founder', type: 'approval', title: `Verification ${v.id} escalated to legal` });
-    await recordAudit(`Verification ${v.id} escalated`, req.user.id, 'verification', v.id);
+    await notify({
+      role: 'founder',
+      type: 'approval',
+      title: `Verification of ${what} escalated to legal`,
+      body: v.notes || null,
+    });
+    await recordAudit(`Verification of ${what} escalated`, req.user.id, 'verification', v.id);
     res.json({ verification: v });
   })
 );

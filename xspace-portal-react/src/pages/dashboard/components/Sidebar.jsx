@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ROLES, modulesForRole, normalizeRole } from '../../../lib/roleConfig';
+import { ROLES, navForRole, normalizeRole } from '../../../lib/roleConfig';
 import { useDashboard } from '../DashboardStore';
 
 /* onNavigate: called after picking a destination, so the mobile drawer
@@ -11,7 +11,7 @@ export default function Sidebar({ onNavigate }) {
   const location = useLocation();
 
   const r = normalizeRole(role);
-  const modules = modulesForRole(r);
+  const items = navForRole(r);
 
   function go(to) {
     navigate(to);
@@ -27,15 +27,22 @@ export default function Sidebar({ onNavigate }) {
       </div>
 
       <div className="nav-list">
-        {modules.map((m) => (
-          <button
-            key={m.key}
-            type="button"
-            className={'nav-item' + (location.pathname === m.to ? ' active' : '')}
-            onClick={() => go(m.to)}
-          >
-            {m.label}
-          </button>
+        {items.map((m, i) => (
+          <div key={m.key} className="nav-entry">
+            {/* A group heading sits above the first item of its group. */}
+            {m.group && m.group !== items[i - 1]?.group && (
+              <div className="nav-group">{m.group}</div>
+            )}
+            <button
+              type="button"
+              className={
+                'nav-item' + (m.group ? ' nav-sub' : '') + (location.pathname === m.to ? ' active' : '')
+              }
+              onClick={() => go(m.to)}
+            >
+              {m.label}
+            </button>
+          </div>
         ))}
       </div>
 

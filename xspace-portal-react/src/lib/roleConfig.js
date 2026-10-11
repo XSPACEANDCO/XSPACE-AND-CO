@@ -72,13 +72,6 @@ export const MODULES = [
     scope: { founder: 'all', core: 'all', realtor: 'own', creator: 'own' },
   },
   {
-    key: 'leadUploads',
-    label: '⬆️ Lead Uploads',
-    to: '/lead-uploads',
-    roles: ['creator'],
-    contents: ['Upload a new lead', 'Bulk upload from a sheet', 'Attribution back to the creator who sourced it'],
-  },
-  {
     key: 'listings',
     label: '📄 Listings',
     to: '/listings',
@@ -143,6 +136,38 @@ export const MODULES = [
     to: '/quick-tools',
     roles: ['studio'],
     contents: ['Shortcuts for the studio workflow', 'Bulk status change, export, hand-off'],
+  },
+
+  /* ---- Creator partner: their own content and what it earned ----
+     Personal pages, so they stay out of the Founder/Core sidebar (navHidden)
+     even though Founder and Core can open them like any other route. */
+  {
+    key: 'myContent',
+    label: '🎞️ My Content',
+    to: '/my-content',
+    roles: ['creator'],
+    navHidden: ALL_INTERNAL,
+  },
+  {
+    key: 'contentCalendar',
+    label: '📅 Content Calendar',
+    to: '/content-calendar',
+    roles: ['creator'],
+    navHidden: ALL_INTERNAL,
+  },
+  {
+    key: 'performance',
+    label: '📊 Performance',
+    to: '/performance',
+    roles: ['creator'],
+    navHidden: ALL_INTERNAL,
+  },
+  {
+    key: 'earnings',
+    label: '💰 Earnings',
+    to: '/earnings',
+    roles: ['creator'],
+    navHidden: ALL_INTERNAL,
   },
 
   /* ---- Field work (realtor partner) ---- */
@@ -215,6 +240,45 @@ export function modulesForRole(role) {
   return MODULES.filter((m) => m.roles.includes(r));
 }
 
+/* ---- Sidebar ----
+   Most roles get the registry in its declared order under its own labels.
+   A creator's work is organised around content rather than around the
+   company's modules, so their sidebar is reordered, relabelled and grouped.
+   This only changes what the menu paints; access is still `roles` above. */
+const NAV = {
+  creator: [
+    { key: 'dashboard' },
+    { key: 'myContent', group: '🎬 Content', label: 'My Content' },
+    { key: 'mediaUpload', group: '🎬 Content', label: 'Submit Content' },
+    { key: 'contentCalendar', group: '🎬 Content', label: 'Content Calendar' },
+    { key: 'crm', label: '🔥 My Leads' },
+    { key: 'projects', label: '🏠 Projects & Listings' },
+    { key: 'performance' },
+    { key: 'earnings' },
+    { key: 'rules', label: '📘 Rules & Guidelines' },
+    { key: 'profileKyc', label: '👤 Profile & KYC' },
+    { key: 'settings' },
+  ],
+};
+
+/* [{ key, label, to, group? }] in the order the sidebar shows them. */
+export function navForRole(role) {
+  const r = normalizeRole(role);
+  const reachable = modulesForRole(r).filter((m) => !(m.navHidden || []).includes(r));
+  const custom = NAV[r];
+  if (!custom) return reachable.map((m) => ({ key: m.key, label: m.label, to: m.to }));
+
+  const byKey = Object.fromEntries(reachable.map((m) => [m.key, m]));
+  return custom
+    .filter((item) => byKey[item.key])
+    .map((item) => ({
+      key: item.key,
+      to: byKey[item.key].to,
+      label: item.label || byKey[item.key].label,
+      group: item.group,
+    }));
+}
+
 export function canAccess(moduleKey, role) {
   const m = MODULE_BY_KEY[moduleKey];
   return Boolean(m) && m.roles.includes(normalizeRole(role));
@@ -248,9 +312,6 @@ export const PANEL_VISIBILITY = {
   auditPanel: ['founder'],
   verificationPanel: ['founder', 'core'],
   leadsLegalPanel: ['founder', 'core'],
-  realtorPanel: ['realtor'],
-  creatorPanel: ['creator'],
-  studioWorkPanel: ['studio'],
 };
 
 export function canSee(panelId, role) {

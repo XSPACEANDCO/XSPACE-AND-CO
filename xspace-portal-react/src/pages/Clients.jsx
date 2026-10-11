@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { timeAgo } from '../lib/time';
 import api from '../lib/api';
 import {
   ALL_STATUSES, BHK_OPTIONS, PROPERTY_TYPES, TEMP_LABELS,
   configKindFor, configLabelFor, propertyLabel,
 } from '../lib/leadStatus';
+import { seesEverything } from '../lib/roleConfig';
+import { useDashboard } from './dashboard/DashboardStore';
 import './clients.css';
 
 /* The CRM list, from the database.
@@ -22,12 +24,15 @@ const STAMP = new Intl.DateTimeFormat('en-IN', {
 const EMPTY_FORM = {
   name: '', phone: '', source: 'Instagram', temperature: 'warm',
   budget: '', preferredArea: '', propertyType: '', configuration: '', timeline: '',
+  sourceMediaId: '', followUpAt: '',
 };
 
 const SOURCES = ['Instagram', 'Referral', 'Website', 'Walk-in', 'YouTube', 'Other'];
 
 export default function Clients() {
   const navigate = useNavigate();
+  const { role } = useDashboard();
+  const [params, setParams] = useSearchParams();
 
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +43,26 @@ export default function Clients() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState('');
+
+  /* A partner's own uploads, so a new lead can credit the reel it came
+     from. Founder and Core are not content sources, so they skip this. */
+  const [myContent, setMyContent] = useState([]);
+  useEffect(() => {
+    if (!role || seesEverything(role)) return;
+    api.media
+      .mine()
+      .then((out) => setMyContent(out.media || []))
+      .catch(() => setMyContent([]));
+  }, [role]);
+
+  /* "+ Add Lead" on a dashboard lands here with ?new=1. */
+  useEffect(() => {
+    if (params.get('new') === '1') {
+      setFormOpen(true);
+      params.delete('new');
+      setParams(params, { replace: true });
+    }
+  }, [params, setParams]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,7 +104,7 @@ export default function Clients() {
     setBusy(true);
     try {
       const payload = { name: form.name.trim(), status: 'New' };
-      for (const k of ['phone', 'source', 'temperature', 'budget', 'preferredArea', 'propertyType', 'configuration', 'timeline']) {
+      for (const k of ['phone', 'source', 'temperature', 'budget', 'preferredArea', 'propertyType', 'configuration', 'timeline', 'sourceMediaId', 'followUpAt']) {
         if (form[k] && String(form[k]).trim()) payload[k] = String(form[k]).trim();
       }
       await api.leads.create(payload);
@@ -201,6 +226,23 @@ export default function Clients() {
                 <span>Timeline</span>
                 <input value={form.timeline} onChange={set('timeline')} placeholder="Immediate (30 days)" />
               </label>
+
+              <label>
+                <span>Next follow-up</span>
+                <input type="datetime-local" value={form.followUpAt} onChange={set('followUpAt')} />
+              </label>
+
+              {myContent.length > 0 && (
+                <label>
+                  <span>Came from your content</span>
+                  <select value={form.sourceMediaId} onChange={set('sourceMediaId')}>
+                    <option value="">Not from my content</option>
+                    {myContent.map((m) => (
+                      <option key={m.id} value={m.id}>{m.title}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
 
             {formError && <div className="crm-error">{formError}</div>}
@@ -237,7 +279,10 @@ export default function Clients() {
                   <td>
                     {c.name}
                     <span className={'temp ' + c.temperature}>{TEMP_LABELS[c.temperature] || ''}</span>
-                    <span className="source">{c.source || '—'}</span>
+                    <span className="source">
+                      {c.source || '—'}
+                      {c.source_media_title ? ` · from “${c.source_media_title}”` : ''}
+                    </span>
                   </td>
                   <td>{c.phone || '—'}</td>
                   <td>{requirementOf(c)}</td>

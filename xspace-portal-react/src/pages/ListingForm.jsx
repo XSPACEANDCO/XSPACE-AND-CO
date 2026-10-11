@@ -24,7 +24,18 @@ export const EMPTY_LISTING = {
   reraNumber: '', approval: '', titleStatus: '', bankApproved: '', surveyNumber: '',
   amenities: '', videoLink: '', brochureUrl: '', floorPlanUrl: '', priceSheetUrl: '',
   notes: '',
+  /* Land — see LandForm.jsx */
+  landKind: '', extent: '', priceBasis: '', village: '', mandal: '', district: '',
+  zoning: '', conversion: '', roadAccess: '', frontage: '', boundaries: '', utilities: '',
+  landmarks: '', pattadar: '', passbook: '', ecStatus: '', litigation: '', layoutPlanUrl: '',
 };
+
+export const EMPTY_LAND = { ...EMPTY_LISTING, propertyType: 'land' };
+
+/* Land and everything else are different sheets — see LandForm.jsx. */
+export function isLand(listing) {
+  return (listing?.propertyType ?? listing?.property_type) === 'land';
+}
 
 /* API row (snake_case) -> form state. Nulls become '' so React keeps every
    field controlled. */
@@ -45,6 +56,12 @@ export function fromListing(l) {
     amenities: pick(l.amenities), videoLink: pick(l.video_link),
     brochureUrl: pick(l.brochure_url), floorPlanUrl: pick(l.floor_plan_url),
     priceSheetUrl: pick(l.price_sheet_url), notes: pick(l.notes),
+    landKind: pick(l.land_kind), extent: pick(l.extent), priceBasis: pick(l.price_basis),
+    village: pick(l.village), mandal: pick(l.mandal), district: pick(l.district),
+    zoning: pick(l.zoning), conversion: pick(l.conversion), roadAccess: pick(l.road_access),
+    frontage: pick(l.frontage), boundaries: pick(l.boundaries), utilities: pick(l.utilities),
+    landmarks: pick(l.landmarks), pattadar: pick(l.pattadar), passbook: pick(l.passbook),
+    ecStatus: pick(l.ec_status), litigation: pick(l.litigation), layoutPlanUrl: pick(l.layout_plan_url),
   };
 }
 
@@ -54,12 +71,15 @@ export function toPayload(form) {
   return out;
 }
 
-const FACINGS = ['East', 'West', 'North', 'South', 'North-East', 'North-West', 'South-East', 'South-West'];
-const APPROVALS = ['HMDA', 'DTCP', 'GHMC', 'Panchayat', 'RERA only', 'Other'];
-const TITLE_STATUS = ['Clear', 'Under verification', 'Disputed', 'Not checked'];
-const NEGOTIATION = ['Open', 'Limited', 'Fixed price'];
+export const FACINGS = ['East', 'West', 'North', 'South', 'North-East', 'North-West', 'South-East', 'South-West'];
+export const APPROVALS = ['HMDA', 'DTCP', 'GHMC', 'Panchayat', 'RERA only', 'Other'];
+export const TITLE_STATUS = ['Clear', 'Under verification', 'Disputed', 'Not checked'];
+export const NEGOTIATION = ['Open', 'Limited', 'Fixed price'];
 
-function Field({ label, hint, children }) {
+/* Land is entered on its own form, so this one offers everything else. */
+const BUILDING_TYPES = PROPERTY_TYPES.filter((p) => p.key !== 'land');
+
+export function Field({ label, hint, children }) {
   return (
     <label className="lf-field">
       <span>{label}</span>
@@ -100,7 +120,7 @@ export default function ListingForm({ value, onChange }) {
           <Field label="Property type">
             <select value={value.propertyType} onChange={set('propertyType')}>
               <option value="">Select…</option>
-              {PROPERTY_TYPES.map((p) => (
+              {BUILDING_TYPES.map((p) => (
                 <option key={p.key} value={p.key}>{p.label}</option>
               ))}
             </select>

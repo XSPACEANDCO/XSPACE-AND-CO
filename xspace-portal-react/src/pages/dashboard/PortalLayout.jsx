@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 import { usePageClass } from '../../hooks/usePageClass';
 import { usePresence } from '../../hooks/usePresence';
 import { useTheme } from '../../hooks/useTheme';
@@ -13,12 +13,21 @@ import './dashboard.css';
    HTML deliberately stay outside this — they were authored as standalone
    documents and keep that look. Wrap one in <PortalLayout> to give it the
    nav chrome. */
+/* The shell owns the theme; Settings reads and changes it through this
+   rather than keeping a second copy that would drift from the top-bar
+   toggle. */
+const ThemeContext = createContext(null);
+export function usePortalTheme() {
+  return useContext(ThemeContext);
+}
+
 function Shell({ children }) {
   usePageClass('dashboard');
   /* Heartbeat while open, sign off on close — so "online" in Teams means
      someone actually has the portal open. */
   usePresence();
-  const [theme, toggleTheme] = useTheme('dark');
+  const [theme, toggleTheme, setTheme] = useTheme('dark');
+  const themeValue = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
   const [modal, setModal] = useState(null);
   const close = () => setModal(null);
 
@@ -43,7 +52,9 @@ function Shell({ children }) {
           onOpenNotifications={() => setModal('notifications')}
           onOpenProfile={() => setModal('profile')}
         />
-        <main className="workspace">{children}</main>
+        <main className="workspace">
+          <ThemeContext.Provider value={themeValue}>{children}</ThemeContext.Provider>
+        </main>
       </div>
 
       {modal === 'notifications' && <NotificationCenter onClose={close} />}

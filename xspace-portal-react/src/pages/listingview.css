@@ -142,6 +142,15 @@
   color: inherit;
   border: 1px solid var(--border);
 }
+.page-listingview button.danger {
+  background: transparent;
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  margin-left: auto;
+}
+[data-theme='light'] .page-listingview button.danger {
+  color: #b91c1c;
+}
 .page-listingview button:disabled {
   opacity: 0.55;
   cursor: default;

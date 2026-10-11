@@ -20,6 +20,18 @@ import RawMedia from './pages/RawMedia';
 import MediaLibrary from './pages/MediaLibrary';
 import SiteVisits from './pages/SiteVisits';
 import Teams from './pages/Teams';
+import Verifications from './pages/Verifications';
+import QuickTools from './pages/QuickTools';
+import MyContent from './pages/creator/MyContent';
+import ContentCalendar from './pages/creator/ContentCalendar';
+import Performance from './pages/creator/Performance';
+import Earnings from './pages/creator/Earnings';
+import AreaUpdates from './pages/AreaUpdates';
+import Rules from './pages/Rules';
+import ProfileKyc from './pages/ProfileKyc';
+import Settings from './pages/Settings';
+import PendingWorks from './pages/PendingWorks';
+import PartnerDashboards from './pages/PartnerDashboards';
 
 /* Pages where pressing back exits the app rather than navigating further back. */
 const ROOT_PAGES = new Set(['/dashboard', '/login', '/']);
@@ -41,6 +53,21 @@ const BUILT = {
   '/listings': shell(<Listings />),
   '/projects': shell(<Projects />),
   '/site-visits': shell(<SiteVisits />),
+  '/verifications': shell(<Verifications />),
+  '/quick-tools': shell(<QuickTools />),
+
+  /* Creator partner: their content, schedule, results and payouts. */
+  '/my-content': shell(<MyContent />),
+  '/content-calendar': shell(<ContentCalendar />),
+  '/performance': shell(<Performance />),
+  '/earnings': shell(<Earnings />),
+
+  '/area-updates': shell(<AreaUpdates />),
+  '/pending-works': shell(<PendingWorks />),
+  '/rules': shell(<Rules />),
+  '/profile-kyc': shell(<ProfileKyc />),
+  '/settings': shell(<Settings />),
+  '/partner-dashboards': shell(<PartnerDashboards />),
 
   /* Media pipeline: upload -> edit -> review. See server/src/routes/media.js */
   '/media-upload': shell(<MediaUpload />),

@@ -276,8 +276,21 @@ ALTER TABLE media ADD COLUMN IF NOT EXISTS revision      INTEGER NOT NULL DEFAUL
 -- constraint predates them and would reject both.
 ALTER TABLE media DROP CONSTRAINT IF EXISTS media_status_check;
 ALTER TABLE media ADD CONSTRAINT media_status_check CHECK (
-  status IN ('pending','in_progress','delivered','approved','changes_requested','rejected')
+  status IN ('pending','in_progress','qc','delivered','approved','changes_requested','rejected')
 );
+
+-- What the partner dashboards need to answer "what is due, what is stuck, and
+-- did it work":
+--   due_at / priority  when Studio owes the finished cut, and how urgent it is
+--   blocked_on         what the item is waiting for (raw_media, property_info,
+--                      creator_feedback) — NULL when nothing is blocking it
+--   views              reach of the published piece, entered by its creator
+-- 'qc' (above) is Studio's own quality check, between editing and handing the
+-- cut to Founder/Core for approval.
+ALTER TABLE media ADD COLUMN IF NOT EXISTS due_at     TIMESTAMPTZ;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS priority   TEXT NOT NULL DEFAULT 'normal';
+ALTER TABLE media ADD COLUMN IF NOT EXISTS blocked_on TEXT;
+ALTER TABLE media ADD COLUMN IF NOT EXISTS views      INTEGER;
 
 -- Uploaded files: brochures, floor plans, price sheets, raw and edited media.
 --
@@ -339,4 +352,95 @@ CREATE TABLE IF NOT EXISTS area_updates (
   area       TEXT NOT NULL,
   note       TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- A lead can name the piece of content that produced it, which is how a
+-- creator's dashboard proves their reels generate business. follow_up_at is
+-- the realtor's next promised call, which drives the follow-up summary.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS source_media_id TEXT REFERENCES media(id) ON DELETE SET NULL;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS follow_up_at    TIMESTAMPTZ;
+
+-- "Apartment" was retired from the property types in favour of the market's
+-- own split (standalone / semi-gated / gated / gated high-rise). A plain
+-- apartment is a standalone building unless somebody says otherwise.
+UPDATE leads    SET property_type = 'standalone' WHERE property_type = 'apartment';
+UPDATE listings SET property_type = 'standalone' WHERE property_type = 'apartment';
+
+-- Escalation notices used to quote the verification's internal id
+-- ("Verification vf_3a9c… escalated to legal"). Rewrite the ones already
+-- sent so they name the property, as new ones now do.
+UPDATE notifications n
+   SET title = 'Verification of "' || COALESCE(l.title, p.name) || '" escalated to legal'
+  FROM verifications v
+  LEFT JOIN listings l ON l.id = v.listing_id
+  LEFT JOIN projects p ON p.id = v.project_id
+ WHERE n.title = 'Verification ' || v.id || ' escalated to legal'
+   AND COALESCE(l.title, p.name) IS NOT NULL;
+
+-- Land is sold on different facts from a flat — extent, zoning, conversion,
+-- road access, the pattadar and the passbook — so a listing whose
+-- property_type is 'land' fills these in instead of the unit fields above.
+-- survey_number, approval, title_status, price and the document links are
+-- shared with every other listing.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS land_kind       TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS extent          TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS price_basis     TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS village         TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS mandal          TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS district        TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS zoning          TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS conversion      TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS road_access     TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS frontage        TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS boundaries      TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS utilities       TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS landmarks       TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS pattadar        TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS passbook        TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS ec_status       TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS litigation      TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS layout_plan_url TEXT;
+
+-- Partner KYC and payout details. Aadhaar is kept as its last four digits
+-- only: the scanned card is the evidence, and the full number is not
+-- something this portal should be holding. kyc_note carries the reason when
+-- a submission is sent back.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pan_number       TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS aadhaar_last4    TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS address          TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS rera_agent_no    TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pan_doc_url      TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS aadhaar_doc_url  TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bank_holder      TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bank_account     TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bank_ifsc        TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bank_name        TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS upi_id           TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_submitted_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_note         TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_reviewed_at  TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_reviewed_by  TEXT REFERENCES users(id) ON DELETE SET NULL;
+
+-- When the partner last confirmed they have read the rules for their role.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS rules_ack_at     TIMESTAMPTZ;
+
+-- Area updates are sorted by what kind of news they are, and may point at a
+-- source (a builder's announcement, a news story, a GO).
+ALTER TABLE area_updates ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'market';
+ALTER TABLE area_updates ADD COLUMN IF NOT EXISTS link     TEXT;
+
+-- Bumped whenever a password is changed or reset. A login token carries the
+-- version it was issued under and stops working once this moves on, so a
+-- reset actually locks out whoever had the old password instead of leaving
+-- their session alive for up to the token's 12 hours.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+
+-- Role-wide notifications are read per person. `notifications.read` only
+-- covers ones addressed to a single user; marking a broadcast read used to
+-- flip that shared flag and hide it from everyone else in the role.
+CREATE TABLE IF NOT EXISTS notification_reads (
+  notification_id TEXT NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+  user_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  read_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (notification_id, user_id)
 );

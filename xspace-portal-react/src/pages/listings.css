@@ -81,6 +81,21 @@
   cursor: pointer;
   font-weight: 400;
 }
+.page-listings .action-btn.danger {
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+.page-listings .action-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+[data-theme='light'] .page-listings .action-btn.danger {
+  color: #b91c1c;
+}
+.page-listings .row-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 .page-listings .title-cell {
   cursor: pointer;
 }
@@ -142,4 +157,8 @@
   font: inherit;
   cursor: pointer;
   text-decoration: underline;
+}
+.page-listings .form-kind {
+  margin: 0 0 12px;
+  font-size: 16px;
 }

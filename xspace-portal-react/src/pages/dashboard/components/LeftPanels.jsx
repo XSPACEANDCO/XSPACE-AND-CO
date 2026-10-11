@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { timeAgo } from '../../../lib/time';
 import api from '../../../lib/api';
 import { useDashboard } from '../DashboardStore';
@@ -19,12 +20,15 @@ export function DailySnapshot({ cards }) {
   );
 }
 
-/* ---------- Approvals (founder) ----------
-   Approval requests arrive as notifications of type 'approval'. Deciding one
-   marks it read on the server, so it stays decided after a refresh — it used
-   to only change local state and reappear on the next load. */
+/* ---------- Escalations (founder) ----------
+   Escalated verifications arrive as notifications of type 'approval'. There
+   used to be Approve and Reject buttons here that both did the same thing —
+   marked the alert read — which made it look as if a decision had been
+   recorded when none had. The decision is made on the verification itself;
+   this panel only points there and lets the alert be dismissed. */
 export function ApprovalsPanel() {
   const { notifications, refresh } = useDashboard();
+  const navigate = useNavigate();
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState('');
 
@@ -45,12 +49,12 @@ export function ApprovalsPanel() {
 
   return (
     <section className="panel">
-      <h4>Approvals</h4>
-      <div className="muted small">Items waiting for approval (Founder-only or escalations)</div>
+      <h4>Escalations</h4>
+      <div className="muted small">Verifications escalated to you — decide them in Live Verifications</div>
       {error && <div className="people-error">{error}</div>}
       <div className="approvals-list">
         {items.length === 0 ? (
-          <div className="small muted">No approvals pending.</div>
+          <div className="small muted">No escalations waiting.</div>
         ) : (
           items.map((it) => (
             <div className="approval" key={it.id}>
@@ -59,11 +63,11 @@ export function ApprovalsPanel() {
                 <div className="meta">{it.body}</div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn" disabled={busy === it.id} onClick={() => decide(it.id)}>
-                  Approve
+                <button className="btn" onClick={() => navigate('/verifications')}>
+                  Open
                 </button>
                 <button className="btn-ghost" disabled={busy === it.id} onClick={() => decide(it.id)}>
-                  Reject
+                  Dismiss
                 </button>
               </div>
             </div>

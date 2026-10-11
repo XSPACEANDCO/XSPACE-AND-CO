@@ -3,7 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import api from '../lib/api';
 import { propertyLabel } from '../lib/leadStatus';
 import { splitAmenity } from '../lib/amenityIcons';
-import ListingForm, { fromListing, toPayload } from './ListingForm';
+import { GOV_PORTALS } from '../lib/links';
+import ListingForm, { fromListing, isLand, toPayload } from './ListingForm';
+import LandForm from './LandForm';
 import ListingPhotos from './ListingPhotos';
 import './listingview.css';
 
@@ -18,36 +20,9 @@ const STAMP = new Intl.DateTimeFormat('en-IN', {
   day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
 });
 
-/* Where Core actually checks a Telangana property before verifying it. These
-   open the portal; the number still has to be typed in there by hand, because
-   none of them offer an API we are entitled to use. */
-const PORTALS = [
-  {
-    label: 'TG RERA — project registry',
-    href: 'https://rera.telangana.gov.in/',
-    hint: 'Check the RERA number, promoter and completion date',
-  },
-  {
-    label: 'Dharani — land records',
-    href: 'https://dharani.telangana.gov.in/',
-    hint: 'Survey number, extent and ownership for land',
-  },
-  {
-    label: 'IGRS Telangana — encumbrance certificate',
-    href: 'https://registration.telangana.gov.in/',
-    hint: 'EC and registered document search — confirms title is clear',
-  },
-  {
-    label: 'HMDA — layout & building approvals',
-    href: 'https://www.hmda.gov.in/',
-    hint: 'Approved layout / LP number',
-  },
-  {
-    label: 'GHMC — building permissions',
-    href: 'https://www.ghmc.gov.in/',
-    hint: 'Building permit inside GHMC limits',
-  },
-];
+/* Where Core actually checks a Telangana property before verifying it —
+   the same list the Live Verifications desk shows (lib/links.js). */
+const PORTALS = GOV_PORTALS.flatMap((g) => g.links);
 
 function Grid({ rows }) {
   return (
@@ -125,6 +100,22 @@ export default function ListingView() {
     }
   }
 
+  async function remove() {
+    if (!window.confirm(`Delete "${listing.title}"?
+
+Its photos and verification go with it. This cannot be undone.`))
+      return;
+    setError('');
+    setBusy(true);
+    try {
+      await api.listings.remove(id);
+      navigate('/listings');
+    } catch (err) {
+      setError(err.message || 'Could not delete this listing');
+      setBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="page-listingview">
@@ -154,7 +145,10 @@ export default function ListingView() {
     .map((a) => a.trim())
     .filter(Boolean);
 
+  const land = isLand(listing);
+
   const docs = [
+    ['Layout Plan / Survey Sketch', listing.layout_plan_url],
     ['Brochure', listing.brochure_url],
     ['Floor Plan', listing.floor_plan_url],
     ['Price Sheet', listing.price_sheet_url],
@@ -191,7 +185,11 @@ export default function ListingView() {
         {editing ? (
           <form className="section" onSubmit={save} autoComplete="off">
             <h3>Edit listing</h3>
-            <ListingForm value={form} onChange={setForm} />
+            {land ? (
+              <LandForm value={form} onChange={setForm} />
+            ) : (
+              <ListingForm value={form} onChange={setForm} />
+            )}
             <div className="lv-actions">
               <button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
               <button type="button" className="ghost" onClick={() => setEditing(false)}>Cancel</button>
@@ -199,74 +197,133 @@ export default function ListingView() {
           </form>
         ) : (
           <>
-            <div className="section">
-              <h3>Project Snapshot</h3>
-              <Grid
-                rows={[
-                  ['Builder', listing.builder],
-                  ['Property Type', propertyLabel(listing.property_type)],
-                  ['Configuration', listing.configuration],
-                  ['Possession', listing.possession],
-                ]}
-              />
-            </div>
-
-            <div className="section">
-              <h3>Unit Details</h3>
-              <Grid
-                rows={[
-                  ['Super Built-up Area', listing.super_built_up],
-                  ['Carpet Area', listing.carpet_area],
-                  ['UDS', listing.uds],
-                  ['Facing', listing.facing],
-                ]}
-              />
-            </div>
-
-            <div className="section">
-              <h3>Amenities</h3>
-              {amenities.length === 0 ? (
-                <div className="small">No amenities recorded for this listing.</div>
-              ) : (
-                <div className="amenities">
-                  {amenities.map((a) => {
-                    /* Listings entered before the icons existed may already
-                       start with an emoji — reuse it rather than adding a
-                       second one. */
-                    const { icon, label } = splitAmenity(a);
-                    return (
-                      <div className="amenity" key={a}>
-                        <span className="amenity-icon" aria-hidden="true">{icon}</span>
-                        {label}
-                      </div>
-                    );
-                  })}
+            {land ? (
+              <>
+                <div className="section">
+                  <h3>Land Snapshot</h3>
+                  <Grid
+                    rows={[
+                      ['Land Type', listing.land_kind],
+                      ['Extent', listing.extent],
+                      ['Village', listing.village],
+                      ['Mandal', listing.mandal],
+                      ['District', listing.district],
+                    ]}
+                  />
                 </div>
-              )}
-            </div>
 
-            <div className="section">
-              <h3>Price &amp; Commercials</h3>
-              <Grid
-                rows={[
-                  ['Base Price', listing.base_price],
-                  ['All-Inclusive', listing.all_inclusive],
-                  ['Negotiation', listing.negotiation],
-                  ['Commission', listing.commission],
-                ]}
-              />
-            </div>
+                <div className="section">
+                  <h3>Site Details</h3>
+                  <Grid
+                    rows={[
+                      ['Road Access', listing.road_access],
+                      ['Frontage', listing.frontage],
+                      ['Water & Power', listing.utilities],
+                      ['Nearby Landmarks', listing.landmarks],
+                      ['Boundaries', listing.boundaries],
+                    ]}
+                  />
+                </div>
+
+                <div className="section">
+                  <h3>Price &amp; Commercials</h3>
+                  <Grid
+                    rows={[
+                      ['Price', listing.price],
+                      ['Price Basis', listing.price_basis],
+                      ['Negotiation', listing.negotiation],
+                      ['Commission', listing.commission],
+                    ]}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="section">
+                  <h3>Project Snapshot</h3>
+                  <Grid
+                    rows={[
+                      ['Builder', listing.builder],
+                      ['Property Type', propertyLabel(listing.property_type)],
+                      ['Configuration', listing.configuration],
+                      ['Possession', listing.possession],
+                    ]}
+                  />
+                </div>
+
+                <div className="section">
+                  <h3>Unit Details</h3>
+                  <Grid
+                    rows={[
+                      ['Super Built-up Area', listing.super_built_up],
+                      ['Carpet Area', listing.carpet_area],
+                      ['UDS', listing.uds],
+                      ['Facing', listing.facing],
+                    ]}
+                  />
+                </div>
+
+                <div className="section">
+                  <h3>Amenities</h3>
+                  {amenities.length === 0 ? (
+                    <div className="small">No amenities recorded for this listing.</div>
+                  ) : (
+                    <div className="amenities">
+                      {amenities.map((a) => {
+                        /* Listings entered before the icons existed may already
+                           start with an emoji — reuse it rather than adding a
+                           second one. */
+                        const { icon, label } = splitAmenity(a);
+                        return (
+                          <div className="amenity" key={a}>
+                            <span className="amenity-icon" aria-hidden="true">{icon}</span>
+                            {label}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="section">
+                  <h3>Price &amp; Commercials</h3>
+                  <Grid
+                    rows={[
+                      ['Base Price', listing.base_price],
+                      ['All-Inclusive', listing.all_inclusive],
+                      ['Negotiation', listing.negotiation],
+                      ['Commission', listing.commission],
+                    ]}
+                  />
+                </div>
+              </>
+            )}
 
             <div className="section">
               <h3>Legal &amp; Verification</h3>
               <Grid
-                rows={[
-                  ['RERA No.', listing.rera_number],
-                  ['Approval', listing.approval],
-                  ['Title Status', listing.title_status],
-                  ['Bank Approved', listing.bank_approved],
-                  ['Survey No.', listing.survey_number],
-                ]}
+                rows={
+                  land
+                    ? [
+                        ['Survey No.', listing.survey_number],
+                        ['Pattadar', listing.pattadar],
+                        ['Passbook', listing.passbook],
+                        ['Title Status', listing.title_status],
+                        ['Encumbrance (EC)', listing.ec_status],
+                        ['Litigation', listing.litigation],
+                        ['Zoning', listing.zoning],
+                        ['Conversion', listing.conversion],
+                        ['Approval', listing.approval],
+                        ['RERA / LP No.', listing.rera_number],
+                      ]
+                    : [
+                        ['RERA No.', listing.rera_number],
+                        ['Approval', listing.approval],
+                        ['Title Status', listing.title_status],
+                        ['Bank Approved', listing.bank_approved],
+                        ['Survey No.', listing.survey_number],
+                      ]
+                }
               />
 
               {/* Live verification. The portals below are where these claims
@@ -347,6 +404,7 @@ export default function ListingView() {
 
         <div className="lv-actions">
           <button className="ghost" onClick={() => navigate('/listings')}>Back to Listings</button>
+          <button className="danger" disabled={busy} onClick={remove}>Delete Listing</button>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { one, query } from '../db.js';
-import { hashPassword, signToken, verifyPassword } from '../auth.js';
+import { DUMMY_HASH, hashPassword, signToken, verifyPassword } from '../auth.js';
 import { asyncHandler, requireAuth } from '../middleware.js';
 import { modulesForRole } from '../rbac.js';
 import { config } from '../config.js';
@@ -73,8 +73,8 @@ router.post(
 
     /* Same response and roughly the same work whether the account exists or
        not, so this can't be used to enumerate accounts. */
-    const ok = user && (await verifyPassword(password, user.password_hash));
-    if (!ok) return res.status(401).json({ error: 'Invalid username or password' });
+    const matches = await verifyPassword(password, user ? user.password_hash : DUMMY_HASH);
+    if (!user || !matches) return res.status(401).json({ error: 'Invalid username or password' });
 
     if (!user.active) {
       return res.status(403).json({ error: 'Account is deactivated', status: 'deactivated' });
@@ -133,7 +133,11 @@ router.post(
   '/change-password',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { currentPassword, newPassword } = req.body || {};
+    /* Trimmed exactly as login trims — otherwise a new password ending in a
+       space could be set here and never used to sign in. */
+    const str = (v) => (typeof v === 'string' ? v.trim() : '');
+    const currentPassword = str(req.body?.currentPassword);
+    const newPassword = str(req.body?.newPassword);
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: 'currentPassword and newPassword are required' });
     }
@@ -146,14 +150,19 @@ router.post(
 
     const user = await one('SELECT * FROM users WHERE id = $1', [req.user.id]);
     if (!(await verifyPassword(currentPassword, user.password_hash))) {
-      return res.status(401).json({ error: 'Current password is incorrect' });
+      /* 400, not 401: the client treats any 401 on an authenticated request
+         as an expired session and signs the user out — for a typo. */
+      return res.status(400).json({ error: 'Current password is incorrect' });
     }
 
-    await query('UPDATE users SET password_hash = $1 WHERE id = $2', [
-      await hashPassword(newPassword),
-      user.id,
-    ]);
-    res.json({ ok: true });
+    /* Bumping the version signs out every other session; this one gets a
+       fresh token so the person changing it stays signed in. */
+    const updated = await one(
+      `UPDATE users SET password_hash = $1, token_version = token_version + 1
+        WHERE id = $2 RETURNING *`,
+      [await hashPassword(newPassword), user.id]
+    );
+    res.json({ ok: true, token: signToken(updated) });
   })
 );
 

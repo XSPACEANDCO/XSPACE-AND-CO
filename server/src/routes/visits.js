@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { many, one } from '../db.js';
 import { asyncHandler, requireModule, requirePermission } from '../middleware.js';
 import { seesEverything } from '../rbac.js';
-import { newId, notify, recordActivity, recordAudit } from '../helpers.js';
+import { newId, notify, parseDate, recordActivity, recordAudit } from '../helpers.js';
 
 const router = Router();
 
@@ -48,8 +48,30 @@ router.post(
   '/',
   requirePermission('visits:write'),
   asyncHandler(async (req, res) => {
-    const { leadId, listingId, scheduledAt, mode } = req.body || {};
-    if (!scheduledAt) return res.status(400).json({ error: 'scheduledAt is required' });
+    const { leadId, listingId, mode } = req.body || {};
+    const scheduledAt = parseDate(req.body?.scheduledAt);
+    if (!scheduledAt) return res.status(400).json({ error: 'A valid date and time is required' });
+
+    /* A partner can only book a visit for their own client, at a listing
+       they can see. Otherwise naming somebody else's lead id here would
+       attach that client to this partner's visit — and the visit list would
+       then show them the client's name. */
+    if (!seesEverything(req.user.role)) {
+      if (leadId) {
+        const lead = await one(
+          'SELECT id FROM leads WHERE id = $1 AND (assigned_to = $2 OR created_by = $2)',
+          [leadId, req.user.id]
+        );
+        if (!lead) return res.status(404).json({ error: 'Client not found' });
+      }
+      if (listingId) {
+        const listing = await one(
+          'SELECT id FROM listings WHERE id = $1 AND (verified OR assigned_to = $2 OR submitted_by = $2)',
+          [listingId, req.user.id]
+        );
+        if (!listing) return res.status(404).json({ error: 'Listing not found' });
+      }
+    }
 
     let assignedTo = req.user.id;
     if (req.body.assignedTo && seesEverything(req.user.role)) assignedTo = req.body.assignedTo;
@@ -123,8 +145,8 @@ router.post(
   '/:id/reschedule',
   requirePermission('visits:resolve'),
   asyncHandler(async (req, res) => {
-    const { scheduledAt } = req.body || {};
-    if (!scheduledAt) return res.status(400).json({ error: 'scheduledAt is required' });
+    const scheduledAt = parseDate(req.body?.scheduledAt);
+    if (!scheduledAt) return res.status(400).json({ error: 'A valid date and time is required' });
 
     const visit = await one(
       `UPDATE visits SET status='Rescheduled', scheduled_at=$2 WHERE id=$1 RETURNING *`,
