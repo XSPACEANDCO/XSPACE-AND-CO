@@ -28,6 +28,8 @@ const EMPTY = {
   verifications: [],
   audit: [],
   media: [],
+  /* Partner accounts with their KYC state — Founder/Core only. */
+  partners: [],
   earnings: null,
   /* Kept so the panels ported from the original keep rendering; the
      server has no equivalent yet. */
@@ -95,6 +97,7 @@ export function DashboardProvider({ children }) {
       ['verifications', () => api.verifications.list(), may('verifications')],
       ['audit', () => api.dashboard.audit(), role === 'founder'],
       ['team', () => api.users.team(), may('team')],
+      ['partners', () => api.users.kycQueue(), may('team')],
       /* Studio, Founder and Core get every state (the Studio pipeline counts
          approved and awaiting-review work too); everyone else their own. */
       ['media', () => (may('rawMedia') ? api.media.board() : api.media.mine()), true],

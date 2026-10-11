@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import LinkGroups from '../components/LinkGroups';
 import { GOV_PORTALS, QUICK_TOOLS } from '../lib/links';
+import { useDashboard } from './dashboard/DashboardStore';
 import './dashboard/partner/partner.css';
 
 /* Quick Tools: two calculators people otherwise reach for a phone to do,
-   and the outside sites the team uses every day. */
+   and the outside sites the team uses every day.
+
+   Founder, Core and Realtor partners get all of it. Studio's work is the
+   content itself, so they get only the content and social tools. */
 
 const RUPEES = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 
@@ -107,6 +111,9 @@ function AreaConverter() {
 }
 
 export default function QuickTools() {
+  const { role } = useDashboard();
+  if (role === 'studio') return <StudioTools />;
+
   return (
     <div className="pd">
       <header className="pd-hero">
@@ -132,6 +139,23 @@ export default function QuickTools() {
           <AreaConverter />
         </aside>
       </div>
+    </div>
+  );
+}
+
+function StudioTools() {
+  const content = QUICK_TOOLS.filter((g) => g.group === 'Content & social');
+  return (
+    <div className="pd">
+      <header className="pd-hero">
+        <h1>Quick Tools</h1>
+        <p>Content and social tools.</p>
+      </header>
+
+      <section className="panel pd-section">
+        <h4>🎬 Content &amp; social</h4>
+        <LinkGroups groups={content} />
+      </section>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { timeAgo } from '../lib/time';
 import api from '../lib/api';
 import {
   ALL_STATUSES, BHK_OPTIONS, PROPERTY_TYPES, TEMP_LABELS,
-  configKindFor, configLabelFor, propertyLabel,
+  configKindFor, configLabelFor, propertyFullLabel, subtypesFor,
 } from '../lib/leadStatus';
 import { seesEverything } from '../lib/roleConfig';
 import { useDashboard } from './dashboard/DashboardStore';
@@ -23,7 +23,7 @@ const STAMP = new Intl.DateTimeFormat('en-IN', {
 
 const EMPTY_FORM = {
   name: '', phone: '', source: 'Instagram', temperature: 'warm',
-  budget: '', preferredArea: '', propertyType: '', configuration: '', timeline: '',
+  budget: '', preferredArea: '', propertyType: '', propertySubtype: '', configuration: '', timeline: '',
   sourceMediaId: '', followUpAt: '',
 };
 
@@ -43,6 +43,27 @@ export default function Clients() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState('');
+  const [deleting, setDeleting] = useState(null);
+
+  /* Deleting a client is the Founder's call alone — the server refuses it
+     from anyone else. Their site visits go with them. */
+  const canDelete = role === 'founder';
+  async function removeClient(c) {
+    if (!window.confirm(`Delete client "${c.name}"?
+
+Their site visits are deleted with them. This cannot be undone.`))
+      return;
+    setError('');
+    setDeleting(c.id);
+    try {
+      await api.leads.remove(c.id);
+      setLeads((rows) => rows.filter((l) => l.id !== c.id));
+    } catch (err) {
+      setError(err.message || 'Could not delete that client');
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   /* A partner's own uploads, so a new lead can credit the reel it came
      from. Founder and Core are not content sources, so they skip this. */
@@ -91,7 +112,7 @@ export default function Clients() {
     setForm((f) => {
       /* Switching property type changes what configuration even means, so the
          previous answer (say "3 BHK" on a plot of land) must not survive. */
-      if (key === 'propertyType') return { ...f, propertyType: value, configuration: '' };
+      if (key === 'propertyType') return { ...f, propertyType: value, propertySubtype: '', configuration: '' };
       return { ...f, [key]: value };
     });
   };
@@ -104,7 +125,7 @@ export default function Clients() {
     setBusy(true);
     try {
       const payload = { name: form.name.trim(), status: 'New' };
-      for (const k of ['phone', 'source', 'temperature', 'budget', 'preferredArea', 'propertyType', 'configuration', 'timeline', 'sourceMediaId', 'followUpAt']) {
+      for (const k of ['phone', 'source', 'temperature', 'budget', 'preferredArea', 'propertyType', 'propertySubtype', 'configuration', 'timeline', 'sourceMediaId', 'followUpAt']) {
         if (form[k] && String(form[k]).trim()) payload[k] = String(form[k]).trim();
       }
       await api.leads.create(payload);
@@ -120,11 +141,12 @@ export default function Clients() {
 
   const configKind = configKindFor(form.propertyType);
 
+  /* Rows arrive straight from the API, in snake_case. */
   function requirementOf(c) {
     const bits = [
       c.configuration,
-      propertyLabel(c.propertyType),
-      c.preferredArea,
+      propertyFullLabel(c.property_type, c.property_subtype),
+      c.preferred_area,
       c.budget,
     ].filter(Boolean);
     return bits.length ? bits.join(' • ') : '—';
@@ -200,6 +222,18 @@ export default function Clients() {
                 </select>
               </label>
 
+              {subtypesFor(form.propertyType).length > 0 && (
+                <label>
+                  <span>Sub-type</span>
+                  <select value={form.propertySubtype} onChange={set('propertySubtype')}>
+                    <option value="">Select…</option>
+                    {subtypesFor(form.propertyType).map((s) => (
+                      <option key={s.key} value={s.key}>{s.label}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
               {/* Bedrooms for a home, acres for land, square feet for a shop. */}
               <label>
                 <span>{configLabelFor(form.propertyType)}</span>
@@ -271,6 +305,7 @@ export default function Clients() {
                 <th>Requirement</th>
                 <th>Added</th>
                 <th>Status</th>
+                {canDelete && <th aria-label="Actions" />}
               </tr>
             </thead>
             <tbody>
@@ -293,6 +328,20 @@ export default function Clients() {
                   <td>
                     <span className="status">{c.status}</span>
                   </td>
+                  {canDelete && (
+                    <td>
+                      <button
+                        className="delete-btn"
+                        disabled={deleting === c.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeClient(c);
+                        }}
+                      >
+                        {deleting === c.id ? 'Deleting…' : 'Delete'}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

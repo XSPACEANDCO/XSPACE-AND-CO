@@ -4,8 +4,9 @@ import { timeAgo } from '../lib/time';
 import api from '../lib/api';
 import {
   BHK_OPTIONS, DROPPED, LEAD_STATUSES, PROPERTY_TYPES,
-  canAdvance, configKindFor, configLabelFor,
+  canAdvance, configKindFor, configLabelFor, subtypesFor,
 } from '../lib/leadStatus';
+import { useDashboard } from './dashboard/DashboardStore';
 import './leadview.css';
 
 const STAMP = new Intl.DateTimeFormat('en-IN', {
@@ -24,6 +25,7 @@ function toLocalInput(ts) {
 export default function LeadView() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { role } = useDashboard();
 
   const [lead, setLead] = useState(null);
   const [visits, setVisits] = useState([]);
@@ -33,7 +35,7 @@ export default function LeadView() {
 
   /* Requirement snapshot, editable in place. */
   const [req, setReq] = useState({
-    budget: '', preferredArea: '', propertyType: '', configuration: '', timeline: '',
+    budget: '', preferredArea: '', propertyType: '', propertySubtype: '', configuration: '', timeline: '',
   });
   const [reqSaved, setReqSaved] = useState('');
 
@@ -54,6 +56,7 @@ export default function LeadView() {
         budget: out.lead.budget || '',
         preferredArea: out.lead.preferred_area || '',
         propertyType: out.lead.property_type || '',
+        propertySubtype: out.lead.property_subtype || '',
         configuration: out.lead.configuration || '',
         timeline: out.lead.timeline || '',
       });
@@ -88,8 +91,29 @@ export default function LeadView() {
 
   const setReqField = (key) => (e) => {
     const value = e.target.value;
-    setReq((r) => (key === 'propertyType' ? { ...r, propertyType: value, configuration: '' } : { ...r, [key]: value }));
+    setReq((r) =>
+      key === 'propertyType'
+        ? { ...r, propertyType: value, propertySubtype: '', configuration: '' }
+        : { ...r, [key]: value }
+    );
   };
+
+  /* Founder only; the server refuses anyone else. */
+  async function removeLead() {
+    if (!window.confirm(`Delete client "${lead.name}"?
+
+Their site visits are deleted with them. This cannot be undone.`))
+      return;
+    setError('');
+    setBusy(true);
+    try {
+      await api.leads.remove(id);
+      navigate('/clients', { replace: true });
+    } catch (err) {
+      setError(err.message || 'Could not delete this client');
+      setBusy(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -203,6 +227,17 @@ export default function LeadView() {
                 ))}
               </select>
             </label>
+            {subtypesFor(req.propertyType).length > 0 && (
+              <label>
+                <span>Sub-type</span>
+                <select value={req.propertySubtype} onChange={setReqField('propertySubtype')}>
+                  <option value="">Select…</option>
+                  {subtypesFor(req.propertyType).map((s) => (
+                    <option key={s.key} value={s.key}>{s.label}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
               <span>{configLabelFor(req.propertyType)}</span>
               {configKind === 'bhk' ? (
@@ -324,6 +359,11 @@ export default function LeadView() {
             </button>
             {noteSaved && <span className="saved-flag">{noteSaved}</span>}
             <button className="ghost" onClick={() => navigate('/clients')}>Back to Clients</button>
+            {role === 'founder' && (
+              <button className="danger" disabled={busy} onClick={removeLead}>
+                Delete Client
+              </button>
+            )}
           </div>
         </div>
       </div>

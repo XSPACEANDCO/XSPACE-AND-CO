@@ -444,3 +444,9 @@ CREATE TABLE IF NOT EXISTS notification_reads (
   read_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (notification_id, user_id)
 );
+
+-- Commercial and industrial carry a sub-type (office space / shops; open
+-- plot / godown / industry). Same vocabulary on a listing and a lead's
+-- requirement — see src/leadStatus.js.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS property_subtype TEXT;
+ALTER TABLE leads    ADD COLUMN IF NOT EXISTS property_subtype TEXT;

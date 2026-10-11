@@ -134,8 +134,8 @@ export const MODULES = [
     key: 'quickTools',
     label: '🛠️ Quick Tools',
     to: '/quick-tools',
-    roles: ['studio'],
-    contents: ['Shortcuts for the studio workflow', 'Bulk status change, export, hand-off'],
+    roles: ['realtor', 'studio'],
+    contents: ['Calculators, maps and government portals', 'Content and social tools for Studio'],
   },
 
   /* ---- Creator partner: their own content and what it earned ----

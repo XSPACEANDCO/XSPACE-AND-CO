@@ -17,9 +17,9 @@ export default function Topbar({
   const location = useLocation();
 
   const r = normalizeRole(role);
-  /* Partner dashboards open with their own "Welcome back, <name>" header, so
+  /* Every dashboard opens with its own "Welcome back, <name>" header, so
      the top bar does not say it a second time there. */
-  const greetHere = seesEverything(r) || location.pathname !== '/dashboard';
+  const greetHere = location.pathname !== '/dashboard';
 
   /* Global search is a Founder/Core tool — partners only ever see their own
      records, so there is nothing for them to search across. */

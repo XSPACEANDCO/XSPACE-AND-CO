@@ -1,5 +1,5 @@
 import {
-  BHK_OPTIONS, PROPERTY_TYPES, configKindFor, configLabelFor,
+  BHK_OPTIONS, PROPERTY_TYPES, configKindFor, configLabelFor, subtypesFor,
 } from '../lib/leadStatus';
 import AmenityList from '../components/AmenityList';
 import FileField from '../components/FileField';
@@ -17,7 +17,7 @@ import FileField from '../components/FileField';
    you fill in here lands where you expect to read it. */
 
 export const EMPTY_LISTING = {
-  title: '', area: '', propertyType: '', configuration: '', highDemand: false,
+  title: '', area: '', propertyType: '', propertySubtype: '', configuration: '', highDemand: false,
   builder: '', possession: '', unitType: '',
   superBuiltUp: '', carpetArea: '', uds: '', facing: '',
   price: '', basePrice: '', allInclusive: '', negotiation: '', commission: '',
@@ -32,7 +32,9 @@ export const EMPTY_LISTING = {
 
 export const EMPTY_LAND = { ...EMPTY_LISTING, propertyType: 'land' };
 
-/* Land and everything else are different sheets — see LandForm.jsx. */
+/* Land and everything else are different sheets — see LandForm.jsx. Both
+   start with the same property-type picker, so choosing "Land" there swaps
+   the rest of the sheet without losing what was already typed. */
 export function isLand(listing) {
   return (listing?.propertyType ?? listing?.property_type) === 'land';
 }
@@ -43,7 +45,8 @@ export function fromListing(l) {
   const pick = (v) => (v == null ? '' : String(v));
   return {
     title: pick(l.title), area: pick(l.area),
-    propertyType: pick(l.property_type), configuration: pick(l.configuration),
+    propertyType: pick(l.property_type), propertySubtype: pick(l.property_subtype),
+    configuration: pick(l.configuration),
     highDemand: Boolean(l.high_demand),
     builder: pick(l.builder), possession: pick(l.possession), unitType: pick(l.unit_type),
     superBuiltUp: pick(l.super_built_up), carpetArea: pick(l.carpet_area),
@@ -76,9 +79,6 @@ export const APPROVALS = ['HMDA', 'DTCP', 'GHMC', 'Panchayat', 'RERA only', 'Oth
 export const TITLE_STATUS = ['Clear', 'Under verification', 'Disputed', 'Not checked'];
 export const NEGOTIATION = ['Open', 'Limited', 'Fixed price'];
 
-/* Land is entered on its own form, so this one offers everything else. */
-const BUILDING_TYPES = PROPERTY_TYPES.filter((p) => p.key !== 'land');
-
 export function Field({ label, hint, children }) {
   return (
     <label className="lf-field">
@@ -89,16 +89,52 @@ export function Field({ label, hint, children }) {
   );
 }
 
+/* Property type, and the sub-type for the kinds that have one. Changing the
+   type changes what "configuration" even means — bedrooms, acres or square
+   feet — and which sub-types exist, so neither answer survives onto a type
+   it makes no sense for. */
+export function PropertyTypeFields({ value, onChange }) {
+  const subtypes = subtypesFor(value.propertyType);
+  return (
+    <>
+      <Field label="Property type">
+        <select
+          value={value.propertyType}
+          onChange={(e) => {
+            const next = e.target.value;
+            onChange((f) => ({ ...f, propertyType: next, propertySubtype: '', configuration: '' }));
+          }}
+        >
+          <option value="">Select…</option>
+          {PROPERTY_TYPES.map((p) => (
+            <option key={p.key} value={p.key}>{p.label}</option>
+          ))}
+        </select>
+      </Field>
+      {subtypes.length > 0 && (
+        <Field label="Sub-type">
+          <select
+            value={value.propertySubtype}
+            onChange={(e) => {
+              const next = e.target.value;
+              onChange((f) => ({ ...f, propertySubtype: next }));
+            }}
+          >
+            <option value="">Select…</option>
+            {subtypes.map((s) => (
+              <option key={s.key} value={s.key}>{s.label}</option>
+            ))}
+          </select>
+        </Field>
+      )}
+    </>
+  );
+}
+
 export default function ListingForm({ value, onChange }) {
   const set = (key) => (e) => {
     const next = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    onChange((f) => {
-      /* Changing the property type changes what "configuration" even means —
-         bedrooms, acres or square feet — so the previous answer must not
-         survive onto a type it makes no sense for. */
-      if (key === 'propertyType') return { ...f, propertyType: next, configuration: '' };
-      return { ...f, [key]: next };
-    });
+    onChange((f) => ({ ...f, [key]: next }));
   };
 
   const configKind = configKindFor(value.propertyType);
@@ -117,14 +153,7 @@ export default function ListingForm({ value, onChange }) {
           <Field label="Builder">
             <input value={value.builder} onChange={set('builder')} placeholder="Builder name" />
           </Field>
-          <Field label="Property type">
-            <select value={value.propertyType} onChange={set('propertyType')}>
-              <option value="">Select…</option>
-              {BUILDING_TYPES.map((p) => (
-                <option key={p.key} value={p.key}>{p.label}</option>
-              ))}
-            </select>
-          </Field>
+          <PropertyTypeFields value={value} onChange={onChange} />
 
           {/* Bedrooms for a home, acres for land, square feet for a shop. */}
           <Field label={configLabelFor(value.propertyType)}>
