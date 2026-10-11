@@ -747,3 +747,42 @@
 .page-dashboard .pdb-inactive {
   opacity: 0.55;
 }
+
+/* Partner Dashboards: on a phone the table becomes cards (no headers to
+   click), so sorting moves to this select. */
+.page-dashboard .pdb-sort-select {
+  display: none;
+}
+@media (max-width: 640px) {
+  .page-dashboard .pdb-sort-select {
+    display: block;
+    width: 100%;
+  }
+  .page-dashboard .pdb-search {
+    width: 100%;
+  }
+  .page-dashboard .pd-kpi {
+    padding: 10px 12px;
+  }
+  .page-dashboard .pd-hero h1 {
+    font-size: 20px;
+  }
+}
+
+/* Pipelines: a row of stages with arrows on a wide screen; on a phone that
+   row was a sideways scroll, so the stages wrap into a grid instead and the
+   arrows (which no longer point at the next stage) are dropped. */
+@media (max-width: 640px) {
+  .page-dashboard .pd-pipeline {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 8px;
+    overflow: visible;
+  }
+  .page-dashboard .pd-arrow {
+    display: none;
+  }
+  .page-dashboard .pd-stage {
+    min-width: 0;
+  }
+}

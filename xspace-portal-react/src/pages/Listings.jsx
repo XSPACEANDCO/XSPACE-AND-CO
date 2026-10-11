@@ -178,7 +178,7 @@ Its photos and verification go with it. This cannot be undone.`))
             listings are on the Projects page.
           </p>
         ) : (
-          <table>
+          <table className="stack-table">
             <thead>
               <tr>
                 <th>Listing</th>
@@ -201,10 +201,10 @@ Its photos and verification go with it. This cannot be undone.`))
                     </div>
                     {l.high_demand && <div className="small hot">🔥 High Demand</div>}
                   </td>
-                  <td>{l.area || '—'}</td>
-                  <td>{l.price || l.base_price || '—'}</td>
-                  <td>{l.submitted_by_name || '—'}</td>
-                  <td>
+                  <td data-label="Location">{l.area || '—'}</td>
+                  <td data-label="Price">{l.price || l.base_price || '—'}</td>
+                  <td data-label="Submitted by">{l.submitted_by_name || '—'}</td>
+                  <td data-label="Status">
                     <span className={'badge ' + (l.verified ? 'verified' : 'unverified')}>
                       {l.verified ? 'Verified' : 'Unverified'}
                     </span>

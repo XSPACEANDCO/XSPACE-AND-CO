@@ -927,3 +927,33 @@
     display: block;
   }
 }
+
+/* Small phones (360–420px wide). Five controls share the top bar with the
+   role name; at the tablet sizes above they leave it about 40px, which cut
+   "Founder" to "Fou…". Tighter buttons give the name back its room. */
+@media (max-width: 420px) {
+  .page-dashboard .topbar {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .page-dashboard .top-left {
+    gap: 6px;
+  }
+  .page-dashboard .top-right {
+    gap: 4px;
+  }
+  .page-dashboard .topbar .btn-ghost {
+    padding: 8px 9px;
+    min-height: 38px;
+  }
+  .page-dashboard .topbar .avatar {
+    width: 32px;
+    height: 32px;
+  }
+  .page-dashboard .welcome {
+    font-size: 14px;
+  }
+  .page-dashboard .workspace {
+    padding: 12px;
+  }
+}
