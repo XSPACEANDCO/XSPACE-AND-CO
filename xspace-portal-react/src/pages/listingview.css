@@ -184,3 +184,40 @@
   font-size: 15px;
   line-height: 1;
 }
+
+/* ---------- Phone ---------- */
+@media (max-width: 900px) {
+  .page-listingview .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .page-listingview .amenities {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .page-listingview .header {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .page-listingview h1 {
+    font-size: 24px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+  .page-listingview .section {
+    padding: 14px;
+  }
+  .page-listingview .grid {
+    gap: 8px;
+  }
+  .page-listingview .box {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .page-listingview .amenities {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .page-listingview button.danger {
+    margin-left: 0;
+  }
+}

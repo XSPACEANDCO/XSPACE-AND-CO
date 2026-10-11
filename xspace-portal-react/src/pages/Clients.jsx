@@ -297,7 +297,7 @@ Their site visits are deleted with them. This cannot be undone.`))
             {leads.length === 0 ? 'No clients yet. Use “Add Client” to create the first one.' : 'No clients match this filter.'}
           </p>
         ) : (
-          <table>
+          <table className="stack-table">
             <thead>
               <tr>
                 <th>Name</th>
@@ -319,13 +319,15 @@ Their site visits are deleted with them. This cannot be undone.`))
                       {c.source_media_title ? ` · from “${c.source_media_title}”` : ''}
                     </span>
                   </td>
-                  <td>{c.phone || '—'}</td>
-                  <td>{requirementOf(c)}</td>
-                  <td className="stamp">
-                    {c.created_at ? STAMP.format(new Date(c.created_at)) : '—'}
-                    <span className="source">{timeAgo(c.created_at)}</span>
+                  <td data-label="Contact">{c.phone || '—'}</td>
+                  <td data-label="Requirement">{requirementOf(c)}</td>
+                  <td data-label="Added" className="stamp">
+                    <div>
+                      {c.created_at ? STAMP.format(new Date(c.created_at)) : '—'}
+                      <span className="source">{timeAgo(c.created_at)}</span>
+                    </div>
                   </td>
-                  <td>
+                  <td data-label="Status">
                     <span className="status">{c.status}</span>
                   </td>
                   {canDelete && (

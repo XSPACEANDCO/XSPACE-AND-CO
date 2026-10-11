@@ -248,3 +248,16 @@
 [data-theme='light'] .page-leadview .note-actions button.danger {
   color: #b91c1c;
 }
+
+/* ---------- Phone ---------- */
+@media (max-width: 640px) {
+  .page-leadview .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .page-leadview .note-actions {
+    flex-wrap: wrap;
+  }
+  .page-leadview .note-actions button.danger {
+    margin-left: 0;
+  }
+}

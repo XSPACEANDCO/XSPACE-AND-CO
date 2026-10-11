@@ -518,3 +518,64 @@ html[data-theme='light'] body[data-page='dashboard'] {
     max-width: none;
   }
 }
+
+/* ---------- Tables on a phone ----------
+   A table with five or six columns cannot fit a 360px screen; squeezing it
+   wraps every cell to one word per line and still pushes the last columns
+   off the edge. Below 640px a `.stack-table` turns each row into a card:
+   the first cell is the card's heading, and every other cell is a
+   "Label   value" line, the label coming from the cell's data-label.
+   The class is doubled so these win over each page's own table rules. */
+@media (max-width: 640px) {
+  table.stack-table.stack-table,
+  table.stack-table.stack-table tbody,
+  table.stack-table.stack-table tr,
+  table.stack-table.stack-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  table.stack-table.stack-table {
+    background: transparent;
+    border-radius: 0;
+  }
+  table.stack-table.stack-table thead {
+    display: none;
+  }
+  table.stack-table.stack-table tr {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 0;
+    margin-bottom: 10px;
+  }
+  table.stack-table.stack-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    border: 0;
+    padding: 5px 14px;
+    text-align: right;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  table.stack-table.stack-table td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+    text-align: left;
+  }
+  /* The first cell is the card heading: full width, left-aligned. */
+  table.stack-table.stack-table td:first-child {
+    display: block;
+    text-align: left;
+    font-size: 15px;
+    padding-bottom: 8px;
+  }
+  table.stack-table.stack-table td:empty {
+    display: none;
+  }
+}

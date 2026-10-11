@@ -208,6 +208,23 @@ export default function PartnerDashboards() {
             <input type="checkbox" checked={attentionOnly} onChange={(e) => setAttentionOnly(e.target.checked)} />
             Needs attention only
           </label>
+          {/* The column headers are the sort control; on a phone the table
+              becomes cards with no headers, so the same choice is a select. */}
+          <select
+            className="pd-input pdb-sort-select"
+            aria-label="Sort partners"
+            value={sort.key ? `${sort.key}:${sort.dir}` : ''}
+            onChange={(e) => {
+              const [key, dir] = e.target.value.split(':');
+              setSort(key ? { key, dir } : { key: null, dir: 'desc' });
+            }}
+          >
+            <option value="">Sort: default</option>
+            <option value="name:asc">Name A–Z</option>
+            {view.columns.map(([key, label]) => (
+              <option key={key} value={`${key}:desc`}>{label} — highest first</option>
+            ))}
+          </select>
           <label className="pdb-toggle">
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
             Show deactivated
@@ -220,7 +237,7 @@ export default function PartnerDashboards() {
           <Empty>{ofRole.length === 0 ? 'No partners in this group yet. Add them from Teams.' : 'Nobody matches.'}</Empty>
         ) : (
           <div className="pd-table-wrap">
-            <table className="pd-table pdb-table">
+            <table className="pd-table pdb-table stack-table">
               <thead>
                 <tr>
                   <th>
@@ -250,14 +267,16 @@ export default function PartnerDashboards() {
                           {p.last_seen_at ? `Seen ${timeAgo(p.last_seen_at)}` : 'Never signed in'}
                         </div>
                       </td>
-                      {view.columns.map(([key, , fmt]) => (
-                        <td key={key} className={key.includes('overdue') && Number(p[key]) > 0 ? 'pdb-bad' : ''}>
+                      {view.columns.map(([key, label, fmt]) => (
+                        <td key={key} data-label={label} className={key.includes('overdue') && Number(p[key]) > 0 ? 'pdb-bad' : ''}>
                           {fmt ? fmt(p[key], p) : p[key]}
                         </td>
                       ))}
-                      <td>
-                        <div>{rupees(p.commission_due)} due</div>
-                        <div className="small muted">{rupees(p.commission_paid)} paid</div>
+                      <td data-label="Commission">
+                        <div>
+                          <div>{rupees(p.commission_due)} due</div>
+                          <div className="small muted">{rupees(p.commission_paid)} paid</div>
+                        </div>
                       </td>
                       <td className="pdb-flags-col">
                         {flags.length === 0 ? (

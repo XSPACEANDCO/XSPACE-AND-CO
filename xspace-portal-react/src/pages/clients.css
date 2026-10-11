@@ -228,3 +228,14 @@
   opacity: 0.55;
   cursor: default;
 }
+
+@media (max-width: 600px) {
+  .page-clients .top-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .page-clients .stamp {
+    white-space: normal;
+  }
+}
