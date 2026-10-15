@@ -521,3 +521,101 @@ CREATE TABLE IF NOT EXISTS automation_runs (
   dedupe_key TEXT PRIMARY KEY,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ---------------------------------------------------------------------------
+-- Client journey (src/clientJourney.js, routes/journey.js, routes/public.js).
+--
+--   outreach -> appointment -> requirements -> shortlist -> site visit
+--   -> follow-up -> deal -> handover -> feedback -> referral
+--
+-- Xspace owns the client relationship; these are Founder/Core actions, and
+-- each step emails the client (CL-01..13) when the lead has an address and
+-- has not unsubscribed.
+
+-- Cold outreach: CL-01, then CL-02 and CL-03 if they do not respond, then
+-- out of the active sequence. 'responded' stops it.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS outreach_status  TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS outreach_step    INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS outreach_last_at TIMESTAMPTZ;
+
+-- Requirement: what the property is for (own use, investment, rental...).
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS purpose TEXT;
+
+-- Deal and handover are separate events.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS closed_at               TIMESTAMPTZ;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS handover_at             TIMESTAMPTZ;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS handover_location       TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS handover_instructions   TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS handover_completed_at   TIMESTAMPTZ;
+
+-- The client asked to stop receiving email. Every automated email checks it.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS email_opt_out_at TIMESTAMPTZ;
+
+-- A lead that came from another client's referral (CL-13).
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS referred_by TEXT REFERENCES leads(id) ON DELETE SET NULL;
+
+CREATE TABLE IF NOT EXISTS appointments (
+  id           TEXT PRIMARY KEY,
+  lead_id      TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  scheduled_at TIMESTAMPTZ NOT NULL,
+  mode         TEXT NOT NULL DEFAULT 'in_person' CHECK (mode IN ('in_person','online','phone')),
+  location     TEXT,
+  meeting_link TEXT,
+  purpose      TEXT,
+  status       TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled','completed','cancelled')),
+  created_by   TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS appointments_lead_idx ON appointments (lead_id);
+
+-- Projects Xspace has picked for a client. Only verified listings can be
+-- shortlisted. sent_at is when it went out in CL-06; interested_at is when
+-- the client tapped "I'm interested" on their shortlist page.
+CREATE TABLE IF NOT EXISTS lead_shortlist (
+  id            TEXT PRIMARY KEY,
+  lead_id       TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  listing_id    TEXT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  note          TEXT,
+  added_by      TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  sent_at       TIMESTAMPTZ,
+  interested_at TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX IF NOT EXISTS lead_shortlist_unique ON lead_shortlist (lead_id, listing_id);
+
+-- Site visit details the client needs, and their answer to CL-09.
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS meeting_point   TEXT;
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS map_link        TEXT;
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS rep_id          TEXT REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS client_response TEXT;
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS client_responded_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS client_feedback (
+  id              TEXT PRIMARY KEY,
+  lead_id         TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  communication   INTEGER CHECK (communication BETWEEN 1 AND 5),
+  recommendations INTEGER CHECK (recommendations BETWEEN 1 AND 5),
+  presentation    INTEGER CHECK (presentation BETWEEN 1 AND 5),
+  site_visit      INTEGER CHECK (site_visit BETWEEN 1 AND 5),
+  overall         INTEGER NOT NULL CHECK (overall BETWEEN 1 AND 5),
+  comment         TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS client_feedback_lead ON client_feedback (lead_id);
+
+-- Links in client emails. The client has no login, so the unguessable token
+-- in the link is what lets them see their shortlist or answer a question —
+-- the same capability idea as uploads.access_key. kind decides what it opens.
+CREATE TABLE IF NOT EXISTS client_links (
+  token      TEXT PRIMARY KEY,
+  lead_id    TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL CHECK (kind IN ('shortlist','visit','feedback','referral','unsubscribe')),
+  ref_id     TEXT,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS client_links_lead_idx ON client_links (lead_id, kind);
+
+-- Which client an email went to, for the client's email history.
+ALTER TABLE email_log ADD COLUMN IF NOT EXISTS lead_id TEXT REFERENCES leads(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS email_log_lead_idx ON email_log (lead_id);

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-
 import RequireAuth from './routes/RequireAuth';
 import RequireModule from './routes/RequireModule';
 import { ROUTES } from './lib/roleConfig';
+import { getRole } from './lib/storage';
 import { App as CapApp } from '@capacitor/app';
 
 
@@ -32,6 +33,7 @@ import ProfileKyc from './pages/ProfileKyc';
 import Settings from './pages/Settings';
 import PendingWorks from './pages/PendingWorks';
 import PartnerDashboards from './pages/PartnerDashboards';
+import ClientPage from './pages/ClientPage';
 
 /* Pages where pressing back exits the app rather than navigating further back. */
 const ROOT_PAGES = new Set(['/dashboard', '/login', '/']);
@@ -106,6 +108,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login" element={<Login />} />
+      {/* A client's own page, from a link in an Xspace email — no login. */}
+      <Route path="/c/:token" element={<ClientPage />} />
 
       {ROUTES.map((to) => (
         <Route key={to} path={to} element={guard(<RequireModule to={to} element={BUILT[to]} />)} />
@@ -113,7 +117,13 @@ export default function App() {
 
       {/* detail views, reached from their list page */}
       <Route path="/clients/:id" element={guard(<RequireModule to="/clients" element={shell(<LeadView />)} />)} />
-      <Route path="/listings/:id" element={guard(<RequireModule to="/listings" element={shell(<ListingView />)} />)} />
+      {/* Studio has no Listings module but reads verified sheets from Projects. */}
+      <Route
+        path="/listings/:id"
+        element={guard(
+          <RequireModule to={getRole() === 'studio' ? '/projects' : '/listings'} element={shell(<ListingView />)} />
+        )}
+      />
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

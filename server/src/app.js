@@ -19,6 +19,8 @@ import userRoutes from './routes/users.js';
 import fileRoutes, { publicFileRouter } from './routes/files.js';
 import searchRoutes from './routes/search.js';
 import automationRoutes, { cronRouter } from './routes/automations.js';
+import journeyRoutes from './routes/journey.js';
+import publicRoutes from './routes/public.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -69,6 +71,10 @@ export function createApp() {
      route of the same name below. See routes/automations.js. */
   app.use('/api/automations', cronRouter);
 
+  /* The client's own pages, opened from links in their emails. The token in
+     the link is the permission; there is no login. See routes/public.js. */
+  app.use('/api/public', publicRoutes);
+
   /* Everything past here needs a valid token. */
   app.use('/api', requireAuth);
 
@@ -83,6 +89,7 @@ export function createApp() {
   app.use('/api/users', userRoutes);
   app.use('/api/search', searchRoutes);
   app.use('/api/automations', automationRoutes);
+  app.use('/api/journey', journeyRoutes);
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'Unknown API route' }));
 

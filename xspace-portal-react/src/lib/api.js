@@ -158,6 +158,8 @@ export const api = {
     get: (id) => get(`/projects/${id}`),
     create: (data) => post('/projects', data),
     update: (id, data) => patch(`/projects/${id}`, data),
+    /* Only an empty project — the server refuses one with listings. */
+    remove: (id) => del(`/projects/${id}`),
   },
 
   visits: {
@@ -195,6 +197,31 @@ export const api = {
     requestChanges: (id, notes) => post(`/media/${id}/review`, { decision: 'changes', notes }),
     /* Founder/Core send a creator's raw content back to them. */
     requestRevision: (id, notes) => post(`/media/${id}/request-revision`, { notes }),
+  },
+
+  /* One client's journey — outreach, appointments, shortlist, handover.
+     Founder/Core only; see server/src/routes/journey.js. */
+  journey: {
+    get: (leadId) => get(`/journey/${leadId}`),
+    startOutreach: (leadId) => post(`/journey/${leadId}/outreach/start`),
+    responded: (leadId) => post(`/journey/${leadId}/outreach/responded`),
+    stopOutreach: (leadId) => post(`/journey/${leadId}/outreach/stop`),
+    /* { scheduledAt, mode, location, meetingLink, purpose } */
+    bookAppointment: (leadId, data) => post(`/journey/${leadId}/appointments`, data),
+    updateAppointment: (id, data) => patch(`/journey/appointments/${id}`, data),
+    addToShortlist: (leadId, listingId, note) => post(`/journey/${leadId}/shortlist`, { listingId, note }),
+    removeFromShortlist: (leadId, itemId) => del(`/journey/${leadId}/shortlist/${itemId}`),
+    sendShortlist: (leadId) => post(`/journey/${leadId}/shortlist/send`),
+    /* { at, location, instructions } */
+    scheduleHandover: (leadId, data) => post(`/journey/${leadId}/handover`, data),
+    completeHandover: (leadId) => post(`/journey/${leadId}/handover/complete`),
+  },
+
+  /* A client's own page, from a link in their email — no login. */
+  clientPage: {
+    get: (token) => get(`/public/c/${token}`),
+    respond: (token, data) => post(`/public/c/${token}`, data),
+    photoUrl: (path) => BASE + path,
   },
 
   /* The automated emails: what went out, and running the reminders now. */

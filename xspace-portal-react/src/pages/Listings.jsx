@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
+import { getCurrentUserId } from '../lib/storage';
 import ListingForm, { EMPTY_LAND, EMPTY_LISTING, isLand, toPayload } from './ListingForm';
 import LandForm from './LandForm';
 import { propertyFullLabel } from '../lib/leadStatus';
 import './listings.css';
 
-/* Submitted inventory, from the database.
+/* Submitted inventory, from the database, in two tables: what is still
+   waiting on verification, and what has been listed (verified and published
+   to Projects) — so whoever added a listing keeps seeing it after it moves.
 
    Which rows arrive is the server's decision: Founder and Core see every
    listing, a realtor partner sees only what they submitted or were assigned.
    Nothing is filtered here, because the rows that would need hiding never
-   leave the server. */
+   leave the server. Only whoever listed it, Founder and Core may delete. */
 
 export default function Listings() {
   const navigate = useNavigate();
@@ -47,7 +50,7 @@ export default function Listings() {
     setLoading(true);
     setError('');
     try {
-      const out = await api.listings.list();
+      const out = await api.listings.list({ include: 'verified' });
       setListings(out.listings || []);
       setCanVerify(Boolean(out.canVerify));
     } catch (err) {
@@ -120,6 +123,75 @@ Its photos and verification go with it. This cannot be undone.`))
     }
   }
 
+  const me = getCurrentUserId();
+  const pending = listings.filter((l) => !l.verified);
+  const listed = listings.filter((l) => l.verified);
+
+  function table(rows) {
+    return (
+      <table className="stack-table">
+        <thead>
+          <tr>
+            <th>Listing</th>
+            <th>Location</th>
+            <th>Price</th>
+            <th>Submitted By</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((l) => (
+            <tr key={l.id}>
+              <td className="title-cell" onClick={() => navigate('/listings/' + l.id)}>
+                <strong>{l.title}</strong>
+                <div className="small">
+                  {isLand(l)
+                    ? `🌾 Land${l.extent ? ` • ${l.extent}` : ''}`
+                    : propertyFullLabel(l.property_type, l.property_subtype)}
+                </div>
+                {l.high_demand && <div className="small hot">🔥 High Demand</div>}
+              </td>
+              <td data-label="Location">{l.area || '—'}</td>
+              <td data-label="Price">{l.price || l.base_price || '—'}</td>
+              <td data-label="Submitted by">{l.submitted_by_name || '—'}</td>
+              <td data-label="Status">
+                <span className={'badge ' + (l.verified ? 'verified' : 'unverified')}>
+                  {l.verified ? 'Verified' : l.corrections_note ? 'Corrections needed' : 'Unverified'}
+                </span>
+              </td>
+              <td>
+                <div className="row-actions">
+                  <button className="action-btn" onClick={() => navigate('/listings/' + l.id)}>
+                    Open
+                  </button>
+                  {canVerify && !l.verified && (
+                    <button
+                      className="action-btn"
+                      disabled={verifying === l.id}
+                      onClick={() => verify(l.id, l.title)}
+                    >
+                      {verifying === l.id ? 'Verifying…' : 'Verify'}
+                    </button>
+                  )}
+                  {(canVerify || l.submitted_by === me) && (
+                    <button
+                      className="action-btn danger"
+                      disabled={deleting === l.id}
+                      onClick={() => remove(l.id, l.title)}
+                    >
+                      {deleting === l.id ? 'Deleting…' : 'Delete'}
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+
   return (
     <div className="page-listings">
       <div className="container">
@@ -127,7 +199,8 @@ Its photos and verification go with it. This cannot be undone.`))
           <div>
             <h1>Listings</h1>
             <p className="small">
-              Submitted inventory awaiting verification. Once verified, a listing moves to{' '}
+              Everything submitted — waiting on verification, and already listed. Verified
+              listings are also published to{' '}
               <button className="inline-link" onClick={() => navigate('/projects')}>
                 Projects
               </button>
@@ -172,67 +245,21 @@ Its photos and verification go with it. This cannot be undone.`))
 
         {loading ? (
           <p className="small">Loading listings…</p>
-        ) : listings.length === 0 ? (
-          <p className="small">
-            Nothing waiting to be verified. Use “Add Property” to submit inventory — verified
-            listings are on the Projects page.
-          </p>
         ) : (
-          <table className="stack-table">
-            <thead>
-              <tr>
-                <th>Listing</th>
-                <th>Location</th>
-                <th>Price</th>
-                <th>Submitted By</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listings.map((l) => (
-                <tr key={l.id}>
-                  <td className="title-cell" onClick={() => navigate('/listings/' + l.id)}>
-                    <strong>{l.title}</strong>
-                    <div className="small">
-                      {isLand(l)
-                        ? `🌾 Land${l.extent ? ` • ${l.extent}` : ''}`
-                        : propertyFullLabel(l.property_type, l.property_subtype)}
-                    </div>
-                    {l.high_demand && <div className="small hot">🔥 High Demand</div>}
-                  </td>
-                  <td data-label="Location">{l.area || '—'}</td>
-                  <td data-label="Price">{l.price || l.base_price || '—'}</td>
-                  <td data-label="Submitted by">{l.submitted_by_name || '—'}</td>
-                  <td data-label="Status">
-                    <span className={'badge ' + (l.verified ? 'verified' : 'unverified')}>
-                      {l.verified ? 'Verified' : 'Unverified'}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="row-actions">
-                      {canVerify && !l.verified && (
-                        <button
-                          className="action-btn"
-                          disabled={verifying === l.id}
-                          onClick={() => verify(l.id, l.title)}
-                        >
-                          {verifying === l.id ? 'Verifying…' : 'Verify'}
-                        </button>
-                      )}
-                      <button
-                        className="action-btn danger"
-                        disabled={deleting === l.id}
-                        onClick={() => remove(l.id, l.title)}
-                      >
-                        {deleting === l.id ? 'Deleting…' : 'Delete'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <h3 className="list-heading">Awaiting verification ({pending.length})</h3>
+            {pending.length === 0 ? (
+              <p className="small">Nothing waiting to be verified. Use “Add Property” to submit inventory.</p>
+            ) : (
+              table(pending)
+            )}
+
+            <h3 className="list-heading">
+              {canVerify ? 'Listed projects' : 'Your listed projects'} ({listed.length})
+            </h3>
+            <p className="small">Verified and published to Projects.</p>
+            {listed.length === 0 ? <p className="small">Nothing listed yet.</p> : table(listed)}
+          </>
         )}
       </div>
     </div>

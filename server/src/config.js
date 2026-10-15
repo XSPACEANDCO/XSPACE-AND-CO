@@ -70,8 +70,19 @@ export const config = {
     resendApiKey: process.env.RESEND_API_KEY || '',
     from: process.env.EMAIL_FROM || 'Xspace <onboarding@resend.dev>',
     replyTo: process.env.EMAIL_REPLY_TO || '',
-    /* The sign-in link in the portal access email. */
+    /* This site's own address: the sign-in link in the portal access email,
+       and the client's shortlist / feedback / unsubscribe pages. */
     portalUrl: (process.env.PORTAL_URL || 'http://localhost:10000').replace(/\/+$/, ''),
+    /* Xspace's phone number, printed in client emails as the contact. */
+    contactPhone: process.env.CONTACT_PHONE || '',
+  },
+
+  /* Client journey timing (src/clientJourney.js). */
+  clients: {
+    /* Days after cold outreach before CL-02, and again before CL-03. */
+    outreachFollowupDays: Number(process.env.OUTREACH_FOLLOWUP_DAYS) || 3,
+    /* Days after handover before asking for feedback (CL-12). */
+    feedbackDelayDays: Number(process.env.FEEDBACK_DELAY_DAYS) || 7,
   },
 
   automations: {

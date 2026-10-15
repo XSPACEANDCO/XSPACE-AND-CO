@@ -35,10 +35,13 @@ export default function MediaUpload() {
   const { role } = useDashboard();
   const [params] = useSearchParams();
   const isRequest = params.get('request') === '1';
+  /* "Create a video for this project" on a listing sheet lands here with
+     the project already picked. */
+  const presetProject = params.get('project') || '';
 
   const [mine, setMine] = useState([]);
   const [projects, setProjects] = useState([]);
-  const [form, setForm] = useState(EMPTY);
+  const [form, setForm] = useState({ ...EMPTY, projectId: presetProject });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');

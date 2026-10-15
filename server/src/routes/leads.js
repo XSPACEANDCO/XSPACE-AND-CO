@@ -5,6 +5,7 @@ import { seesEverything } from '../rbac.js';
 import { newId, notify, recordAudit } from '../helpers.js';
 import { ALL_STATUSES, canAdvance, isValidPropertyType, isValidSubtype } from '../leadStatus.js';
 import * as automations from '../automations.js';
+import * as journey from '../clientJourney.js';
 
 const router = Router();
 
@@ -238,6 +239,7 @@ router.patch(
          follow_up_at = CASE WHEN $16::boolean THEN $17::timestamptz ELSE follow_up_at END,
          property_subtype = NULLIF(COALESCE($18, property_subtype), ''),
          email = CASE WHEN $19::boolean THEN $20 ELSE email END,
+         purpose = COALESCE($21, purpose),
          last_interaction_at = now()
        WHERE id = $1 RETURNING *`,
       [
@@ -247,9 +249,15 @@ router.patch(
         req.body.propertyType ?? null, req.body.configuration ?? null,
         req.body.preferredArea ?? null, req.body.timeline ?? null, req.body.notes ?? null,
         req.body.sourceMediaId || null, setsFollowUp, parseDate(req.body.followUpAt),
-        req.body.propertySubtype ?? null, setsEmail, email,
+        req.body.propertySubtype ?? null, setsEmail, email, req.body.purpose ?? null,
       ]
     );
+
+    /* The deal is done: congratulate the client (CL-10). Handover is its
+       own, later event — see routes/journey.js. */
+    if (nextStatus === 'Closed' && existing.status !== 'Closed') {
+      journey.dealClosed(lead.id, req.user.id);
+    }
 
     /* Newly credited to a piece of content: tell its creator. */
     if (lead.source_media_id && lead.source_media_id !== existing.source_media_id) {

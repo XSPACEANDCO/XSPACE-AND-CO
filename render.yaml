@@ -65,6 +65,8 @@ services:
         sync: false
       - key: PORTAL_URL
         sync: false
+      - key: CONTACT_PHONE
+        sync: false
       # A free instance sleeps, and its reminder timer with it. Point a cron
       # (cron-job.org, every 15 min) at POST /api/automations/tick with
       # "Authorization: Bearer <this value>".

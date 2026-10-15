@@ -271,3 +271,62 @@
   color: inherit;
   border: 1px solid var(--border);
 }
+
+/* ---------- Client journey (ClientJourney.jsx) ---------- */
+.page-leadview .journey-warn {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.1);
+}
+.page-leadview .journey-chip {
+  display: inline-block;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  margin: 2px 4px 2px 0;
+  white-space: nowrap;
+}
+.page-leadview .journey-chip.scheduled { border-color: rgba(96, 165, 250, 0.6); }
+.page-leadview .journey-chip.completed { border-color: rgba(52, 211, 153, 0.7); }
+.page-leadview .journey-chip.cancelled { border-color: rgba(239, 68, 68, 0.6); }
+.page-leadview .journey-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.page-leadview .journey-row > div:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.page-leadview .journey-row-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.page-leadview .journey-row-actions .lv-inline-btn {
+  margin-left: 0;
+}
+.page-leadview .journey-wide {
+  display: block;
+  margin-top: 10px;
+}
+.page-leadview .journey-wide textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 4px;
+}
+.page-leadview .journey-ratings,
+.page-leadview .journey-referrals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}

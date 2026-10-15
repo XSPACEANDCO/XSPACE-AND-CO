@@ -4,6 +4,7 @@ import { notify, recordAudit } from './helpers.js';
 import { sendEmail } from './mailer.js';
 import { renderEmail } from './emailTemplates.js';
 import { INTERNAL_ROLES } from './rbac.js';
+import * as journey from './clientJourney.js';
 
 /* The member lifecycle and the three role pipelines, as automations.
 
@@ -24,8 +25,8 @@ import { INTERNAL_ROLES } from './rbac.js';
      Founder, Core and partners   two emails when their account is created —
                                   welcome (EM-01) and portal access (EM-02) —
                                   and everything after that in-app only
-     Clients (buyers)             email, about their site visits (CL-01..04),
-                                  and only when their lead has an address
+     Clients (buyers)             the client journey emails, CL-01..13 —
+                                  see src/clientJourney.js
 
    Most pipeline steps already post their notification from the route that
    performs them (listing approved, media reviewed, and so on). This module
@@ -65,16 +66,7 @@ async function notifyInternal(title, body = null, type = 'onboarding') {
   for (const role of INTERNAL_ROLES) await notify({ role, type, title, body });
 }
 
-export const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-
-/* Email the client on a site visit (CL-xx), when their lead has an address. */
-async function emailClient(visit, number, dedupeKey) {
-  if (!visit?.client_email || !EMAIL_RE.test(visit.client_email)) return null;
-  const code = `CL-${number}`;
-  const client = { name: visit.client_name || 'there' };
-  const { subject, html, text } = renderEmail(code, { client, visit });
-  return sendEmail({ to: visit.client_email, code, dedupeKey: `${code}:${dedupeKey}`, subject, html, text });
-}
+export const EMAIL_RE = journey.EMAIL_RE;
 
 function when(value) {
   if (!value) return 'time to be confirmed';
@@ -224,7 +216,7 @@ export const visitScheduled = safe('visitScheduled', async (visitId, actorId) =>
       body: visitWhat(visit) || null,
     });
   }
-  await emailClient(visit, '01', visit.id);
+  await journey.visitScheduled(visit.id);
 });
 
 export const visitRescheduled = safe('visitRescheduled', async (visitId, actorId) => {
@@ -238,13 +230,11 @@ export const visitRescheduled = safe('visitRescheduled', async (visitId, actorId
       body: visitWhat(visit) || null,
     });
   }
-  await emailClient(visit, '03', `${visit.id}:${visitTime(visit)}`);
+  await journey.visitScheduled(visit.id, { rescheduled: true });
 });
 
 export const visitCompleted = safe('visitCompleted', async (visitId) => {
-  const visit = await visitWithNames(visitId);
-  if (!visit) return;
-  await emailClient(visit, '04', visit.id);
+  await journey.visitCompleted(visitId);
 });
 
 /* --------------------------------------------------------------------------
@@ -346,7 +336,7 @@ async function visitReminders() {
         body: visitWhat(visit) || null,
       });
     }
-    await emailClient(visit, '02', `${visit.id}:${visitTime(visit)}`);
+    await journey.visitReminderEmail(visit.id);
   }
 }
 
@@ -479,6 +469,10 @@ export async function tick() {
       deadlineReminders,
       weeklyCreatorSummaries: () => weeklyCreatorSummaries(now),
       dailyTeamDigest: () => dailyTeamDigest(now),
+      clientJourney: async () => {
+        const r = await journey.clientTick();
+        if (Object.values(r).includes('failed')) throw new Error(JSON.stringify(r));
+      },
     })) {
       try {
         await step();

@@ -7,6 +7,7 @@ import {
   canAdvance, configKindFor, configLabelFor, subtypesFor,
 } from '../lib/leadStatus';
 import { useDashboard } from './dashboard/DashboardStore';
+import ClientJourney from './ClientJourney';
 import './leadview.css';
 
 const STAMP = new Intl.DateTimeFormat('en-IN', {
@@ -35,7 +36,7 @@ export default function LeadView() {
 
   /* Requirement snapshot, editable in place. */
   const [req, setReq] = useState({
-    budget: '', preferredArea: '', propertyType: '', propertySubtype: '', configuration: '', timeline: '',
+    budget: '', preferredArea: '', propertyType: '', propertySubtype: '', configuration: '', timeline: '', purpose: '',
   });
   const [reqSaved, setReqSaved] = useState('');
 
@@ -45,8 +46,9 @@ export default function LeadView() {
   const [followUp, setFollowUp] = useState('');
   const [followSaved, setFollowSaved] = useState('');
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  /* quiet: refresh in place (after a journey step) without blanking the page. */
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
     setError('');
     try {
       const out = await api.leads.get(id);
@@ -59,6 +61,7 @@ export default function LeadView() {
         propertySubtype: out.lead.property_subtype || '',
         configuration: out.lead.configuration || '',
         timeline: out.lead.timeline || '',
+        purpose: out.lead.purpose || '',
       });
       setNote(out.lead.notes || '');
       setFollowUp(toLocalInput(out.lead.follow_up_at));
@@ -277,6 +280,15 @@ Their site visits are deleted with them. This cannot be undone.`))
               <span>Timeline</span>
               <input value={req.timeline} onChange={setReqField('timeline')} placeholder="Immediate (30 days)" />
             </label>
+            <label>
+              <span>Purpose</span>
+              <select value={req.purpose} onChange={setReqField('purpose')}>
+                <option value="">Select…</option>
+                {['Own use', 'Investment', 'Rental income', 'Business use', 'Other'].map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </label>
           </div>
           <div className="note-actions">
             <button
@@ -291,6 +303,10 @@ Their site visits are deleted with them. This cannot be undone.`))
             {reqSaved && <span className="saved-flag">{reqSaved}</span>}
           </div>
         </div>
+
+        {/* Outreach, appointments, shortlist, handover — Xspace's side of the
+            client relationship, so Founder and Core only. */}
+        {(role === 'founder' || role === 'core') && <ClientJourney leadId={id} onLeadChange={() => load(true)} />}
 
         {/* FOLLOW-UP — drives the realtor dashboard's follow-up summary. */}
         <div className="section">

@@ -1,0 +1,257 @@
+/* The client's own page (/c/:token). Standalone: a client never sees the
+   portal around it, so it carries its own palette, light by default and dark
+   when the client's device asks for it. */
+
+.client-page {
+  --cp-bg: #f4f2ec;
+  --cp-panel: #ffffff;
+  --cp-fg: #1d1d1d;
+  --cp-muted: #6b6b6b;
+  --cp-border: #e3e0d6;
+  --cp-gold: #8a6d00;
+  --cp-accent: #1d1d1d;
+  --cp-on-accent: #ffffff;
+  --cp-ok-bg: #eaf6ee;
+  --cp-ok-fg: #1f6b3a;
+  --cp-err: #b42318;
+
+  min-height: 100vh;
+  background: var(--cp-bg);
+  color: var(--cp-fg);
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+@media (prefers-color-scheme: dark) {
+  .client-page {
+    --cp-bg: #121212;
+    --cp-panel: #1c1c1c;
+    --cp-fg: #f1f1f1;
+    --cp-muted: #a3a3a3;
+    --cp-border: #2e2e2e;
+    --cp-gold: #e2b93b;
+    --cp-accent: #f1f1f1;
+    --cp-on-accent: #121212;
+    --cp-ok-bg: #16301f;
+    --cp-ok-fg: #8fd6a6;
+    --cp-err: #ff8a80;
+  }
+}
+
+.client-page *,
+.client-page *::before,
+.client-page *::after {
+  box-sizing: border-box;
+}
+
+.client-page .cp-brand {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 22px 0 10px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  font-size: 13px;
+  color: var(--cp-gold);
+}
+.client-page .cp-main {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.client-page .cp-foot {
+  max-width: 720px;
+  margin: 32px auto 0;
+  padding: 16px 0 28px;
+  font-size: 12px;
+  color: var(--cp-muted);
+  border-top: 1px solid var(--cp-border);
+}
+
+.client-page h1 {
+  font-size: 26px;
+  line-height: 1.25;
+  margin: 8px 0 8px;
+}
+.client-page h2 {
+  font-size: 19px;
+  margin: 0 0 2px;
+}
+.client-page .cp-lead {
+  color: var(--cp-muted);
+  margin: 0 0 20px;
+}
+.client-page .cp-muted {
+  color: var(--cp-muted);
+  font-size: 14px;
+}
+
+.client-page .cp-card {
+  background: var(--cp-panel);
+  border: 1px solid var(--cp-border);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+.client-page .cp-photos {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+}
+.client-page .cp-photos img {
+  flex: 0 0 100%;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  scroll-snap-align: start;
+  display: block;
+}
+.client-page .cp-card-body {
+  padding: 16px;
+}
+.client-page .cp-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px 16px;
+  margin: 14px 0;
+}
+.client-page .cp-facts dt {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--cp-muted);
+}
+.client-page .cp-facts dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.client-page .cp-why {
+  margin: 0 0 12px;
+  font-style: italic;
+}
+.client-page .cp-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.client-page .cp-tags span {
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--cp-border);
+}
+.client-page .cp-verified {
+  font-size: 14px;
+  color: var(--cp-ok-fg);
+  margin-bottom: 12px;
+}
+.client-page .cp-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.client-page .cp-links a {
+  color: var(--cp-gold);
+}
+
+.client-page .cp-btn {
+  appearance: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 20px;
+  font: inherit;
+  font-weight: 600;
+  background: var(--cp-accent);
+  color: var(--cp-on-accent);
+  cursor: pointer;
+  min-height: 44px;
+}
+.client-page .cp-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.client-page .cp-done {
+  background: var(--cp-ok-bg);
+  color: var(--cp-ok-fg);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.client-page .cp-error {
+  color: var(--cp-err);
+  margin-bottom: 14px;
+}
+
+.client-page .cp-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.client-page .cp-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--cp-border);
+  background: var(--cp-panel);
+  cursor: pointer;
+}
+.client-page .cp-choice.on {
+  border-color: var(--cp-accent);
+}
+
+.client-page .cp-rating {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--cp-border);
+}
+.client-page .cp-stars {
+  display: flex;
+  gap: 2px;
+}
+.client-page .cp-star {
+  appearance: none;
+  background: none;
+  border: 0;
+  font-size: 28px;
+  line-height: 1;
+  padding: 4px;
+  min-width: 40px;
+  min-height: 40px;
+  color: var(--cp-border);
+  cursor: pointer;
+}
+.client-page .cp-star.on {
+  color: var(--cp-gold);
+}
+
+.client-page .cp-field {
+  display: block;
+  margin: 16px 0;
+}
+.client-page .cp-field span {
+  display: block;
+  font-size: 14px;
+  color: var(--cp-muted);
+  margin-bottom: 6px;
+}
+.client-page .cp-field input,
+.client-page .cp-field textarea {
+  width: 100%;
+  font: inherit;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--cp-border);
+  background: var(--cp-panel);
+  color: var(--cp-fg);
+}

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { many, one } from '../db.js';
 import { asyncHandler, requireModule, requirePermission } from '../middleware.js';
 import { seesEverything } from '../rbac.js';
-import { newId, notify, parseDate, recordActivity, recordAudit } from '../helpers.js';
+import { newId, notify, parseDate, recordActivity, recordAudit, safeUrl } from '../helpers.js';
 import * as automations from '../automations.js';
 
 const router = Router();
@@ -77,11 +77,23 @@ router.post(
     let assignedTo = req.user.id;
     if (req.body.assignedTo && seesEverything(req.user.role)) assignedTo = req.body.assignedTo;
 
+    /* What the client's confirmation email tells them: where to meet, a map
+       link, and which Xspace team member is their contact (Founder/Core only
+       pick that; otherwise it falls back to the lead's Xspace owner). */
+    const mapLink = safeUrl(req.body.mapLink);
+    if (mapLink === undefined) return res.status(400).json({ error: 'The map link must start with http:// or https://' });
+    const meetingPoint = String(req.body.meetingPoint || '').trim() || null;
+    const repId = seesEverything(req.user.role) ? req.body.repId || req.user.id : null;
+    if (req.body.repId && repId === req.body.repId) {
+      const rep = await one("SELECT id FROM users WHERE id = $1 AND role IN ('founder','core') AND active", [repId]);
+      if (!rep) return res.status(400).json({ error: 'The Xspace representative must be a Founder or Core member' });
+    }
+
     const id = newId('v');
     const visit = await one(
-      `INSERT INTO visits (id, lead_id, listing_id, assigned_to, scheduled_at, mode)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [id, leadId || null, listingId || null, assignedTo, scheduledAt, mode || 'On-site']
+      `INSERT INTO visits (id, lead_id, listing_id, assigned_to, scheduled_at, mode, meeting_point, map_link, rep_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [id, leadId || null, listingId || null, assignedTo, scheduledAt, mode || 'On-site', meetingPoint, mapLink, repId]
     );
     await recordActivity(`${req.user.name} scheduled a site visit`, req.user.id);
     await recordAudit(`Visit ${id} scheduled`, req.user.id, 'visit', id);

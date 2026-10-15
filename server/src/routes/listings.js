@@ -11,7 +11,28 @@ import { isValidPropertyType, isValidSubtype } from '../leadStatus.js';
 
 const router = Router();
 
-router.use(requireModule('listings'));
+/* Studio is not on the Listings module — it has no business in the
+   submission queue — but it may read a verified listing's sheet and photos,
+   to see the specification of the project it is making videos for. Every
+   other route here needs the module. */
+const STUDIO_READS = /^\/([\w-]+(\/photos)?)?$/;
+router.use((req, res, next) => {
+  if (req.user.role === 'studio' && req.method === 'GET' && STUDIO_READS.test(req.path)) {
+    req.scope = 'verified';
+    return next();
+  }
+  return requireModule('listings')(req, res, next);
+});
+
+/* What Studio does not see on a listing: the commercial terms and the
+   internal notes. */
+const STUDIO_HIDDEN = ['commission', 'negotiation', 'notes'];
+const forStudio = (user, listing) => {
+  if (user.role !== 'studio' || !listing) return listing;
+  const out = { ...listing };
+  for (const k of STUDIO_HIDDEN) delete out[k];
+  return out;
+};
 
 /* Every field the listing sheet collects, as camelCase-in / snake_case-out
    pairs. Keeping the list in one place means POST, PATCH and the column list
@@ -92,13 +113,22 @@ function clean(value) {
   return trimmed === '' ? null : trimmed;
 }
 
-/* Realtor partners see only inventory they submitted or are assigned. */
+/* Realtor partners see only inventory they submitted or are assigned.
+   Studio sees verified inventory only. */
 function scopeClause(user, startIndex = 1) {
   if (seesEverything(user.role)) return { where: '', params: [] };
+  if (user.role === 'studio') return { where: ' AND l.verified', params: [] };
   return {
     where: ` AND (l.assigned_to = $${startIndex} OR l.submitted_by = $${startIndex})`,
     params: [user.id],
   };
+}
+
+/* Who may change a listing once it is in: whoever listed it, plus Founder
+   and Core. A realtor it is merely assigned to can see it but not edit it. */
+function editClause(user, startIndex = 1) {
+  if (seesEverything(user.role)) return { where: '', params: [] };
+  return { where: ` AND l.submitted_by = $${startIndex}`, params: [user.id] };
 }
 
 /* Listings is the queue of inventory still waiting on verification. Once a
@@ -126,7 +156,7 @@ router.get(
         ORDER BY l.created_at DESC`,
       params
     );
-    res.json({ listings: rows, canVerify: seesEverything(req.user.role) });
+    res.json({ listings: rows.map((l) => forStudio(req.user, l)), canVerify: seesEverything(req.user.role) });
   })
 );
 
@@ -154,9 +184,12 @@ router.get(
       `SELECT * FROM media WHERE project_id = $1
           AND ($2::boolean IS TRUE OR status = 'approved')
         ORDER BY created_at DESC`,
-      [listing.project_id, seesEverything(req.user.role)]
+      [listing.project_id, seesEverything(req.user.role) || req.user.role === 'studio']
     );
-    res.json({ listing, media });
+    /* Studio sees every piece of footage for the project — it is what they
+       edit. Only whoever listed it, Founder and Core may edit the sheet. */
+    const canEdit = seesEverything(req.user.role) || listing.submitted_by === req.user.id;
+    res.json({ listing: forStudio(req.user, listing), media, canEdit });
   })
 );
 
@@ -217,12 +250,12 @@ router.patch(
   '/:id',
   requirePermission('listings:write'),
   asyncHandler(async (req, res) => {
-    const { where, params } = scopeClause(req.user, 2);
+    const { where, params } = editClause(req.user, 2);
     const existing = await one(`SELECT l.* FROM listings l WHERE l.id = $1 ${where}`, [
       req.params.id,
       ...params,
     ]);
-    if (!existing) return res.status(404).json({ error: 'Listing not found' });
+    if (!existing) return res.status(404).json({ error: 'Listing not found, or you did not list it' });
 
     const body = req.body || {};
     if (!isValidPropertyType(clean(body.propertyType) || undefined)) {
@@ -266,6 +299,15 @@ router.patch(
     if (existing.corrections_note && existing.submitted_by === req.user.id) {
       listing = (await resubmitListing(listing.id, req.user.id)) || listing;
       automations.listingSubmitted(listing, { resubmitted: true });
+    } else if (existing.verified && !seesEverything(req.user.role)) {
+      /* A live listing changed by the partner who listed it: Core should
+         know, since it was verified as it was before. */
+      await notify({
+        role: 'core',
+        type: 'verification',
+        title: `Verified listing edited: ${listing.title}`,
+        body: `Changed by ${req.user.name}`,
+      });
     }
     res.json({ listing });
   })
@@ -306,14 +348,27 @@ router.delete(
   '/:id',
   requirePermission('listings:write'),
   asyncHandler(async (req, res) => {
-    const { where, params } = scopeClause(req.user, 2);
+    const { where, params } = editClause(req.user, 2);
     const listing = await one(`SELECT l.id, l.title FROM listings l WHERE l.id = $1 ${where}`, [
       req.params.id,
       ...params,
     ]);
-    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+    if (!listing) return res.status(404).json({ error: 'Listing not found, or you did not list it' });
 
+    const { project_id: projectId } = await one('SELECT project_id FROM listings WHERE id = $1', [listing.id]);
     await one('DELETE FROM listings WHERE id = $1 RETURNING id', [listing.id]);
+
+    /* The project's last listing: take the empty project with it, rather than
+       leaving a card on Projects with no sheet behind it. */
+    if (projectId) {
+      const emptied = await one(
+        `DELETE FROM projects p WHERE p.id = $1
+            AND NOT EXISTS (SELECT 1 FROM listings l WHERE l.project_id = p.id)
+          RETURNING name`,
+        [projectId]
+      );
+      if (emptied) await recordAudit(`Empty project ${emptied.name} removed with its last listing`, req.user.id, 'project', projectId);
+    }
     await recordActivity(`${req.user.name} deleted listing ${listing.title}`, req.user.id);
     await recordAudit(`Listing ${listing.title} deleted`, req.user.id, 'listing', listing.id);
     res.json({ deleted: true, id: listing.id });
@@ -357,12 +412,12 @@ router.post(
   '/:id/photos',
   requirePermission('listings:write'),
   asyncHandler(async (req, res) => {
-    const { where, params } = scopeClause(req.user, 2);
+    const { where, params } = editClause(req.user, 2);
     const listing = await one(`SELECT l.id, l.title FROM listings l WHERE l.id = $1 ${where}`, [
       req.params.id,
       ...params,
     ]);
-    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+    if (!listing) return res.status(404).json({ error: 'Listing not found, or you did not list it' });
 
     const { dataUrl, caption } = req.body || {};
     if (!dataUrl || typeof dataUrl !== 'string') {
@@ -416,12 +471,12 @@ router.delete(
   '/:id/photos/:photoId',
   requirePermission('listings:write'),
   asyncHandler(async (req, res) => {
-    const { where, params } = scopeClause(req.user, 2);
+    const { where, params } = editClause(req.user, 2);
     const listing = await one(`SELECT l.id, l.title FROM listings l WHERE l.id = $1 ${where}`, [
       req.params.id,
       ...params,
     ]);
-    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+    if (!listing) return res.status(404).json({ error: 'Listing not found, or you did not list it' });
 
     const photo = await one(
       'DELETE FROM listing_photos WHERE id = $1 AND listing_id = $2 RETURNING id',

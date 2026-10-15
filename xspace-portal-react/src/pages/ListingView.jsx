@@ -51,6 +51,10 @@ export default function ListingView() {
   const [form, setForm] = useState(null);
   const [saved, setSaved] = useState('');
   const internal = ['founder', 'core'].includes(getRole());
+  /* Studio reads verified sheets to make the project's videos. */
+  const studio = getRole() === 'studio';
+  /* Whoever listed it, Founder and Core — decided by the server. */
+  const [canEdit, setCanEdit] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,6 +63,7 @@ export default function ListingView() {
       const out = await api.listings.get(id);
       setListing(out.listing);
       setForm(fromListing(out.listing));
+      setCanEdit(Boolean(out.canEdit));
     } catch (err) {
       setError(err.message || 'Could not load this listing');
     } finally {
@@ -210,9 +215,16 @@ Its photos and verification go with it. This cannot be undone.`))
               {listing.verified ? 'Verified' : 'Unverified'}
             </span>
             {saved && <span className="lv-saved">{saved}</span>}
-            <button onClick={() => { setEditing((v) => !v); setForm(fromListing(listing)); }}>
-              {editing ? 'Cancel' : 'Edit'}
-            </button>
+            {canEdit && (
+              <button onClick={() => { setEditing((v) => !v); setForm(fromListing(listing)); }}>
+                {editing ? 'Cancel' : 'Edit'}
+              </button>
+            )}
+            {studio && listing.project_id && (
+              <button onClick={() => navigate(`/media-upload?request=1&project=${listing.project_id}`)}>
+                🎬 Create a video for this project
+              </button>
+            )}
           </div>
         </div>
 
@@ -385,7 +397,7 @@ Its photos and verification go with it. This cannot be undone.`))
                 </div>
               </div>
 
-              {!listing.verified && (
+              {!listing.verified && internal && (
                 <div className="lv-actions">
                   <button disabled={busy} onClick={verify}>
                     {busy ? 'Verifying…' : 'Mark verified & publish to Projects'}
@@ -412,7 +424,7 @@ Its photos and verification go with it. This cannot be undone.`))
             <div className="section">
               <h3>Photos</h3>
               <div className="small">Elevation, amenities, site images</div>
-              <ListingPhotos listingId={listing.id} />
+              <ListingPhotos listingId={listing.id} readOnly={!canEdit} />
             </div>
 
             <div className="section">
@@ -434,16 +446,22 @@ Its photos and verification go with it. This cannot be undone.`))
               )}
             </div>
 
-            <div className="section">
-              <h3>Internal Notes</h3>
-              <div className="small">{listing.notes || 'No notes yet.'}</div>
-            </div>
+            {!studio && (
+              <div className="section">
+                <h3>Internal Notes</h3>
+                <div className="small">{listing.notes || 'No notes yet.'}</div>
+              </div>
+            )}
           </>
         )}
 
         <div className="lv-actions">
-          <button className="ghost" onClick={() => navigate('/listings')}>Back to Listings</button>
-          <button className="danger" disabled={busy} onClick={remove}>Delete Listing</button>
+          {studio ? (
+            <button className="ghost" onClick={() => navigate('/projects')}>Back to Projects</button>
+          ) : (
+            <button className="ghost" onClick={() => navigate('/listings')}>Back to Listings</button>
+          )}
+          {canEdit && <button className="danger" disabled={busy} onClick={remove}>Delete Listing</button>}
         </div>
       </div>
     </div>

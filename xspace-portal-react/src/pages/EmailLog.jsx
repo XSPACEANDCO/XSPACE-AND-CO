@@ -1,21 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import api from '../lib/api';
 import { timeAgo } from '../lib/time';
+import { EMAIL_NAMES } from './ClientJourney';
 
 /* Every email the portal has sent, newest first — Founder and Core only.
 
-   Two kinds (server/src/automations.js): the welcome and portal-access
-   emails every new account gets, and clients' site-visit emails. Everything
+   Two kinds: the welcome and portal-access emails every new account gets
+   (server/src/automations.js), and the client journey emails CL-01..13
+   (server/src/clientJourney.js). Everything
    else reaches staff and partners as an in-app notification. Without RESEND_API_KEY on the server
    nothing leaves it, and each row reads "Logged" instead of "Sent". */
 
 const KINDS = {
   'EM-01': 'Welcome',
   'EM-02': 'Portal access',
-  'CL-01': 'Visit confirmed',
-  'CL-02': 'Visit reminder',
-  'CL-03': 'Visit rescheduled',
-  'CL-04': 'Thank you',
+  ...EMAIL_NAMES,
 };
 
 const STATUS = {
@@ -70,7 +69,7 @@ export default function EmailLog({ search = '' }) {
     <section className="email-log">
       <div className="email-log-bar">
         <span className="email-log-note">
-          Welcome and portal-access emails for new accounts, and site-visit emails to clients.
+          Welcome and portal-access emails for new accounts, and the client journey emails.
         </span>
         <button className="teams-link" disabled={busy} onClick={runNow}>
           {busy ? 'Running…' : 'Run reminders now'}

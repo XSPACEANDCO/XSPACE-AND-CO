@@ -12,24 +12,26 @@ import { newId } from './helpers.js';
    Every email carries a dedupe key, and the log has a unique index on it, so
    the same reminder can never go out twice even if two scheduler runs
    overlap: the second insert loses the race and sends nothing. */
-export async function sendEmail({ userId = null, to, code, dedupeKey, subject, html, text }) {
+export async function sendEmail({ userId = null, leadId = null, to, code, dedupeKey, subject, html, text }) {
   if (!to) return { status: 'skipped' };
 
   /* Claim the key first. If it is already taken this email has been sent —
      unless that attempt failed, in which case this one retries it. */
   const claimed = await one(
-    `INSERT INTO email_log (id, user_id, code, dedupe_key, to_email, subject, status)
-     VALUES ($1,$2,$3,$4,$5,$6,'logged')
+    `INSERT INTO email_log (id, user_id, lead_id, code, dedupe_key, to_email, subject, status)
+     VALUES ($1,$2,$7,$3,$4,$5,$6,'logged')
      ON CONFLICT (dedupe_key) DO UPDATE
        SET status = 'logged', error = NULL, created_at = now(), to_email = EXCLUDED.to_email
        WHERE email_log.status = 'failed'
      RETURNING id`,
-    [newId('em'), userId, code, dedupeKey, to, subject]
+    [newId('em'), userId, code, dedupeKey, to, subject, leadId]
   );
   if (!claimed) return { status: 'duplicate' };
 
   if (!config.email.resendApiKey) {
     console.log(`[mail] ${code} -> ${to}: ${subject} (not sent: RESEND_API_KEY unset)`);
+    /* Locally, show what would have gone out — links included. */
+    if (config.env !== 'production') console.log(text.replace(/^/gm, '[mail]   '));
     return { status: 'logged' };
   }
 
