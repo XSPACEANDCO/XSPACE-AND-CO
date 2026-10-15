@@ -26,6 +26,9 @@ const FOLLOW_UP = {
 };
 const DEFAULT_FOLLOW_UP = 'Manual follow-up in 24–48 hrs';
 
+/* A visit that has not happened yet. */
+const OPEN_VISIT = ['Scheduled', 'Rescheduled'];
+
 router.get(
   '/',
   asyncHandler(async (req, res) => {
@@ -75,7 +78,11 @@ router.post(
     }
 
     let assignedTo = req.user.id;
-    if (req.body.assignedTo && seesEverything(req.user.role)) assignedTo = req.body.assignedTo;
+    if (req.body.assignedTo && seesEverything(req.user.role)) {
+      const agent = await one('SELECT id FROM users WHERE id = $1 AND active', [req.body.assignedTo]);
+      if (!agent) return res.status(400).json({ error: 'That person does not exist or is deactivated' });
+      assignedTo = req.body.assignedTo;
+    }
 
     /* What the client's confirmation email tells them: where to meet, a map
        link, and which Xspace team member is their contact (Founder/Core only
@@ -114,6 +121,11 @@ router.post(
       ...params,
     ]);
     if (!existing) return res.status(404).json({ error: 'Visit not found' });
+    /* Only a visit still due can be completed — not one already completed
+       or marked unsuccessful, which would rewrite what happened. */
+    if (!OPEN_VISIT.includes(existing.status)) {
+      return res.status(409).json({ error: `This visit is already ${existing.status.toLowerCase()}` });
+    }
 
     const visit = await one(
       `UPDATE visits SET status='Completed', ended_at=now(),
@@ -135,12 +147,17 @@ router.post(
     const { reason } = req.body || {};
     if (!reason) return res.status(400).json({ error: 'reason is required' });
 
+    const existing = await one('SELECT status FROM visits WHERE id = $1', [req.params.id]);
+    if (!existing) return res.status(404).json({ error: 'Visit not found' });
+    if (!OPEN_VISIT.includes(existing.status)) {
+      return res.status(409).json({ error: `This visit is already ${existing.status.toLowerCase()}` });
+    }
+
     const visit = await one(
       `UPDATE visits SET status='Unsuccessful', reason=$2, ended_at=now()
         WHERE id=$1 RETURNING *`,
       [req.params.id, reason]
     );
-    if (!visit) return res.status(404).json({ error: 'Visit not found' });
 
     const followUp = FOLLOW_UP[reason] || DEFAULT_FOLLOW_UP;
     if (visit.assigned_to) {
@@ -163,11 +180,19 @@ router.post(
     const scheduledAt = parseDate(req.body?.scheduledAt);
     if (!scheduledAt) return res.status(400).json({ error: 'A valid date and time is required' });
 
+    /* A completed visit happened; it is not moved. An unsuccessful one can
+       be — "Reschedule Requested" is one of the reasons it ends up there. */
+    const existing = await one('SELECT status FROM visits WHERE id = $1', [req.params.id]);
+    if (!existing) return res.status(404).json({ error: 'Visit not found' });
+    if (existing.status === 'Completed') {
+      return res.status(409).json({ error: 'This visit is already completed — book a new one instead' });
+    }
+
     const visit = await one(
-      `UPDATE visits SET status='Rescheduled', scheduled_at=$2 WHERE id=$1 RETURNING *`,
+      `UPDATE visits SET status='Rescheduled', scheduled_at=$2, ended_at=NULL, reason=NULL
+        WHERE id=$1 RETURNING *`,
       [req.params.id, scheduledAt]
     );
-    if (!visit) return res.status(404).json({ error: 'Visit not found' });
     await recordAudit(`Visit ${visit.id} rescheduled`, req.user.id, 'visit', visit.id);
     automations.visitRescheduled(visit.id, req.user.id);
     res.json({ visit });

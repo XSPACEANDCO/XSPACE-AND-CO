@@ -593,6 +593,9 @@ router.patch(
       [req.params.id, role ?? null, kycStatus ?? null, active ?? null]
     );
     await recordAudit(`User ${user.name} updated`, req.user.id, 'user', user.id);
+    /* Same onboarding consequences as the KYC review route. */
+    if (kycStatus === 'verified') await automations.checkOnboarding(user.id);
+    else if (kycStatus === 'rejected') await automations.kycRejected(user.id);
     res.json({ user: publicUser(user) });
   })
 );

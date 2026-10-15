@@ -100,6 +100,14 @@ const FIELDS = [
    uploads — see safeUrl in helpers.js. */
 const URL_FIELDS = new Set(['videoLink', 'brochureUrl', 'floorPlanUrl', 'priceSheetUrl', 'layoutPlanUrl']);
 
+/* A listing filed against a project that does not exist would fail on the
+   foreign key with a 500. Returns an error message or null. */
+async function badProject(body) {
+  if (!body.projectId) return null;
+  const p = await one('SELECT id FROM projects WHERE id = $1', [body.projectId]);
+  return p ? null : 'That project does not exist';
+}
+
 function badUrlField(body) {
   return [...URL_FIELDS].find((k) => k in body && safeUrl(body[k]) === undefined);
 }
@@ -200,6 +208,8 @@ router.post(
     const body = req.body || {};
     const title = clean(body.title);
     if (!title) return res.status(400).json({ error: 'title is required' });
+    const projectErr = await badProject(body);
+    if (projectErr) return res.status(400).json({ error: projectErr });
 
     if (!isValidPropertyType(clean(body.propertyType) || undefined)) {
       return res.status(400).json({ error: 'Unknown property type' });
@@ -261,6 +271,8 @@ router.patch(
     if (!isValidPropertyType(clean(body.propertyType) || undefined)) {
       return res.status(400).json({ error: 'Unknown property type' });
     }
+    const projectErr = await badProject(body);
+    if (projectErr) return res.status(400).json({ error: projectErr });
     /* Checked against the type the listing will have after this edit. */
     const nextType = 'propertyType' in body ? clean(body.propertyType) : existing.property_type;
     const nextSub = 'propertySubtype' in body ? clean(body.propertySubtype) : existing.property_subtype;

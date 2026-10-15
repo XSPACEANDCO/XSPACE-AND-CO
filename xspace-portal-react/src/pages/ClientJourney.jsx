@@ -191,7 +191,13 @@ export default function ClientJourney({ leadId, onLeadChange }) {
                     disabled={busy}
                     onClick={() => {
                       const next = window.prompt('New date and time (e.g. 2026-10-20 15:30):', toLocalInput(a.scheduled_at).replace('T', ' '));
-                      if (next) run(() => api.journey.updateAppointment(a.id, { scheduledAt: new Date(next.replace(' ', 'T')).toISOString() }), 'Rescheduled — client emailed');
+                      if (!next) return;
+                      const at = new Date(next.trim().replace(' ', 'T'));
+                      if (Number.isNaN(at.getTime())) {
+                        setError('That date was not understood — use the form YYYY-MM-DD HH:MM');
+                        return;
+                      }
+                      run(() => api.journey.updateAppointment(a.id, { scheduledAt: at.toISOString() }), 'Rescheduled — client emailed');
                     }}
                   >
                     Reschedule

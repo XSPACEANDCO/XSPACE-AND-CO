@@ -173,10 +173,14 @@ They see this note in their notifications.`
 
                   <div className="media-row-actions">
                     <span className={`media-badge ${state.tone || ''}`}>{state.label || m.status}</span>
-                    {m.status === 'pending' && (
+                    {/* Nothing to edit until the footage is in. */}
+                    {m.status === 'pending' && m.url && m.blocked_on !== 'creator_feedback' && (
                       <button className="btn" disabled={busy === m.id} onClick={() => claim(m)}>
                         {busy === m.id ? 'Claiming…' : 'Start editing'}
                       </button>
+                    )}
+                    {m.status === 'pending' && !m.url && (
+                      <span className="small muted">Waiting for footage</span>
                     )}
                     {(m.status === 'in_progress' || sentBack) && (
                       <button className="btn" onClick={() => openDeliver(m)}>

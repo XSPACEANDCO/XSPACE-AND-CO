@@ -9,6 +9,16 @@ import * as journey from '../clientJourney.js';
 
 const router = Router();
 
+const TEMPERATURES = ['hot', 'warm', 'cold'];
+
+/* The account a lead is handed to must exist and be switched on — otherwise
+   the insert fails on the foreign key and the caller gets a 500. Returns an
+   error message or null. */
+async function checkAssignee(userId) {
+  const user = await one('SELECT id FROM users WHERE id = $1 AND active', [userId]);
+  return user ? null : 'That person does not exist or is deactivated';
+}
+
 /* A client email is optional; it is what their site-visit emails go to.
    Returns the cleaned address, null for none, or undefined when it does not
    look like one. */
@@ -115,11 +125,15 @@ router.post(
   leadModule,
   requirePermission('leads:write'),
   asyncHandler(async (req, res) => {
+    req.body = req.body || {};
     const {
       name, phone, source, budget, listingId, temperature, status,
       propertyType, propertySubtype, configuration, preferredArea, timeline, sourceMediaId, followUpAt,
-    } = req.body || {};
+    } = req.body;
     if (!name) return res.status(400).json({ error: 'name is required' });
+    if (temperature && !TEMPERATURES.includes(temperature)) {
+      return res.status(400).json({ error: 'temperature must be hot, warm or cold' });
+    }
     if (!isValidPropertyType(propertyType)) {
       return res.status(400).json({ error: 'Unknown property type' });
     }
@@ -137,19 +151,24 @@ router.post(
     /* A partner can only create leads against themselves; assigning to someone
        else is a Founder/Core action. */
     let assignedTo = req.user.id;
-    if (req.body.assignedTo && seesEverything(req.user.role)) assignedTo = req.body.assignedTo;
+    if (req.body.assignedTo && seesEverything(req.user.role)) {
+      const assigneeErr = await checkAssignee(req.body.assignedTo);
+      if (assigneeErr) return res.status(400).json({ error: assigneeErr });
+      assignedTo = req.body.assignedTo;
+    }
 
     const id = newId('c');
     const lead = await one(
       `INSERT INTO leads (id, name, phone, source, budget, status, temperature, assigned_to,
                           created_by, listing_id, property_type, configuration, preferred_area, timeline,
-                          source_media_id, follow_up_at, property_subtype, email)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
+                          source_media_id, follow_up_at, property_subtype, email, purpose)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
       [
         id, name, phone || null, source || null, budget || null,
         status || 'New', temperature || 'warm', assignedTo, req.user.id, listingId || null,
         propertyType || null, configuration || null, preferredArea || null, timeline || null,
         sourceMediaId || null, parseDate(followUpAt), propertySubtype || null, email,
+        String(req.body.purpose || '').trim() || null,
       ]
     );
     if (assignedTo !== req.user.id) {
@@ -166,6 +185,7 @@ router.patch(
   leadModule,
   requirePermission('leads:write'),
   asyncHandler(async (req, res) => {
+    req.body = req.body || {};
     const { where, params } = scopeClause(req.user, 2);
     const existing = await one(
       `SELECT l.* FROM leads l WHERE l.id = $1 ${where}`,
@@ -203,6 +223,13 @@ router.patch(
     const wantsReassign = req.body.assignedTo && req.body.assignedTo !== existing.assigned_to;
     if (wantsReassign && !seesEverything(req.user.role)) {
       return res.status(403).json({ error: 'Your role cannot reassign leads' });
+    }
+    if (wantsReassign) {
+      const assigneeErr = await checkAssignee(req.body.assignedTo);
+      if (assigneeErr) return res.status(400).json({ error: assigneeErr });
+    }
+    if (req.body.temperature && !TEMPERATURES.includes(req.body.temperature)) {
+      return res.status(400).json({ error: 'temperature must be hot, warm or cold' });
     }
 
     /* Sent as '' to clear it; left out to keep it. */

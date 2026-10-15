@@ -5,6 +5,7 @@ import { sendEmail } from './mailer.js';
 import { renderEmail } from './emailTemplates.js';
 import { INTERNAL_ROLES } from './rbac.js';
 import * as journey from './clientJourney.js';
+import { PROPERTY_TYPES } from './leadStatus.js';
 
 /* The member lifecycle and the three role pipelines, as automations.
 
@@ -253,7 +254,8 @@ export const leadFromContent = safe('leadFromContent', async (lead) => {
     [lead.source_media_id]
   );
   if (!media || media.role !== 'creator' || media.uploaded_by === lead.created_by) return;
-  const wants = [lead.configuration, lead.property_type, lead.preferred_area && `in ${lead.preferred_area}`]
+  const type = PROPERTY_TYPES.find((p) => p.key === lead.property_type)?.label;
+  const wants = [lead.configuration, type, lead.preferred_area && `in ${lead.preferred_area}`]
     .filter(Boolean)
     .join(' ');
   await notifyOnce(`lead-from-content:${lead.id}:${media.id}`, {

@@ -259,6 +259,15 @@ router.patch(
         error: `Cannot move this item from ${existing.status.replace('_', ' ')} to ${String(status).replace('_', ' ')}`,
       });
     }
+    /* Editing needs footage. A request still waiting for it, or raw content
+       sent back to its creator for a reshoot, cannot be started. */
+    if (status === 'in_progress' && (!existing.url || existing.blocked_on === 'creator_feedback')) {
+      return res.status(409).json({
+        error: existing.url
+          ? 'The creator is revising this footage — wait for the new version'
+          : 'There is no footage yet — wait for it to be attached',
+      });
+    }
     /* Rejecting outright is a Founder/Core decision, not an editor's. */
     if (status === 'rejected' && !seesEverything(req.user.role)) {
       return res.status(403).json({ error: 'Only Founder or Core can reject an item' });
@@ -397,6 +406,9 @@ router.post(
     if (!existing) return res.status(404).json({ error: 'Media not found' });
     if (existing.status === 'approved' || existing.status === 'rejected') {
       return res.status(409).json({ error: `That item has already been ${existing.status}` });
+    }
+    if (!existing.url || existing.blocked_on === 'creator_feedback') {
+      return res.status(409).json({ error: 'This item is still waiting on its raw footage' });
     }
 
     const media = await one(
