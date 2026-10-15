@@ -75,8 +75,15 @@ export const config = {
     from: process.env.EMAIL_FROM || 'Xspace <onboarding@resend.dev>',
     replyTo: process.env.EMAIL_REPLY_TO || '',
     /* This site's own address: the sign-in link in the portal access email,
-       and the client's shortlist / feedback / unsubscribe pages. */
-    portalUrl: (process.env.PORTAL_URL || 'http://localhost:10000').replace(/\/+$/, ''),
+       and the client's shortlist / feedback / unsubscribe pages. PORTAL_URL
+       wins; otherwise Render's own RENDER_EXTERNAL_URL (set automatically on
+       every Render web service), so a deploy that forgot PORTAL_URL does not
+       email links to localhost. */
+    portalUrl: (
+      process.env.PORTAL_URL ||
+      process.env.RENDER_EXTERNAL_URL ||
+      'http://localhost:10000'
+    ).trim().replace(/\/+$/, ''),
     /* Xspace's phone number, printed in client emails as the contact. */
     contactPhone: process.env.CONTACT_PHONE || '',
   },
