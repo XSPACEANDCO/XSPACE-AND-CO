@@ -22,7 +22,7 @@ const STAMP = new Intl.DateTimeFormat('en-IN', {
 });
 
 const EMPTY_FORM = {
-  name: '', phone: '', source: 'Instagram', temperature: 'warm',
+  name: '', phone: '', email: '', source: 'Instagram', temperature: 'warm',
   budget: '', preferredArea: '', propertyType: '', propertySubtype: '', configuration: '', timeline: '',
   sourceMediaId: '', followUpAt: '',
 };
@@ -125,7 +125,7 @@ Their site visits are deleted with them. This cannot be undone.`))
     setBusy(true);
     try {
       const payload = { name: form.name.trim(), status: 'New' };
-      for (const k of ['phone', 'source', 'temperature', 'budget', 'preferredArea', 'propertyType', 'propertySubtype', 'configuration', 'timeline', 'sourceMediaId', 'followUpAt']) {
+      for (const k of ['phone', 'email', 'source', 'temperature', 'budget', 'preferredArea', 'propertyType', 'propertySubtype', 'configuration', 'timeline', 'sourceMediaId', 'followUpAt']) {
         if (form[k] && String(form[k]).trim()) payload[k] = String(form[k]).trim();
       }
       await api.leads.create(payload);
@@ -187,6 +187,15 @@ Their site visits are deleted with them. This cannot be undone.`))
               <label>
                 <span>Phone</span>
                 <input value={form.phone} onChange={set('phone')} placeholder="10-digit number" />
+              </label>
+              <label>
+                <span>Email (optional)</span>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={set('email')}
+                  placeholder="Site visit confirmations go here"
+                />
               </label>
               <label>
                 <span>Source</span>

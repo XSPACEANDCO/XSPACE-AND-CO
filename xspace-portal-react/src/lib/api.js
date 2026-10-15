@@ -145,6 +145,8 @@ export const api = {
     create: (data) => post('/listings', data),
     update: (id, data) => patch(`/listings/${id}`, data),
     verify: (id) => post(`/listings/${id}/verify`),
+    /* Back to the realtor with what to fix; their next save resubmits it. */
+    requestCorrections: (id, notes) => post(`/listings/${id}/corrections`, { notes }),
     remove: (id) => del(`/listings/${id}`),
     photos: (id) => get(`/listings/${id}/photos`),
     addPhoto: (id, dataUrl, caption) => post(`/listings/${id}/photos`, { dataUrl, caption }),
@@ -171,6 +173,7 @@ export const api = {
     start: (id) => post(`/verifications/${id}/start`),
     verify: (id) => post(`/verifications/${id}/verify`),
     escalate: (id, notes) => post(`/verifications/${id}/escalate`, { notes }),
+    requestCorrections: (id, notes) => post(`/verifications/${id}/corrections`, { notes }),
     csvUrl: () => BASE + '/api/verifications/export.csv',
   },
 
@@ -190,6 +193,14 @@ export const api = {
     /* Founder/Core approve it, or send it back carrying the reason. */
     approve: (id, notes) => post(`/media/${id}/review`, { decision: 'approve', notes }),
     requestChanges: (id, notes) => post(`/media/${id}/review`, { decision: 'changes', notes }),
+    /* Founder/Core send a creator's raw content back to them. */
+    requestRevision: (id, notes) => post(`/media/${id}/request-revision`, { notes }),
+  },
+
+  /* The automated emails: what went out, and running the reminders now. */
+  automations: {
+    emails: (opts = {}) => get('/automations/emails' + qs(opts)),
+    runNow: () => post('/automations/tick'),
   },
 
   /* Uploads land in the database and come back as a URL that a plain <a>,

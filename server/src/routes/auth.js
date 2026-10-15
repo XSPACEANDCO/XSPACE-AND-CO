@@ -5,6 +5,7 @@ import { DUMMY_HASH, hashPassword, signToken, verifyPassword } from '../auth.js'
 import { asyncHandler, requireAuth } from '../middleware.js';
 import { modulesForRole } from '../rbac.js';
 import { config } from '../config.js';
+import { signedIn } from '../automations.js';
 
 const router = Router();
 
@@ -79,6 +80,9 @@ router.post(
     if (!user.active) {
       return res.status(403).json({ error: 'Account is deactivated', status: 'deactivated' });
     }
+
+    /* The first successful sign-in is when a member becomes Active. */
+    await signedIn(user);
 
     res.json({
       token: signToken(user),

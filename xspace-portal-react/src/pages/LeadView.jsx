@@ -155,6 +155,21 @@ Their site visits are deleted with them. This cannot be undone.`))
               {lead.temperature === 'hot' && <span className="hot">🔥 Hot</span>}
             </div>
             <div className="muted">📞 {lead.phone || 'No number on file'}</div>
+            {/* Site visit confirmations and reminders go to this address. */}
+            <div className="muted">
+              ✉️ {lead.email || 'No email — the client gets no visit emails'}{' '}
+              <button
+                type="button"
+                className="lv-inline-btn"
+                disabled={busy}
+                onClick={() => {
+                  const next = window.prompt('Client email (leave empty to remove):', lead.email || '');
+                  if (next !== null) patch({ email: next.trim() });
+                }}
+              >
+                {lead.email ? 'Change' : 'Add'}
+              </button>
+            </div>
             <div className="muted">🔗 Lead Source: {lead.source || '—'}</div>
             {lead.source_media_title && (
               <div className="muted">🎬 From content: {lead.source_media_title}</div>

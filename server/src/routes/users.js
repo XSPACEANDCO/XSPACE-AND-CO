@@ -7,6 +7,7 @@ import { config } from '../config.js';
 import { canAdminister, canCreateRole, isInternal, INTERNAL_ROLES, ROLES } from '../rbac.js';
 import { newId, notify, recordAudit, safeUrl } from '../helpers.js';
 import { publicUser } from './auth.js';
+import * as automations from '../automations.js';
 
 const router = Router();
 
@@ -42,6 +43,8 @@ for (const role of ['creator', 'realtor', 'studio']) {
                   ELSE 'offline'
                 END AS presence, u.last_seen_at, u.active,
                 u.areas, u.platform, u.handle, u.skill, u.kyc_status, u.created_at,
+                u.first_login_at, u.onboarding_completed_at, u.onboarding_reminders,
+                u.onboarding_escalated_at, u.rules_ack_at,
                 /* One subquery per table. Joining all four and grouping
                    multiplied every row by every other — a partner with 3
                    leads and 2 listings showed their commission 6 times. */
@@ -121,6 +124,8 @@ router.get(
     const rows = await many(
       `SELECT u.id, u.name, u.role, u.active, u.areas, u.platform, u.handle, u.skill,
               u.kyc_status, u.kyc_submitted_at, u.rules_ack_at, u.last_seen_at, u.created_at,
+              u.first_login_at, u.onboarding_completed_at, u.onboarding_reminders,
+              u.onboarding_escalated_at,
               CASE
                 WHEN u.last_seen_at IS NULL THEN 'offline'
                 WHEN u.last_seen_at > now() - interval '2 minutes' THEN 'online'
@@ -370,6 +375,10 @@ router.post(
       title: decision === 'verify' ? 'Your KYC is verified' : 'Your KYC needs changes',
       body: note,
     });
+    /* Verifying KYC may be the last onboarding step; sending it back gives
+       the member something to do again, which restarts their reminders. */
+    if (decision === 'verify') await automations.checkOnboarding(user.id);
+    else await automations.kycRejected(user.id);
     await recordAudit(
       `KYC for ${user.name} ${decision === 'verify' ? 'verified' : 'sent back'}`,
       req.user.id,
@@ -386,6 +395,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const user = await one('UPDATE users SET rules_ack_at = now() WHERE id = $1 RETURNING *', [req.user.id]);
     await recordAudit(`${user.name} acknowledged the partner rules`, req.user.id, 'user', user.id);
+    await automations.checkOnboarding(user.id);
     res.json({ user: publicUser(user) });
   })
 );
@@ -467,12 +477,19 @@ router.post(
     );
     await recordAudit(`${role} account created for ${email}`, req.user.id, 'user', id);
 
+    /* Welcome and portal-access emails. Not awaited: the account exists
+       whether or not the email provider answers promptly. */
+    automations.accountCreated(user, issued);
+
     /* Shown once. Only the bcrypt hash is stored, so it cannot be read back —
        if it is lost, reset it rather than looking it up. */
     res.status(201).json({
       user: publicUser(user),
       password: issued,
-      note: 'Give these to them directly. The password is only stored as a hash.',
+      note:
+        config.email.resendApiKey && !isInternal(role)
+          ? 'Their sign-in details have also been emailed to them. The password is only stored as a hash.'
+          : 'Give these to them directly. The password is only stored as a hash.',
     });
   })
 );
@@ -505,6 +522,7 @@ router.post(
       [target.id, await hashPassword(issued)]
     );
     await recordAudit(`Password reset for ${target.email}`, req.user.id, 'user', target.id);
+    automations.passwordReset(target.id, issued);
     res.json({ password: issued, note: 'Shown once — only the hash is stored.' });
   })
 );

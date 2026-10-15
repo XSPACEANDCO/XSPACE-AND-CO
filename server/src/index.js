@@ -2,6 +2,7 @@ import { createApp } from './app.js';
 import { config } from './config.js';
 import { migrate, pool } from './db.js';
 import { bootstrapFounder } from './bootstrap.js';
+import { startScheduler } from './automations.js';
 
 async function main() {
   await migrate();
@@ -17,6 +18,9 @@ async function main() {
   const server = app.listen(config.port, () => {
     console.log(`[server] listening on :${config.port} (${config.env})`);
   });
+
+  /* Reminders, escalations and digests. See src/automations.js. */
+  startScheduler();
 
   /* Render sends SIGTERM before replacing an instance; finish in-flight
      requests and close the pool rather than dropping connections. */

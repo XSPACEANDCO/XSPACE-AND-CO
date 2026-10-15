@@ -450,3 +450,65 @@ CREATE TABLE IF NOT EXISTS notification_reads (
 -- requirement — see src/leadStatus.js.
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS property_subtype TEXT;
 ALTER TABLE leads    ADD COLUMN IF NOT EXISTS property_subtype TEXT;
+
+-- ---------------------------------------------------------------------------
+-- Member lifecycle and email automations (src/automations.js).
+--
+--   approved -> account created -> welcome + portal access emails
+--   -> first login (member is Active) -> onboarding -> role workflow
+--
+-- Onboarding is done when KYC is verified and the role's rules have been
+-- acknowledged. Until then the member is reminded twice, then Core is asked
+-- to follow up by hand; these columns record how far that has gone.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS first_login_at          TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_reminders    INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_reminded_at  TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_escalated_at TIMESTAMPTZ;
+
+-- Accounts that already signed in and finished onboarding before this existed
+-- should not be reminded about it now.
+UPDATE users SET first_login_at = COALESCE(first_login_at, last_seen_at, created_at)
+ WHERE first_login_at IS NULL AND last_seen_at IS NOT NULL;
+UPDATE users SET onboarding_completed_at = COALESCE(kyc_reviewed_at, rules_ack_at, now())
+ WHERE onboarding_completed_at IS NULL
+   AND (role IN ('founder','core') OR (kyc_status = 'verified' AND rules_ack_at IS NOT NULL));
+
+-- Listing review can now send a listing back to its realtor rather than only
+-- verifying it. corrections_note is what they are asked to fix; it is cleared
+-- when they resubmit.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS corrections_note TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS corrections_at   TIMESTAMPTZ;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS resubmitted_at   TIMESTAMPTZ;
+
+ALTER TABLE verifications DROP CONSTRAINT IF EXISTS verifications_status_check;
+ALTER TABLE verifications ADD CONSTRAINT verifications_status_check CHECK (
+  status IN ('pending','inprogress','escalated','corrections','verified','rejected')
+);
+
+-- Founder/Core can hand a content brief to a creator (it becomes theirs, as
+-- if they had uploaded it) or a production task to a Studio member.
+-- assigned_by records who asked.
+ALTER TABLE media ADD COLUMN IF NOT EXISTS assigned_by TEXT REFERENCES users(id) ON DELETE SET NULL;
+
+-- Every automated email, sent or not. dedupe_key makes each automation
+-- idempotent: a reminder for one visit at one time, or one week's summary,
+-- is only ever sent once however often the scheduler runs.
+CREATE TABLE IF NOT EXISTS email_log (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT REFERENCES users(id) ON DELETE CASCADE,
+  code       TEXT NOT NULL,
+  dedupe_key TEXT NOT NULL,
+  to_email   TEXT NOT NULL,
+  subject    TEXT NOT NULL,
+  status     TEXT NOT NULL CHECK (status IN ('sent','logged','failed')),
+  error      TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS email_log_dedupe_key ON email_log (dedupe_key);
+CREATE INDEX IF NOT EXISTS email_log_created_idx ON email_log (created_at DESC);
+CREATE INDEX IF NOT EXISTS email_log_user_idx ON email_log (user_id);
+
+-- A client's email, optional. When present the client is emailed about their
+-- site visits (CL-01..04); without it they are not contacted by email at all.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS email TEXT;

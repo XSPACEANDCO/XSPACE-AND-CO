@@ -18,6 +18,7 @@ import mediaRoutes from './routes/media.js';
 import userRoutes from './routes/users.js';
 import fileRoutes, { publicFileRouter } from './routes/files.js';
 import searchRoutes from './routes/search.js';
+import automationRoutes, { cronRouter } from './routes/automations.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -63,6 +64,11 @@ export function createApp() {
      a different route and does need a token — see routes/files.js. */
   app.use('/api/files', publicFileRouter);
 
+  /* An external cron runs the scheduled automations with a shared secret
+     rather than a login. Without the secret it falls through to the signed-in
+     route of the same name below. See routes/automations.js. */
+  app.use('/api/automations', cronRouter);
+
   /* Everything past here needs a valid token. */
   app.use('/api', requireAuth);
 
@@ -76,6 +82,7 @@ export function createApp() {
   app.use('/api/files', fileRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/search', searchRoutes);
+  app.use('/api/automations', automationRoutes);
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'Unknown API route' }));
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../lib/api';
+import { getRole } from '../lib/storage';
 import { propertyFullLabel } from '../lib/leadStatus';
 import { splitAmenity } from '../lib/amenityIcons';
 import { GOV_PORTALS } from '../lib/links';
@@ -49,6 +50,7 @@ export default function ListingView() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(null);
   const [saved, setSaved] = useState('');
+  const internal = ['founder', 'core'].includes(getRole());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,6 +98,26 @@ export default function ListingView() {
       navigate('/projects');
     } catch (err) {
       setError(err.message || 'Could not verify this listing');
+      setBusy(false);
+    }
+  }
+
+  /* Send it back to the realtor. Their next save resubmits it for review. */
+  async function requestCorrections() {
+    const notes = window.prompt(
+      `What needs correcting on "${listing.title}"?\n\nThe realtor gets this note by email and in the portal.`
+    );
+    if (!notes || !notes.trim()) return;
+    setError('');
+    setBusy(true);
+    try {
+      const out = await api.listings.requestCorrections(id, notes.trim());
+      setListing((prev) => ({ ...prev, ...out.listing }));
+      setSaved('Sent back to the realtor');
+      setTimeout(() => setSaved(''), 2500);
+    } catch (err) {
+      setError(err.message || 'Could not send this listing back');
+    } finally {
       setBusy(false);
     }
   }
@@ -159,6 +181,18 @@ Its photos and verification go with it. This cannot be undone.`))
     <div className="page-listingview">
       <div className="container">
         {error && <div className="listing-error">{error}</div>}
+
+        {listing.corrections_note && !listing.verified && (
+          <div className="section lv-corrections">
+            <h3>✏️ Corrections requested</h3>
+            <div className="lv-corrections-note">{listing.corrections_note}</div>
+            <div className="small">
+              {internal
+                ? 'Waiting on the realtor. Their next save resubmits it for review.'
+                : 'Edit the listing and save it — saving resubmits it to Xspace for review.'}
+            </div>
+          </div>
+        )}
 
         {/* HEADER */}
         <div className="section header">
@@ -356,6 +390,11 @@ Its photos and verification go with it. This cannot be undone.`))
                   <button disabled={busy} onClick={verify}>
                     {busy ? 'Verifying…' : 'Mark verified & publish to Projects'}
                   </button>
+                  {internal && (
+                    <button className="ghost" disabled={busy} onClick={requestCorrections}>
+                      Send back for corrections
+                    </button>
+                  )}
                   <span className="small">
                     Only Founder and Core can verify. Verifying publishes this listing to the
                     Projects page.

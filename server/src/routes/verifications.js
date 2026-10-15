@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { many, one } from '../db.js';
 import { asyncHandler, requireModule, requirePermission } from '../middleware.js';
-import { newId, notify, publishVerifiedListing, recordAudit } from '../helpers.js';
+import { newId, notify, publishVerifiedListing, recordAudit, requestListingCorrections } from '../helpers.js';
+import * as automations from '../automations.js';
 
 const router = Router();
 
@@ -81,9 +82,32 @@ router.post(
     if (!v) return res.status(404).json({ error: 'Verification not found' });
 
     /* Same publish step as the listing sheet — into Projects, submitter told. */
-    if (v.listing_id) await publishVerifiedListing(v.listing_id, req.user.id);
+    if (v.listing_id) {
+      const listing = await publishVerifiedListing(v.listing_id, req.user.id);
+      if (listing) automations.listingApproved(listing);
+    }
     await recordAudit(`Verification of ${await subjectOf(v)} verified`, req.user.id, 'verification', v.id);
     res.json({ verification: v });
+  })
+);
+
+/* Back to the realtor with what to fix — same step as the listing sheet's. */
+router.post(
+  '/:id/corrections',
+  requirePermission('verifications:write'),
+  asyncHandler(async (req, res) => {
+    const notes = String(req.body?.notes || '').trim();
+    if (!notes) {
+      return res.status(400).json({ error: 'Say what needs correcting — the realtor only sees this note' });
+    }
+    const v = await one('SELECT * FROM verifications WHERE id = $1', [req.params.id]);
+    if (!v) return res.status(404).json({ error: 'Verification not found' });
+    if (!v.listing_id) return res.status(409).json({ error: 'Only a listing can be sent back to a realtor' });
+
+    const listing = await requestListingCorrections(v.listing_id, notes, req.user.id);
+    if (!listing) return res.status(409).json({ error: 'That listing is already verified' });
+    automations.listingCorrections(listing, notes);
+    res.json({ verification: await one('SELECT * FROM verifications WHERE id = $1', [v.id]) });
   })
 );
 

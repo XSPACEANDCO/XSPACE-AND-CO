@@ -58,6 +58,30 @@ export const config = {
   maxInternalAccounts: Number(process.env.MAX_INTERNAL_ACCOUNTS) || 10,
 
 
+  /* Automated member emails. See src/mailer.js and src/automations.js.
+
+     With no RESEND_API_KEY nothing leaves the server: every email is still
+     written to the email log (Teams -> Email log) marked "logged", so the
+     automations can be tested without mailing real people. */
+  email: {
+    resendApiKey: process.env.RESEND_API_KEY || '',
+    from: process.env.EMAIL_FROM || 'Xspace <onboarding@resend.dev>',
+    replyTo: process.env.EMAIL_REPLY_TO || '',
+    /* The address in every email's "open the portal" link. */
+    portalUrl: (process.env.PORTAL_URL || 'http://localhost:10000').replace(/\/+$/, ''),
+  },
+
+  automations: {
+    /* Off switch for the in-process scheduler (reminders and summaries). The
+       event emails — welcome, approvals and so on — are unaffected. */
+    enabled: process.env.AUTOMATIONS_ENABLED !== 'false',
+    /* Days between onboarding reminder 1, reminder 2 and the Core follow-up. */
+    onboardingReminderDays: Number(process.env.ONBOARDING_REMINDER_DAYS) || 2,
+    /* Lets an external cron call POST /api/automations/tick. Render's free
+       tier sleeps when idle and the in-process timer sleeps with it. */
+    cronSecret: process.env.CRON_SECRET || '',
+  },
+
   /* First Founder for a fresh database. See src/bootstrap.js. */
   bootstrap: {
     email: process.env.BOOTSTRAP_EMAIL || '',

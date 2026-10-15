@@ -4,8 +4,18 @@ import { asyncHandler, requireModule, requirePermission } from '../middleware.js
 import { seesEverything } from '../rbac.js';
 import { newId, notify, recordAudit } from '../helpers.js';
 import { ALL_STATUSES, canAdvance, isValidPropertyType, isValidSubtype } from '../leadStatus.js';
+import * as automations from '../automations.js';
 
 const router = Router();
+
+/* A client email is optional; it is what their site-visit emails go to.
+   Returns the cleaned address, null for none, or undefined when it does not
+   look like one. */
+function cleanEmail(value) {
+  const v = String(value ?? '').trim().toLowerCase();
+  if (!v) return null;
+  return automations.EMAIL_RE.test(v) ? v : undefined;
+}
 
 /* /clients backs one module for everybody. It used to back two — CRM for
    Founder/Core and Lead Tracker for partners — which put two sidebar entries
@@ -118,6 +128,8 @@ router.post(
     if (status && !ALL_STATUSES.includes(status)) {
       return res.status(400).json({ error: 'Unknown status' });
     }
+    const email = cleanEmail(req.body.email);
+    if (email === undefined) return res.status(400).json({ error: 'That email address does not look valid' });
     const sourceErr = (await checkSourceMedia(req.user, sourceMediaId)) || (await checkListing(req.user, listingId));
     if (sourceErr) return res.status(400).json({ error: sourceErr });
 
@@ -130,19 +142,20 @@ router.post(
     const lead = await one(
       `INSERT INTO leads (id, name, phone, source, budget, status, temperature, assigned_to,
                           created_by, listing_id, property_type, configuration, preferred_area, timeline,
-                          source_media_id, follow_up_at, property_subtype)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
+                          source_media_id, follow_up_at, property_subtype, email)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
       [
         id, name, phone || null, source || null, budget || null,
         status || 'New', temperature || 'warm', assignedTo, req.user.id, listingId || null,
         propertyType || null, configuration || null, preferredArea || null, timeline || null,
-        sourceMediaId || null, parseDate(followUpAt), propertySubtype || null,
+        sourceMediaId || null, parseDate(followUpAt), propertySubtype || null, email,
       ]
     );
     if (assignedTo !== req.user.id) {
       await notify({ userId: assignedTo, type: 'lead', title: `Lead assigned to you: ${name}` });
     }
     await recordAudit(`Lead ${name} created`, req.user.id, 'lead', id);
+    automations.leadFromContent(lead);
     res.status(201).json({ lead });
   })
 );
@@ -191,6 +204,11 @@ router.patch(
       return res.status(403).json({ error: 'Your role cannot reassign leads' });
     }
 
+    /* Sent as '' to clear it; left out to keep it. */
+    const setsEmail = 'email' in (req.body || {});
+    const email = setsEmail ? cleanEmail(req.body.email) : null;
+    if (email === undefined) return res.status(400).json({ error: 'That email address does not look valid' });
+
     const sourceErr =
       (await checkSourceMedia(req.user, req.body.sourceMediaId)) ||
       (await checkListing(req.user, req.body.listingId));
@@ -219,6 +237,7 @@ router.patch(
          source_media_id = COALESCE($15, source_media_id),
          follow_up_at = CASE WHEN $16::boolean THEN $17::timestamptz ELSE follow_up_at END,
          property_subtype = NULLIF(COALESCE($18, property_subtype), ''),
+         email = CASE WHEN $19::boolean THEN $20 ELSE email END,
          last_interaction_at = now()
        WHERE id = $1 RETURNING *`,
       [
@@ -228,9 +247,14 @@ router.patch(
         req.body.propertyType ?? null, req.body.configuration ?? null,
         req.body.preferredArea ?? null, req.body.timeline ?? null, req.body.notes ?? null,
         req.body.sourceMediaId || null, setsFollowUp, parseDate(req.body.followUpAt),
-        req.body.propertySubtype ?? null,
+        req.body.propertySubtype ?? null, setsEmail, email,
       ]
     );
+
+    /* Newly credited to a piece of content: tell its creator. */
+    if (lead.source_media_id && lead.source_media_id !== existing.source_media_id) {
+      automations.leadFromContent(lead);
+    }
 
     /* Tell the people a change happens *to*: the new owner of a reassigned
        lead, and the owner and sourcing partner when somebody else moves it

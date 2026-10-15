@@ -3,6 +3,7 @@ import { many, one } from '../db.js';
 import { asyncHandler, requireModule, requirePermission } from '../middleware.js';
 import { seesEverything } from '../rbac.js';
 import { newId, notify, parseDate, recordActivity, recordAudit } from '../helpers.js';
+import * as automations from '../automations.js';
 
 const router = Router();
 
@@ -84,6 +85,7 @@ router.post(
     );
     await recordActivity(`${req.user.name} scheduled a site visit`, req.user.id);
     await recordAudit(`Visit ${id} scheduled`, req.user.id, 'visit', id);
+    automations.visitScheduled(id);
     res.status(201).json({ visit });
   })
 );
@@ -109,6 +111,7 @@ router.post(
       [req.params.id, req.body?.feedback ?? null]
     );
     await recordAudit(`Visit ${visit.id} completed`, req.user.id, 'visit', visit.id);
+    automations.visitCompleted(visit.id);
     res.json({ visit });
   })
 );
@@ -154,6 +157,7 @@ router.post(
     );
     if (!visit) return res.status(404).json({ error: 'Visit not found' });
     await recordAudit(`Visit ${visit.id} rescheduled`, req.user.id, 'visit', visit.id);
+    automations.visitRescheduled(visit.id);
     res.json({ visit });
   })
 );

@@ -2,7 +2,11 @@ import { Router } from 'express';
 import { many, one } from '../db.js';
 import { asyncHandler, requireModule, requirePermission } from '../middleware.js';
 import { seesEverything } from '../rbac.js';
-import { newId, notify, publishVerifiedListing, recordActivity, recordAudit, safeUrl } from '../helpers.js';
+import {
+  newId, notify, publishVerifiedListing, recordActivity, recordAudit, requestListingCorrections,
+  resubmitListing, safeUrl,
+} from '../helpers.js';
+import * as automations from '../automations.js';
 import { isValidPropertyType, isValidSubtype } from '../leadStatus.js';
 
 const router = Router();
@@ -203,6 +207,7 @@ router.post(
     await recordActivity(`${req.user.name} added listing ${title}`, req.user.id);
     await recordAudit(`Listing ${title} created`, req.user.id, 'listing', id);
     await notify({ role: 'core', type: 'verification', title: `New listing to verify: ${title}` });
+    automations.listingSubmitted(listing);
 
     res.status(201).json({ listing });
   })
@@ -249,11 +254,19 @@ router.patch(
 
     /* `verified` is never settable here — that goes through :id/verify, which
        requires the listings:verify permission. */
-    const listing = await one(
+    let listing = await one(
       `UPDATE listings SET ${sets.join(', ')} WHERE id = $1 RETURNING *`,
       values
     );
     await recordAudit(`Listing ${listing.title} updated`, req.user.id, 'listing', listing.id);
+
+    /* The submitter saving a listing that was sent back for corrections is
+       their resubmission. Founder/Core tidying it up is not — they can just
+       verify it. */
+    if (existing.corrections_note && existing.submitted_by === req.user.id) {
+      listing = (await resubmitListing(listing.id, req.user.id)) || listing;
+      automations.listingSubmitted(listing, { resubmitted: true });
+    }
     res.json({ listing });
   })
 );
@@ -264,6 +277,23 @@ router.post(
   asyncHandler(async (req, res) => {
     const listing = await publishVerifiedListing(req.params.id, req.user.id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
+    automations.listingApproved(listing);
+    res.json({ listing });
+  })
+);
+
+/* Send it back to the realtor with what to fix. */
+router.post(
+  '/:id/corrections',
+  requirePermission('listings:verify'),
+  asyncHandler(async (req, res) => {
+    const notes = String(req.body?.notes || '').trim();
+    if (!notes) {
+      return res.status(400).json({ error: 'Say what needs correcting — the realtor only sees this note' });
+    }
+    const listing = await requestListingCorrections(req.params.id, notes, req.user.id);
+    if (!listing) return res.status(404).json({ error: 'Listing not found, or already verified' });
+    automations.listingCorrections(listing, notes);
     res.json({ listing });
   })
 );

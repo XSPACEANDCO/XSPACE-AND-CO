@@ -26,7 +26,7 @@ const KINDS = [
   { key: 'doc', label: 'Document' },
 ];
 
-const EMPTY = { title: '', kind: 'reel', url: '', note: '', dueAt: '', priority: 'normal', projectId: '' };
+const EMPTY = { title: '', kind: 'reel', url: '', note: '', dueAt: '', priority: 'normal', projectId: '', assignTo: '' };
 
 /* Studio, Founder and Core schedule the queue; everyone else just asks. */
 const SCHEDULERS = ['studio', 'founder', 'core'];
@@ -47,6 +47,21 @@ export default function MediaUpload() {
   const [attachUrl, setAttachUrl] = useState('');
 
   const schedules = SCHEDULERS.includes(role);
+  const internal = role === 'founder' || role === 'core';
+
+  /* Founder/Core can hand a brief to a creator or a task to a Studio editor;
+     the person gets it by email and in the portal. */
+  const [assignees, setAssignees] = useState([]);
+  useEffect(() => {
+    if (!internal) return;
+    Promise.all([
+      api.users.creators({ status: 'active', limit: 100 }),
+      api.users.studios({ status: 'active', limit: 100 }),
+    ])
+      .then(([c, st]) => setAssignees([...(c.partners || []), ...(st.partners || [])]))
+      .catch(() => setAssignees([]));
+  }, [internal]);
+  const assignee = assignees.find((a) => a.id === form.assignTo);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -81,7 +96,9 @@ export default function MediaUpload() {
     setError('');
     if (!form.title.trim()) return setError('Give this a title so Studio knows what it is');
     if (!isRequest && !form.url.trim()) {
-      return setError('Upload the file or paste a link — or make this a production request instead');
+      if (!form.assignTo) {
+        return setError('Upload the file or paste a link — or make this a production request instead');
+      }
     }
 
     setBusy(true);
@@ -94,9 +111,16 @@ export default function MediaUpload() {
         projectId: form.projectId || null,
         dueAt: form.dueAt || null,
         ...(schedules ? { priority: form.priority } : {}),
+        ...(form.assignTo ? { assignTo: form.assignTo } : {}),
       });
       setForm(EMPTY);
-      setSaved(form.url.trim() ? 'Sent to Studio' : 'Request sent — attach the footage when you have it');
+      setSaved(
+        assignee
+          ? `Assigned to ${assignee.name}`
+          : form.url.trim()
+            ? 'Sent to Studio'
+            : 'Request sent — attach the footage when you have it'
+      );
       setTimeout(() => setSaved(''), 4000);
       await load();
     } catch (err) {
@@ -172,6 +196,24 @@ export default function MediaUpload() {
             <span>{schedules ? 'Due' : 'Wanted by (optional)'}</span>
             <input type="datetime-local" value={form.dueAt} onChange={set('dueAt')} />
           </label>
+          {internal && assignees.length > 0 && (
+            <label className="mf-field">
+              <span>Assign to (optional)</span>
+              <select value={form.assignTo} onChange={set('assignTo')}>
+                <option value="">Nobody — open request</option>
+                <optgroup label="Creator partners (content brief)">
+                  {assignees.filter((a) => a.role === 'creator').map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Xspace Studio (production task)">
+                  {assignees.filter((a) => a.role === 'studio').map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </optgroup>
+              </select>
+            </label>
+          )}
           {schedules && (
             <label className="mf-field">
               <span>Priority</span>
@@ -204,7 +246,7 @@ export default function MediaUpload() {
 
         <div className="media-actions">
           <button className="btn" type="submit" disabled={busy}>
-            {busy ? 'Sending…' : isRequest ? 'Send Request' : 'Send to Studio'}
+            {busy ? 'Sending…' : assignee ? `Assign to ${assignee.name}` : isRequest ? 'Send Request' : 'Send to Studio'}
           </button>
           {saved && <span className="media-saved">{saved}</span>}
         </div>
@@ -231,14 +273,20 @@ export default function MediaUpload() {
                       {m.project_name ? ` · ${m.project_name}` : ''}
                       {m.claimed_by_name ? ` · with ${m.claimed_by_name}` : ''}
                     </div>
-                    {!m.url && attaching !== m.id && (
+                    {/* Sent back to you: why, and where to resubmit. */}
+                    {m.blocked_on === 'creator_feedback' && m.review_notes && (
+                      <div className="media-callout">
+                        <strong>Revision requested:</strong> {m.review_notes}
+                      </div>
+                    )}
+                    {(!m.url || m.blocked_on === 'creator_feedback') && attaching !== m.id && (
                       <button
                         type="button"
                         className="btn-ghost"
                         style={{ marginTop: 6 }}
                         onClick={() => { setAttaching(m.id); setAttachUrl(''); }}
                       >
-                        Attach footage
+                        {m.url ? 'Attach revised content' : 'Attach footage'}
                       </button>
                     )}
                     {attaching === m.id && (
@@ -269,7 +317,9 @@ export default function MediaUpload() {
                     )}
                   </div>
                   <span className={`media-badge ${state.tone || ''}`}>
-                    {!m.url && m.status === 'pending' ? 'Waiting for footage' : state.label || m.status}
+                    {m.blocked_on === 'creator_feedback'
+                      ? 'Revision requested'
+                      : !m.url && m.status === 'pending' ? 'Waiting for footage' : state.label || m.status}
                   </span>
                 </div>
               );

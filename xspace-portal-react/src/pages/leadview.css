@@ -261,3 +261,13 @@
     margin-left: 0;
   }
 }
+
+/* Small inline action next to a contact detail. */
+.page-leadview button.lv-inline-btn {
+  padding: 2px 10px;
+  font-size: 12px;
+  margin-left: 6px;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--border);
+}
