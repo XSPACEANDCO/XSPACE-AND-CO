@@ -56,7 +56,7 @@ router.get(
         LIMIT $3`,
       [code, q, limit]
     );
-    res.json({ emails: rows, delivering: Boolean(config.email.resendApiKey) });
+    res.json({ emails: rows, delivering: Boolean(config.email.provider) });
   })
 );
 
