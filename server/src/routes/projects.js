@@ -35,6 +35,9 @@ router.get(
          LEFT JOIN listings l ON l.project_id = p.id
         ${upcomingOnly ? `WHERE p.status IN (${UPCOMING_SQL})` : ''}
         GROUP BY p.id
+        /* A project with no verified listing has nothing to show and no sheet
+           to open — it is not part of the verified book. */
+        HAVING COUNT(l.id) FILTER (WHERE l.verified) > 0
         ORDER BY p.created_at DESC`
     );
     res.json({ projects: rows, scope: req.scope });

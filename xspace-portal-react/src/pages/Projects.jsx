@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
-import { getRole } from '../lib/storage';
 import { propertyLabel } from '../lib/leadStatus';
 import './projects.css';
 
@@ -48,22 +47,6 @@ export default function Projects() {
   }, [load]);
 
   const listingFor = (projectId) => listings.find((l) => l.project_id === projectId);
-
-  /* A project whose listings were all deleted has no sheet left to open.
-     Founder and Core can clear such a card away. */
-  const internal = ['founder', 'core'].includes(getRole());
-  async function removeEmpty(p) {
-    if (!window.confirm(`Remove "${p.name}"?
-
-It has no listings left. You can list it again with "Add Property".`)) return;
-    setError('');
-    try {
-      await api.projects.remove(p.id);
-      setProjects((rows) => rows.filter((r) => r.id !== p.id));
-    } catch (err) {
-      setError(err.message || 'Could not remove that project');
-    }
-  }
 
   return (
     <div className="page-projects">
@@ -133,11 +116,6 @@ It has no listings left. You can list it again with "Add Property".`)) return;
                     {listing && (
                       <button className="btn-ghost" onClick={() => navigate('/listings/' + listing.id)}>
                         Open listing sheet
-                      </button>
-                    )}
-                    {!listing && p.listing_count === 0 && internal && (
-                      <button className="btn-ghost" title="This project has no listing left" onClick={() => removeEmpty(p)}>
-                        Remove empty project
                       </button>
                     )}
                   </footer>

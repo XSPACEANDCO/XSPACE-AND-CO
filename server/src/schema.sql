@@ -619,3 +619,12 @@ CREATE INDEX IF NOT EXISTS client_links_lead_idx ON client_links (lead_id, kind)
 -- Which client an email went to, for the client's email history.
 ALTER TABLE email_log ADD COLUMN IF NOT EXISTS lead_id TEXT REFERENCES leads(id) ON DELETE CASCADE;
 CREATE INDEX IF NOT EXISTS email_log_lead_idx ON email_log (lead_id);
+
+-- Projects left behind by deleted listings. Verifying a listing creates its
+-- project (status 'Verified'); deleting that listing used to leave the
+-- project as an empty card with no sheet behind it. Deleting a project's last
+-- listing now removes the project too (routes/listings.js); this clears the
+-- ones already orphaned. Draft projects created by hand are left alone.
+DELETE FROM projects p
+ WHERE p.status = 'Verified'
+   AND NOT EXISTS (SELECT 1 FROM listings l WHERE l.project_id = p.id);
