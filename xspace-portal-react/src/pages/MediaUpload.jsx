@@ -28,6 +28,9 @@ const KINDS = [
 
 const EMPTY = { title: '', kind: 'reel', url: '', note: '', dueAt: '', priority: 'normal', projectId: '', assignTo: '' };
 
+/* The project picker's "general content" choice — sent as no project. */
+const NO_PROJECT = 'none';
+
 /* Studio, Founder and Core schedule the queue; everyone else just asks. */
 const SCHEDULERS = ['studio', 'founder', 'core'];
 
@@ -82,13 +85,30 @@ export default function MediaUpload() {
     load();
   }, [load]);
 
-  /* Linking content to a project is what groups Studio's work by project.
-     Realtors do not have the Projects module, so they are not offered it. */
+  /* Every upload names the project it is for, so Studio knows what it is
+     editing and can open that project's listing sheet. Realtors have no
+     Projects page, so they pick from the projects of their own verified
+     listings instead. */
   useEffect(() => {
-    if (!role || !canAccess('projects', role)) return;
-    api.projects
-      .list()
-      .then((out) => setProjects(out.projects || []))
+    if (!role) return;
+    if (canAccess('projects', role)) {
+      api.projects
+        .list()
+        .then((out) => setProjects(out.projects || []))
+        .catch(() => setProjects([]));
+      return;
+    }
+    api.listings
+      .list({ include: 'verified' })
+      .then((out) => {
+        const seen = new Map();
+        for (const l of out.listings || []) {
+          if (l.verified && l.project_id && !seen.has(l.project_id)) {
+            seen.set(l.project_id, { id: l.project_id, name: l.project_name || l.title });
+          }
+        }
+        setProjects([...seen.values()]);
+      })
       .catch(() => setProjects([]));
   }, [role]);
 
@@ -98,6 +118,9 @@ export default function MediaUpload() {
     e.preventDefault();
     setError('');
     if (!form.title.trim()) return setError('Give this a title so Studio knows what it is');
+    if (!form.projectId) {
+      return setError('Pick the project this is for — or "Not for a specific project" for general content');
+    }
     if (!isRequest && !form.url.trim()) {
       if (!form.assignTo) {
         return setError('Upload the file or paste a link — or make this a production request instead');
@@ -111,7 +134,7 @@ export default function MediaUpload() {
         kind: form.kind,
         url: form.url.trim() || null,
         note: form.note.trim() || null,
-        projectId: form.projectId || null,
+        projectId: form.projectId === NO_PROJECT ? null : form.projectId,
         dueAt: form.dueAt || null,
         ...(schedules ? { priority: form.priority } : {}),
         ...(form.assignTo ? { assignTo: form.assignTo } : {}),
@@ -184,17 +207,16 @@ export default function MediaUpload() {
               ))}
             </select>
           </label>
-          {projects.length > 0 && (
-            <label className="mf-field">
-              <span>Project (optional)</span>
-              <select value={form.projectId} onChange={set('projectId')}>
-                <option value="">Not linked to a project</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </label>
-          )}
+          <label className="mf-field">
+            <span>Project</span>
+            <select value={form.projectId} onChange={set('projectId')} required>
+              <option value="" disabled>Choose the project this is for…</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+              <option value={NO_PROJECT}>Not for a specific project (general content)</option>
+            </select>
+          </label>
           <label className="mf-field">
             <span>{schedules ? 'Due' : 'Wanted by (optional)'}</span>
             <input type="datetime-local" value={form.dueAt} onChange={set('dueAt')} />

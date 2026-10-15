@@ -35,7 +35,15 @@ const MEDIA_SELECT = `
          cl.name AS claimed_by_name,
          ed.name AS edited_by_name,
          rv.name AS reviewed_by_name,
-         p.name  AS project_name
+         p.name  AS project_name,
+         /* Which project Studio is editing for, and the sheet to open for
+            its specification: the project's first verified listing. */
+         (SELECT li.area FROM listings li
+           WHERE li.project_id = m.project_id AND li.verified
+           ORDER BY li.verified_at NULLS LAST LIMIT 1) AS project_area,
+         (SELECT li.id FROM listings li
+           WHERE li.project_id = m.project_id AND li.verified
+           ORDER BY li.verified_at NULLS LAST LIMIT 1) AS project_listing_id
     FROM media m
     LEFT JOIN users up ON up.id = m.uploaded_by
     LEFT JOIN users cl ON cl.id = m.claimed_by
@@ -76,6 +84,13 @@ router.post(
     }
     if (safeUrl(url) === undefined) {
       return res.status(400).json({ error: 'The link must start with http:// or https://' });
+    }
+
+    /* The project the footage is for — checked, so a mistyped id is a clear
+       400 rather than a failed insert. Empty means "not for one project". */
+    if (projectId) {
+      const project = await one('SELECT id FROM projects WHERE id = $1', [projectId]);
+      if (!project) return res.status(400).json({ error: 'That project does not exist' });
     }
 
     let assignee = null;
@@ -291,7 +306,7 @@ router.patch(
     if (!processes && !owns) return res.status(404).json({ error: 'Media not found' });
 
     const body = req.body || {};
-    const studioOnly = ['dueAt', 'priority', 'blockedOn'].filter((k) => k in body);
+    const studioOnly = ['dueAt', 'priority', 'blockedOn', 'projectId'].filter((k) => k in body);
     if (!processes && studioOnly.length) {
       return res.status(403).json({ error: 'Only Studio, Founder or Core can change scheduling' });
     }
@@ -324,6 +339,14 @@ router.patch(
     if ('priority' in body) put('priority', body.priority || 'normal');
     if ('blockedOn' in body) put('blocked_on', body.blockedOn || null);
     if ('views' in body) put('views', views);
+    /* Linking footage that arrived without a project to the one it is for. */
+    if ('projectId' in body) {
+      if (body.projectId) {
+        const project = await one('SELECT id FROM projects WHERE id = $1', [body.projectId]);
+        if (!project) return res.status(400).json({ error: 'That project does not exist' });
+      }
+      put('project_id', body.projectId || null);
+    }
     /* New footage from the uploader on an item sent back to them is their
        resubmission. */
     const resubmitting =

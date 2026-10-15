@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import api from '../lib/api';
 import FileField from '../components/FileField';
+import ProjectTag from '../components/ProjectTag';
 import { timeAgo } from '../lib/time';
 import { roleLabel } from '../lib/roleConfig';
 import { BLOCKERS, KIND_LABELS, studioLabel } from '../lib/mediaStatus';
@@ -38,6 +39,12 @@ export default function PendingWorks() {
   const [busy, setBusy] = useState(null);
   const [delivering, setDelivering] = useState(null);
   const [cut, setCut] = useState({ url: '', note: '' });
+
+  /* Projects to link footage that arrived without one. */
+  const [projects, setProjects] = useState([]);
+  useEffect(() => {
+    api.projects.list().then((out) => setProjects(out.projects || [])).catch(() => setProjects([]));
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -94,8 +101,9 @@ export default function PendingWorks() {
           <div className="pd-item-meta">
             {KIND_LABELS[m.kind] || m.kind} • from {m.uploaded_by_name || 'unknown'}
             {m.uploaded_by_role ? ` (${roleLabel(m.uploaded_by_role)})` : ''}
-            {m.project_name ? ` • ${m.project_name}` : ''} • {timeAgo(m.created_at)}
+            {' • '}{timeAgo(m.created_at)}
           </div>
+          <ProjectTag item={m} projects={projects} onLinked={load} />
           {m.note && <div className="pd-item-meta">Brief: {m.note}</div>}
           {m.status === 'changes_requested' && m.review_notes && (
             <div className="pd-quote">Revision notes{m.reviewed_by_name ? ` from ${m.reviewed_by_name}` : ''}: “{m.review_notes}”</div>

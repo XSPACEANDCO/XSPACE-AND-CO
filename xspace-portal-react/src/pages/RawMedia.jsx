@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import api from '../lib/api';
+import ProjectTag from '../components/ProjectTag';
 import FileField from '../components/FileField';
 import { timeAgo } from '../lib/time';
 import { MEDIA_STATES } from '../lib/mediaStatus';
@@ -24,6 +25,12 @@ export default function RawMedia() {
   const [busy, setBusy] = useState(null);
   /* Founder/Core: may send a creator's raw content back to them. */
   const [canReview, setCanReview] = useState(false);
+
+  /* Projects to link footage that arrived without one. */
+  const [projects, setProjects] = useState([]);
+  useEffect(() => {
+    api.projects.list().then((out) => setProjects(out.projects || [])).catch(() => setProjects([]));
+  }, []);
 
   /* The item currently being handed back, and the cut being attached to it. */
   const [deliverFor, setDeliverFor] = useState(null);
@@ -137,6 +144,8 @@ They see this note in their notifications.`
                       {m.claimed_by_name ? ` · claimed by ${m.claimed_by_name}` : ''}
                       {m.revision > 0 ? ` · v${m.revision}` : ''}
                     </div>
+
+                    <ProjectTag item={m} projects={projects} onLinked={load} />
 
                     {m.note && <div className="small media-note">Note: {m.note}</div>}
 
