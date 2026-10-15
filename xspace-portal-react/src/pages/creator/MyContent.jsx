@@ -127,9 +127,19 @@ export default function MyContent() {
                     {KIND_LABELS[m.kind] || m.kind} • sent {timeAgo(m.createdAt)}
                     {m.claimedByName ? ` • with ${m.claimedByName}` : ''}
                   </div>
+                  {m.blockedOn === 'creator_feedback' && (
+                    <div className="pd-item-actions">
+                      <span className="pd-item-meta">✏️ Revision requested: {m.reviewNotes}</span>
+                      <button className="btn-ghost" onClick={() => navigate('/media-upload')}>
+                        Attach revised content
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="pd-item-side">
-                  <Chip tone={contentTone(m)}>{creatorLabel(m)}</Chip>
+                  <Chip tone={m.blockedOn === 'creator_feedback' ? 'amber' : contentTone(m)}>
+                    {m.blockedOn === 'creator_feedback' ? 'Revision requested' : creatorLabel(m)}
+                  </Chip>
                 </div>
               </div>
             ))}

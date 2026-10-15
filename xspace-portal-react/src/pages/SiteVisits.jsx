@@ -60,7 +60,7 @@ export default function SiteVisits() {
   const [modeFilter, setModeFilter] = useState('all');
 
   const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [form, setForm] = useState({ leadId: '', listingId: '', scheduledAt: '', mode: 'On-site' });
+  const [form, setForm] = useState({ leadId: '', listingId: '', scheduledAt: '', mode: 'On-site', meetingPoint: '', mapLink: '' });
 
   const [rescheduleId, setRescheduleId] = useState(null);
   const [rescheduleTime, setRescheduleTime] = useState('');
@@ -159,10 +159,12 @@ export default function SiteVisits() {
           listingId: form.listingId || null,
           scheduledAt: new Date(form.scheduledAt).toISOString(),
           mode: form.mode,
+          meetingPoint: form.meetingPoint.trim() || null,
+          mapLink: form.mapLink.trim() || null,
         }),
       () => {
         setScheduleOpen(false);
-        setForm({ leadId: '', listingId: '', scheduledAt: '', mode: 'On-site' });
+        setForm({ leadId: '', listingId: '', scheduledAt: '', mode: 'On-site', meetingPoint: '', mapLink: '' });
       }
     );
   }
@@ -339,6 +341,21 @@ export default function SiteVisits() {
               <option>On-site</option>
               <option>VR</option>
             </select>
+
+            {/* Both go in the client's confirmation and reminder emails. */}
+            <label>Meeting point (sent to the client)</label>
+            <input
+              value={form.meetingPoint}
+              onChange={(e) => setForm({ ...form, meetingPoint: e.target.value })}
+              placeholder="Main gate, sales office"
+            />
+
+            <label>Map link (sent to the client)</label>
+            <input
+              value={form.mapLink}
+              onChange={(e) => setForm({ ...form, mapLink: e.target.value })}
+              placeholder="https://maps.app.goo.gl/…"
+            />
 
             <div className="modal-actions">
               <button onClick={() => setScheduleOpen(false)}>Cancel</button>

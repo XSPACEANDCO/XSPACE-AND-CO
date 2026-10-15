@@ -20,8 +20,11 @@ import './partner.css';
 
 const DAY = 24 * 60 * 60 * 1000;
 
-const VERIFY_TONE = { pending: 'blue', inprogress: 'amber', escalated: 'red', verified: 'green' };
-const VERIFY_LABEL = { pending: 'Pending', inprogress: 'In progress', escalated: 'Escalated', verified: 'Verified' };
+const VERIFY_TONE = { pending: 'blue', inprogress: 'amber', escalated: 'red', corrections: 'purple', verified: 'green' };
+const VERIFY_LABEL = {
+  pending: 'Pending', inprogress: 'In progress', escalated: 'Escalated',
+  corrections: 'With realtor', verified: 'Verified',
+};
 
 export default function FounderDashboard() {
   const navigate = useNavigate();

@@ -49,7 +49,9 @@ function downscale(file) {
 
 const sizeOf = (dataUrl) => Math.floor((dataUrl.length * 3) / 4 / 1024);
 
-export default function ListingPhotos({ listingId }) {
+/* readOnly: the viewer may look but not change the photos — anyone other
+   than whoever listed it, Founder and Core (the server refuses them too). */
+export default function ListingPhotos({ listingId, readOnly = false }) {
   const [photos, setPhotos] = useState([]);
   const [pending, setPending] = useState([]); /* chosen, not yet uploaded */
   const [loading, setLoading] = useState(true);
@@ -133,7 +135,7 @@ export default function ListingPhotos({ listingId }) {
     <div className="listing-photos">
       {error && <div className="listing-error">{error}</div>}
 
-      <div className="lp-pick">
+      {!readOnly && <div className="lp-pick">
         <button type="button" onClick={() => fileRef.current?.click()}>
           Choose photos
         </button>
@@ -153,7 +155,7 @@ export default function ListingPhotos({ listingId }) {
         <span className="small">
           Resized to {MAX_EDGE}px before upload — shoot at any resolution.
         </span>
-      </div>
+      </div>}
 
       {pending.length > 0 && (
         <>
@@ -202,11 +204,13 @@ export default function ListingPhotos({ listingId }) {
             <div className="lp-meta small">
               {p.caption || 'Photo'} • {Math.round((p.bytes || 0) / 1024)} KB
             </div>
-            <div className="lp-item-actions">
-              <button type="button" className="ghost" onClick={() => remove(p)}>
-                Remove
-              </button>
-            </div>
+            {!readOnly && (
+              <div className="lp-item-actions">
+                <button type="button" className="ghost" onClick={() => remove(p)}>
+                  Remove
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>

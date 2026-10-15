@@ -41,6 +41,7 @@ export function VerificationPanel() {
           <option value="pending">Pending</option>
           <option value="inprogress">In Progress</option>
           <option value="escalated">Escalated</option>
+          <option value="corrections">With realtor for corrections</option>
           <option value="verified">Verified</option>
         </select>
         <div className="push" style={{ display: 'flex', gap: 8 }}>
@@ -63,7 +64,7 @@ export function VerificationPanel() {
                       <strong>{listing.title || proj.name || 'Verification ' + v.id}</strong>
                     </div>
                     <div className="small muted">
-                      {v.type} • {v.status}
+                      {v.type} • {v.status === 'corrections' ? 'with realtor for corrections' : v.status}
                     </div>
                   </div>
                   <div className="ver-meta">
@@ -73,13 +74,28 @@ export function VerificationPanel() {
                 </div>
                 <div className="stack-end">
                   <div style={{ display: 'flex', gap: 8 }}>
-                    {v.status !== 'inprogress' && v.status !== 'verified' && (
+                    {!['inprogress', 'verified', 'corrections'].includes(v.status) && (
                       <button
                         className="btn"
                         disabled={busy === v.id}
                         onClick={() => run(v.id, () => api.verifications.start(v.id))}
                       >
                         Start Verification
+                      </button>
+                    )}
+                    {/* Back to the realtor; their next save puts it back in this queue. */}
+                    {v.listingId && ['pending', 'inprogress', 'escalated'].includes(v.status) && (
+                      <button
+                        className="btn-ghost"
+                        disabled={busy === v.id}
+                        onClick={() => {
+                          const notes = window.prompt('What does the realtor need to correct? They see this note in their notifications.');
+                          if (notes && notes.trim()) {
+                            run(v.id, () => api.verifications.requestCorrections(v.id, notes.trim()));
+                          }
+                        }}
+                      >
+                        Send back
                       </button>
                     )}
                     {v.status === 'inprogress' && (

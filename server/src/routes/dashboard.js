@@ -20,19 +20,27 @@ router.get(
       await Promise.all([
         one(
           `SELECT COUNT(*)::int AS total,
-                  COUNT(*) FILTER (WHERE created_at > now() - interval '24 hours')::int AS today,
+                  COUNT(*) FILTER (WHERE (created_at AT TIME ZONE 'Asia/Kolkata')::date
+                                      = (now() AT TIME ZONE 'Asia/Kolkata')::date)::int AS today,
                   COUNT(*) FILTER (WHERE status = 'Closed')::int AS closed
              FROM leads WHERE ($2::boolean IS TRUE OR assigned_to = $1 OR created_by = $1)`,
           [id, all]
         ),
+        /* Active = verified: an unverified listing cannot be offered yet. */
         one(
           `SELECT COUNT(*)::int AS total
-             FROM listings WHERE ($2::boolean IS TRUE OR assigned_to = $1 OR submitted_by = $1)`,
+             FROM listings WHERE verified AND ($2::boolean IS TRUE OR assigned_to = $1 OR submitted_by = $1)`,
           [id, all]
         ),
-        one('SELECT COUNT(*)::int AS total FROM projects'),
+        /* The same projects the Projects page shows — ones with a verified listing. */
         one(
-          `SELECT COUNT(*) FILTER (WHERE scheduled_at::date = current_date)::int AS today,
+          `SELECT COUNT(*)::int AS total FROM projects p
+            WHERE EXISTS (SELECT 1 FROM listings l WHERE l.project_id = p.id AND l.verified)`
+        ),
+        /* "Today" is the day in India, not the server's UTC day. */
+        one(
+          `SELECT COUNT(*) FILTER (WHERE (scheduled_at AT TIME ZONE 'Asia/Kolkata')::date
+                                      = (now() AT TIME ZONE 'Asia/Kolkata')::date)::int AS today,
                   COUNT(*) FILTER (WHERE status = 'Completed'
                     AND ended_at > now() - interval '7 days')::int AS completed_week
              FROM visits WHERE ($2::boolean IS TRUE OR assigned_to = $1)`,

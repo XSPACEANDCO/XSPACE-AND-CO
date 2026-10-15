@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import api from '../lib/api';
+import ProjectTag from '../components/ProjectTag';
 import FileField from '../components/FileField';
 import { timeAgo } from '../lib/time';
 import { MEDIA_STATES } from '../lib/mediaStatus';
@@ -22,6 +23,14 @@ export default function RawMedia() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(null);
+  /* Founder/Core: may send a creator's raw content back to them. */
+  const [canReview, setCanReview] = useState(false);
+
+  /* Projects to link footage that arrived without one. */
+  const [projects, setProjects] = useState([]);
+  useEffect(() => {
+    api.projects.list().then((out) => setProjects(out.projects || [])).catch(() => setProjects([]));
+  }, []);
 
   /* The item currently being handed back, and the cut being attached to it. */
   const [deliverFor, setDeliverFor] = useState(null);
@@ -33,6 +42,7 @@ export default function RawMedia() {
     try {
       const out = await api.media.raw();
       setMedia(out.media || []);
+      setCanReview(Boolean(out.canReview));
     } catch (err) {
       setError(err.message || 'Could not load the inbox');
     } finally {
@@ -52,6 +62,26 @@ export default function RawMedia() {
       await load();
     } catch (err) {
       setError(err.message || 'Could not claim that');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /* The raw footage itself is unusable — back to the creator to reshoot. */
+  async function sendBackToCreator(item) {
+    const notes = window.prompt(
+      `What should ${item.uploaded_by_name || 'the creator'} change in "${item.title}"?
+
+They see this note in their notifications.`
+    );
+    if (!notes || !notes.trim()) return;
+    setError('');
+    setBusy(item.id);
+    try {
+      await api.media.requestRevision(item.id, notes.trim());
+      await load();
+    } catch (err) {
+      setError(err.message || 'Could not send that back');
     } finally {
       setBusy(null);
     }
@@ -115,6 +145,8 @@ export default function RawMedia() {
                       {m.revision > 0 ? ` · v${m.revision}` : ''}
                     </div>
 
+                    <ProjectTag item={m} projects={projects} onLinked={load} />
+
                     {m.note && <div className="small media-note">Note: {m.note}</div>}
 
                     {/* Why it came back. This is the whole reason the round
@@ -123,6 +155,12 @@ export default function RawMedia() {
                       <div className="media-callout">
                         <strong>Changes requested{m.reviewed_by_name ? ` by ${m.reviewed_by_name}` : ''}:</strong>{' '}
                         {m.review_notes}
+                      </div>
+                    )}
+
+                    {m.blocked_on === 'creator_feedback' && (
+                      <div className="media-callout">
+                        <strong>Waiting on the creator for a revision:</strong> {m.review_notes}
                       </div>
                     )}
 
@@ -135,14 +173,24 @@ export default function RawMedia() {
 
                   <div className="media-row-actions">
                     <span className={`media-badge ${state.tone || ''}`}>{state.label || m.status}</span>
-                    {m.status === 'pending' && (
+                    {/* Nothing to edit until the footage is in. */}
+                    {m.status === 'pending' && m.url && m.blocked_on !== 'creator_feedback' && (
                       <button className="btn" disabled={busy === m.id} onClick={() => claim(m)}>
                         {busy === m.id ? 'Claiming…' : 'Start editing'}
                       </button>
                     )}
+                    {m.status === 'pending' && !m.url && (
+                      <span className="small muted">Waiting for footage</span>
+                    )}
                     {(m.status === 'in_progress' || sentBack) && (
                       <button className="btn" onClick={() => openDeliver(m)}>
                         Upload edited cut
+                      </button>
+                    )}
+                    {canReview && m.uploaded_by_role === 'creator' && m.url &&
+                      m.blocked_on !== 'creator_feedback' && (
+                      <button className="btn-ghost" disabled={busy === m.id} onClick={() => sendBackToCreator(m)}>
+                        Send back to creator
                       </button>
                     )}
                   </div>

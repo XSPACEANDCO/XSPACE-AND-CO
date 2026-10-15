@@ -416,3 +416,77 @@
 .teams-link.danger:hover {
   color: #fca5a5;
 }
+
+/* ---------- Onboarding status on a card ---------- */
+.page-dashboard .tcard-onboarding.is-on { color: #34d399; }
+.page-dashboard .tcard-onboarding.is-away { color: #fbbf24; }
+.page-dashboard .tcard-onboarding.is-idle { color: var(--muted); }
+.page-dashboard .tcard-onboarding.is-off { color: var(--danger); }
+
+/* ---------- Email log tab ---------- */
+.page-dashboard .email-log-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.page-dashboard .email-log-bar select {
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(128, 128, 128, 0.22);
+  background: var(--panel);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 14px;
+}
+.page-dashboard .email-log-note {
+  font-size: 13px;
+  color: var(--muted);
+}
+.page-dashboard .email-log-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.page-dashboard .email-log-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid rgba(128, 128, 128, 0.18);
+  border-radius: 12px;
+}
+.page-dashboard .email-log-code {
+  flex: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(128, 128, 128, 0.25);
+}
+.page-dashboard .email-log-main {
+  flex: 1;
+  min-width: 0;
+}
+.page-dashboard .email-log-subject {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.page-dashboard .email-log-meta {
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.page-dashboard .email-log-error {
+  font-size: 12px;
+  color: var(--danger);
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 720px) {
+  .page-dashboard .email-log-row {
+    flex-wrap: wrap;
+  }
+}

@@ -35,6 +35,9 @@ router.get(
          LEFT JOIN listings l ON l.project_id = p.id
         ${upcomingOnly ? `WHERE p.status IN (${UPCOMING_SQL})` : ''}
         GROUP BY p.id
+        /* A project with no verified listing has nothing to show and no sheet
+           to open — it is not part of the verified book. */
+        HAVING COUNT(l.id) FILTER (WHERE l.verified) > 0
         ORDER BY p.created_at DESC`
     );
     res.json({ projects: rows, scope: req.scope });
@@ -105,6 +108,26 @@ router.patch(
     if (!project) return res.status(404).json({ error: 'Project not found' });
     await recordAudit(`Project ${project.name} updated`, req.user.id, 'project', project.id);
     res.json({ project });
+  })
+);
+
+/* Remove a project that has nothing in it. A project is created when its
+   first listing is verified; if every listing under it is later deleted, an
+   empty card is left on the Projects page with no sheet to open. Only an
+   empty one can go — a project with any listing, verified or not, stays. */
+router.delete(
+  '/:id',
+  requirePermission('projects:write'),
+  asyncHandler(async (req, res) => {
+    const project = await one('SELECT id, name FROM projects WHERE id = $1', [req.params.id]);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    const { n } = await one('SELECT COUNT(*)::int AS n FROM listings WHERE project_id = $1', [project.id]);
+    if (n > 0) {
+      return res.status(409).json({ error: 'This project still has listings — delete or move them first' });
+    }
+    await one('DELETE FROM projects WHERE id = $1 RETURNING id', [project.id]);
+    await recordAudit(`Empty project ${project.name} removed`, req.user.id, 'project', project.id);
+    res.json({ deleted: true });
   })
 );
 

@@ -447,6 +447,60 @@ All routes are under `/api`. Everything except `/api/health`,
 | GET | `/media/pending` | studio |
 | PATCH | `/media/:id/status` | studio, founder, core |
 
+Founder/Core can also `POST /media` with `assignTo` (a creator or studio
+member), `POST /media/:id/request-revision` sends a creator's raw content back
+to them, and `POST /listings/:id/corrections` (or `/verifications/:id/corrections`)
+sends a listing back to its realtor; their next save resubmits it.
+
+### Automations
+| Method | Path | Who |
+|---|---|---|
+| GET | `/automations/emails` | founder, core — the email log |
+| POST | `/automations/tick` | founder, core, or `Authorization: Bearer $CRON_SECRET` |
+
+Member lifecycle automations live in `src/automations.js`. **Every new account
+gets two emails — welcome and portal access (username, password, sign-in
+link). After that, Founder, Core and partners are only notified in the app;
+clients are emailed about their site visits** (`src/emailTemplates.js`). See the "Automations" block in
+`.env.example` for setup.
+
+| Who | How | When |
+|---|---|---|
+| Realtor partner | in-app | welcome, onboarding reminders, listing received / approved / corrections, site visit scheduled / reminder (24 h before) / rescheduled |
+| Creator partner | in-app | welcome, onboarding reminders, assignment, content approved / revision, deadline (24 h), lead from their content, Monday summary |
+| Studio | in-app | welcome, onboarding reminders, new task, deadline (24 h), revision, approved |
+| Founder & Core | in-app | 9 am IST daily digest, partner ignored two onboarding reminders, items to review |
+| Every new account | **email** EM-01, EM-02 | welcome; portal access with sign-in details |
+| Client | **email** CL-01…13 | the client journey — see below |
+
+### Client journey (`src/clientJourney.js`, `routes/journey.js`, `routes/public.js`)
+
+Xspace owns the client relationship, so the steps that start a conversation are
+Founder/Core actions on the client's page (CRM → client → *Client Journey*).
+A client is emailed only if their lead has an address and they have not
+unsubscribed; every email carries an unsubscribe link.
+
+| Email | Trigger |
+|---|---|
+| CL-01 cold outreach | "Start outreach" |
+| CL-02 / CL-03 follow-up / final | no response after `OUTREACH_FOLLOWUP_DAYS`, twice; then the sequence ends. "Client responded" or booking an appointment stops it |
+| CL-04 / CL-05 appointment confirmed / reminder | appointment booked (or moved); 24 h before |
+| CL-06 shortlisted projects | "Send shortlist" — verified projects only; links to the client's private shortlist page |
+| CL-07 / CL-08 site visit confirmed / reminder | visit booked (or rescheduled); 24 h before |
+| CL-09 site visit follow-up | visit completed — the client answers interested / not sure / other options |
+| CL-10 deal closure | lead moved to Closed |
+| CL-11 handover | handover scheduled (separate from closure) |
+| CL-12 feedback | `FEEDBACK_DELAY_DAYS` after the handover is completed |
+| CL-13 referral | the client rates 4★ or more; their referrals become new leads |
+
+The client's pages live at `/c/<token>`: no login, the unguessable token in the
+link is the permission, and it opens only that client's own page. They never
+show commission, negotiation room, internal notes or other clients.
+
+Onboarding is complete when KYC is verified and the rules are acknowledged.
+Until then the member gets reminder 1, then reminder 2, then Founder/Core are
+asked to follow up, `ONBOARDING_REMINDER_DAYS` apart.
+
 ### Partners
 | Method | Path | Who |
 |---|---|---|

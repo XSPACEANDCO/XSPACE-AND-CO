@@ -450,3 +450,181 @@ CREATE TABLE IF NOT EXISTS notification_reads (
 -- requirement — see src/leadStatus.js.
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS property_subtype TEXT;
 ALTER TABLE leads    ADD COLUMN IF NOT EXISTS property_subtype TEXT;
+
+-- ---------------------------------------------------------------------------
+-- Member lifecycle and email automations (src/automations.js).
+--
+--   approved -> account created -> welcome + portal access emails
+--   -> first login (member is Active) -> onboarding -> role workflow
+--
+-- Onboarding is done when KYC is verified and the role's rules have been
+-- acknowledged. Until then the member is reminded twice, then Core is asked
+-- to follow up by hand; these columns record how far that has gone.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS first_login_at          TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_reminders    INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_reminded_at  TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_escalated_at TIMESTAMPTZ;
+
+-- Accounts that already signed in and finished onboarding before this existed
+-- should not be reminded about it now.
+UPDATE users SET first_login_at = COALESCE(first_login_at, last_seen_at, created_at)
+ WHERE first_login_at IS NULL AND last_seen_at IS NOT NULL;
+UPDATE users SET onboarding_completed_at = COALESCE(kyc_reviewed_at, rules_ack_at, now())
+ WHERE onboarding_completed_at IS NULL
+   AND (role IN ('founder','core') OR (kyc_status = 'verified' AND rules_ack_at IS NOT NULL));
+
+-- Listing review can now send a listing back to its realtor rather than only
+-- verifying it. corrections_note is what they are asked to fix; it is cleared
+-- when they resubmit.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS corrections_note TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS corrections_at   TIMESTAMPTZ;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS resubmitted_at   TIMESTAMPTZ;
+
+ALTER TABLE verifications DROP CONSTRAINT IF EXISTS verifications_status_check;
+ALTER TABLE verifications ADD CONSTRAINT verifications_status_check CHECK (
+  status IN ('pending','inprogress','escalated','corrections','verified','rejected')
+);
+
+-- Founder/Core can hand a content brief to a creator (it becomes theirs, as
+-- if they had uploaded it) or a production task to a Studio member.
+-- assigned_by records who asked.
+ALTER TABLE media ADD COLUMN IF NOT EXISTS assigned_by TEXT REFERENCES users(id) ON DELETE SET NULL;
+
+-- Every automated email, sent or not. dedupe_key makes each automation
+-- idempotent: a reminder for one visit at one time, or one week's summary,
+-- is only ever sent once however often the scheduler runs.
+CREATE TABLE IF NOT EXISTS email_log (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT REFERENCES users(id) ON DELETE CASCADE,
+  code       TEXT NOT NULL,
+  dedupe_key TEXT NOT NULL,
+  to_email   TEXT NOT NULL,
+  subject    TEXT NOT NULL,
+  status     TEXT NOT NULL CHECK (status IN ('sent','logged','failed')),
+  error      TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS email_log_dedupe_key ON email_log (dedupe_key);
+CREATE INDEX IF NOT EXISTS email_log_created_idx ON email_log (created_at DESC);
+CREATE INDEX IF NOT EXISTS email_log_user_idx ON email_log (user_id);
+
+-- A client's email, optional. When present the client is emailed about their
+-- site visits (CL-01..04); without it they are not contacted by email at all.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS email TEXT;
+
+-- Staff and partners are told about every lifecycle step in the app, never by
+-- email (only clients are emailed). The scheduled ones — reminders, deadlines,
+-- summaries, the daily digest — claim a key here first so each is only ever
+-- posted once however often the scheduler runs.
+CREATE TABLE IF NOT EXISTS automation_runs (
+  dedupe_key TEXT PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- Client journey (src/clientJourney.js, routes/journey.js, routes/public.js).
+--
+--   outreach -> appointment -> requirements -> shortlist -> site visit
+--   -> follow-up -> deal -> handover -> feedback -> referral
+--
+-- Xspace owns the client relationship; these are Founder/Core actions, and
+-- each step emails the client (CL-01..13) when the lead has an address and
+-- has not unsubscribed.
+
+-- Cold outreach: CL-01, then CL-02 and CL-03 if they do not respond, then
+-- out of the active sequence. 'responded' stops it.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS outreach_status  TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS outreach_step    INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS outreach_last_at TIMESTAMPTZ;
+
+-- Requirement: what the property is for (own use, investment, rental...).
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS purpose TEXT;
+
+-- Deal and handover are separate events.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS closed_at               TIMESTAMPTZ;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS handover_at             TIMESTAMPTZ;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS handover_location       TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS handover_instructions   TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS handover_completed_at   TIMESTAMPTZ;
+
+-- The client asked to stop receiving email. Every automated email checks it.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS email_opt_out_at TIMESTAMPTZ;
+
+-- A lead that came from another client's referral (CL-13).
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS referred_by TEXT REFERENCES leads(id) ON DELETE SET NULL;
+
+CREATE TABLE IF NOT EXISTS appointments (
+  id           TEXT PRIMARY KEY,
+  lead_id      TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  scheduled_at TIMESTAMPTZ NOT NULL,
+  mode         TEXT NOT NULL DEFAULT 'in_person' CHECK (mode IN ('in_person','online','phone')),
+  location     TEXT,
+  meeting_link TEXT,
+  purpose      TEXT,
+  status       TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled','completed','cancelled')),
+  created_by   TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS appointments_lead_idx ON appointments (lead_id);
+
+-- Projects Xspace has picked for a client. Only verified listings can be
+-- shortlisted. sent_at is when it went out in CL-06; interested_at is when
+-- the client tapped "I'm interested" on their shortlist page.
+CREATE TABLE IF NOT EXISTS lead_shortlist (
+  id            TEXT PRIMARY KEY,
+  lead_id       TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  listing_id    TEXT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  note          TEXT,
+  added_by      TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  sent_at       TIMESTAMPTZ,
+  interested_at TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX IF NOT EXISTS lead_shortlist_unique ON lead_shortlist (lead_id, listing_id);
+
+-- Site visit details the client needs, and their answer to CL-09.
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS meeting_point   TEXT;
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS map_link        TEXT;
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS rep_id          TEXT REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS client_response TEXT;
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS client_responded_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS client_feedback (
+  id              TEXT PRIMARY KEY,
+  lead_id         TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  communication   INTEGER CHECK (communication BETWEEN 1 AND 5),
+  recommendations INTEGER CHECK (recommendations BETWEEN 1 AND 5),
+  presentation    INTEGER CHECK (presentation BETWEEN 1 AND 5),
+  site_visit      INTEGER CHECK (site_visit BETWEEN 1 AND 5),
+  overall         INTEGER NOT NULL CHECK (overall BETWEEN 1 AND 5),
+  comment         TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS client_feedback_lead ON client_feedback (lead_id);
+
+-- Links in client emails. The client has no login, so the unguessable token
+-- in the link is what lets them see their shortlist or answer a question —
+-- the same capability idea as uploads.access_key. kind decides what it opens.
+CREATE TABLE IF NOT EXISTS client_links (
+  token      TEXT PRIMARY KEY,
+  lead_id    TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL CHECK (kind IN ('shortlist','visit','feedback','referral','unsubscribe')),
+  ref_id     TEXT,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS client_links_lead_idx ON client_links (lead_id, kind);
+
+-- Which client an email went to, for the client's email history.
+ALTER TABLE email_log ADD COLUMN IF NOT EXISTS lead_id TEXT REFERENCES leads(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS email_log_lead_idx ON email_log (lead_id);
+
+-- Projects left behind by deleted listings. Verifying a listing creates its
+-- project (status 'Verified'); deleting that listing used to leave the
+-- project as an empty card with no sheet behind it. Deleting a project's last
+-- listing now removes the project too (routes/listings.js); this clears the
+-- ones already orphaned. Draft projects created by hand are left alone.
+DELETE FROM projects p
+ WHERE p.status = 'Verified'
+   AND NOT EXISTS (SELECT 1 FROM listings l WHERE l.project_id = p.id);

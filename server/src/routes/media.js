@@ -35,7 +35,15 @@ const MEDIA_SELECT = `
          cl.name AS claimed_by_name,
          ed.name AS edited_by_name,
          rv.name AS reviewed_by_name,
-         p.name  AS project_name
+         p.name  AS project_name,
+         /* Which project Studio is editing for, and the sheet to open for
+            its specification: the project's first verified listing. */
+         (SELECT li.area FROM listings li
+           WHERE li.project_id = m.project_id AND li.verified
+           ORDER BY li.verified_at NULLS LAST LIMIT 1) AS project_area,
+         (SELECT li.id FROM listings li
+           WHERE li.project_id = m.project_id AND li.verified
+           ORDER BY li.verified_at NULLS LAST LIMIT 1) AS project_listing_id
     FROM media m
     LEFT JOIN users up ON up.id = m.uploaded_by
     LEFT JOIN users cl ON cl.id = m.claimed_by
@@ -58,13 +66,18 @@ function parseDue(value) {
 
    The file is optional. Without one this is a production request — "make a
    reel of this project by Friday" — and it waits on raw media until somebody
-   attaches the footage (PATCH /:id/meta). */
+   attaches the footage (PATCH /:id/meta).
+
+   Founder and Core may also hand it to somebody (assignTo):
+     a creator      it becomes the creator's content brief, as if they had
+                    created it themselves, and waits for their content
+     a studio member  it lands in their queue already claimed */
 router.post(
   '/',
   requireModule('mediaUpload'),
   requirePermission('media:upload'),
   asyncHandler(async (req, res) => {
-    const { title, kind, url, projectId, note, dueAt, priority } = req.body || {};
+    const { title, kind, url, projectId, note, dueAt, priority, assignTo } = req.body || {};
     if (!title) return res.status(400).json({ error: 'title is required' });
     if (priority && !PRIORITIES.includes(priority)) {
       return res.status(400).json({ error: `priority must be one of ${PRIORITIES.join(', ')}` });
@@ -73,22 +86,58 @@ router.post(
       return res.status(400).json({ error: 'The link must start with http:// or https://' });
     }
 
+    /* The project the footage is for — checked, so a mistyped id is a clear
+       400 rather than a failed insert. Empty means "not for one project". */
+    if (projectId) {
+      const project = await one('SELECT id FROM projects WHERE id = $1', [projectId]);
+      if (!project) return res.status(400).json({ error: 'That project does not exist' });
+    }
+
+    let assignee = null;
+    if (assignTo) {
+      if (!seesEverything(req.user.role)) {
+        return res.status(403).json({ error: 'Only Founder or Core can assign work' });
+      }
+      assignee = await one('SELECT id, name, role FROM users WHERE id = $1 AND active', [assignTo]);
+      if (!assignee || !['creator', 'studio'].includes(assignee.role)) {
+        return res.status(400).json({ error: 'Work can be assigned to an active creator or Studio member' });
+      }
+    }
+    const toCreator = assignee?.role === 'creator';
+    const toStudio = assignee?.role === 'studio';
+
     const id = newId('m');
     const media = await one(
-      `INSERT INTO media (id, title, kind, url, project_id, uploaded_by, note, due_at, priority, blocked_on)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      `INSERT INTO media (id, title, kind, url, project_id, uploaded_by, note, due_at, priority, blocked_on,
+                          claimed_by, assigned_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
       [
-        id, title, kind || 'reel', url || null, projectId || null, req.user.id, note || null,
+        id, title, kind || 'reel', url || null, projectId || null,
+        toCreator ? assignee.id : req.user.id, note || null,
         parseDue(dueAt), priority || 'normal', url ? null : 'raw_media',
+        toStudio ? assignee.id : null, assignee ? req.user.id : null,
       ]
     );
-    await notify({
-      role: 'studio',
-      type: 'media',
-      title: url ? `New raw media: ${title}` : `New production request: ${title}`,
-      body: note,
-    });
-    await recordAudit(`Media ${title} uploaded`, req.user.id, 'media', id);
+
+    if (toCreator) {
+      /* Studio hears about it when the creator's content arrives. */
+      await notify({ userId: assignee.id, type: 'media', title: `New content assignment: ${title}`, body: note });
+    } else if (toStudio) {
+      await notify({ userId: assignee.id, type: 'media', title: `Production task assigned to you: ${title}`, body: note });
+    } else {
+      await notify({
+        role: 'studio',
+        type: 'media',
+        title: url ? `New raw media: ${title}` : `New production request: ${title}`,
+        body: note,
+      });
+    }
+    await recordAudit(
+      assignee ? `Media ${title} assigned to ${assignee.name}` : `Media ${title} uploaded`,
+      req.user.id,
+      'media',
+      id
+    );
     res.status(201).json({ media });
   })
 );
@@ -210,6 +259,15 @@ router.patch(
         error: `Cannot move this item from ${existing.status.replace('_', ' ')} to ${String(status).replace('_', ' ')}`,
       });
     }
+    /* Editing needs footage. A request still waiting for it, or raw content
+       sent back to its creator for a reshoot, cannot be started. */
+    if (status === 'in_progress' && (!existing.url || existing.blocked_on === 'creator_feedback')) {
+      return res.status(409).json({
+        error: existing.url
+          ? 'The creator is revising this footage — wait for the new version'
+          : 'There is no footage yet — wait for it to be attached',
+      });
+    }
     /* Rejecting outright is a Founder/Core decision, not an editor's. */
     if (status === 'rejected' && !seesEverything(req.user.role)) {
       return res.status(403).json({ error: 'Only Founder or Core can reject an item' });
@@ -257,7 +315,7 @@ router.patch(
     if (!processes && !owns) return res.status(404).json({ error: 'Media not found' });
 
     const body = req.body || {};
-    const studioOnly = ['dueAt', 'priority', 'blockedOn'].filter((k) => k in body);
+    const studioOnly = ['dueAt', 'priority', 'blockedOn', 'projectId'].filter((k) => k in body);
     if (!processes && studioOnly.length) {
       return res.status(403).json({ error: 'Only Studio, Founder or Core can change scheduling' });
     }
@@ -290,10 +348,28 @@ router.patch(
     if ('priority' in body) put('priority', body.priority || 'normal');
     if ('blockedOn' in body) put('blocked_on', body.blockedOn || null);
     if ('views' in body) put('views', views);
+    /* Linking footage that arrived without a project to the one it is for. */
+    if ('projectId' in body) {
+      if (body.projectId) {
+        const project = await one('SELECT id FROM projects WHERE id = $1', [body.projectId]);
+        if (!project) return res.status(400).json({ error: 'That project does not exist' });
+      }
+      put('project_id', body.projectId || null);
+    }
+    /* New footage from the uploader on an item sent back to them is their
+       resubmission. */
+    const resubmitting =
+      body.url && owns && existing.blocked_on === 'creator_feedback' &&
+      String(body.url).trim() !== existing.url;
     if (body.url) {
       put('url', String(body.url).trim());
       /* The footage was the thing it was waiting for. */
-      if (existing.blocked_on === 'raw_media' && !('blockedOn' in body)) put('blocked_on', null);
+      if (
+        (existing.blocked_on === 'raw_media' || resubmitting) &&
+        !('blockedOn' in body)
+      ) {
+        put('blocked_on', null);
+      }
     }
     if (!sets.length) return res.json({ media: existing });
 
@@ -301,6 +377,9 @@ router.patch(
 
     if (body.url && !existing.url) {
       await notify({ role: 'studio', type: 'media', title: `Raw media attached: ${media.title}` });
+    } else if (resubmitting) {
+      await notify({ role: 'core', type: 'media', title: `Revised content submitted: ${media.title}` });
+      await notify({ role: 'founder', type: 'media', title: `Revised content submitted: ${media.title}` });
     }
     await recordAudit(`Media ${media.title} details updated`, req.user.id, 'media', media.id);
     res.json({ media });
@@ -327,6 +406,9 @@ router.post(
     if (!existing) return res.status(404).json({ error: 'Media not found' });
     if (existing.status === 'approved' || existing.status === 'rejected') {
       return res.status(409).json({ error: `That item has already been ${existing.status}` });
+    }
+    if (!existing.url || existing.blocked_on === 'creator_feedback') {
+      return res.status(409).json({ error: 'This item is still waiting on its raw footage' });
     }
 
     const media = await one(
@@ -423,6 +505,45 @@ router.post(
       'media',
       media.id
     );
+    res.json({ media });
+  })
+);
+
+/* ---------- Back to the creator ----------
+
+   The review above is of Studio's edited cut. This is the creator's side of
+   the loop: their raw content is not usable — reshoot, wrong property, poor
+   audio — so it goes back to them with notes. The item waits on
+   creator_feedback until they attach new content (PATCH /:id/meta). */
+router.post(
+  '/:id/request-revision',
+  requirePermission('media:review'),
+  asyncHandler(async (req, res) => {
+    const notes = String(req.body?.notes || '').trim();
+    if (!notes) {
+      return res.status(400).json({ error: 'Say what needs changing — the creator only gets these notes' });
+    }
+    const existing = await one(
+      `SELECT m.*, u.role AS uploader_role FROM media m
+         LEFT JOIN users u ON u.id = m.uploaded_by WHERE m.id = $1`,
+      [req.params.id]
+    );
+    if (!existing) return res.status(404).json({ error: 'Media not found' });
+    if (existing.uploader_role !== 'creator') {
+      return res.status(409).json({ error: 'Only a creator’s content can be sent back to them' });
+    }
+    if (!['pending', 'in_progress', 'qc', 'changes_requested'].includes(existing.status)) {
+      return res.status(409).json({ error: `That item is already ${existing.status}` });
+    }
+
+    const media = await one(
+      `UPDATE media SET blocked_on = 'creator_feedback', review_notes = $2,
+              reviewed_at = now(), reviewed_by = $3
+        WHERE id = $1 RETURNING *`,
+      [existing.id, notes, req.user.id]
+    );
+    await notify({ userId: media.uploaded_by, type: 'media', title: `Revision required: ${media.title}`, body: notes });
+    await recordAudit(`Media ${media.title} sent back to its creator`, req.user.id, 'media', media.id);
     res.json({ media });
   })
 );

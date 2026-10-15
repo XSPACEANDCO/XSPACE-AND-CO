@@ -95,6 +95,8 @@ router.get(
            FROM projects
           WHERE (name ILIKE $1 OR builder ILIKE $1 OR rera ILIKE $1)
             AND ($2::text[] IS NULL OR status = ANY($2))
+            /* Same rule as the Projects page: only projects with a verified listing. */
+            AND EXISTS (SELECT 1 FROM listings l WHERE l.project_id = projects.id AND l.verified)
           ORDER BY created_at DESC
           LIMIT ${LIMIT_PER_GROUP}`,
         /* A creator searches only the projects their Projects page shows. */

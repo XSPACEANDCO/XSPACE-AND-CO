@@ -65,7 +65,7 @@ export function parseDate(value) {
 export async function publishVerifiedListing(listingId, actorId) {
   let listing = await one(
     `UPDATE listings SET verified = TRUE, verified_at = COALESCE(verified_at, now()),
-            verified_by = COALESCE(verified_by, $2)
+            verified_by = COALESCE(verified_by, $2), corrections_note = NULL
       WHERE id = $1 RETURNING *`,
     [listingId, actorId]
   );
@@ -103,5 +103,56 @@ export async function publishVerifiedListing(listingId, actorId) {
       title: `Your listing "${listing.title}" was verified`,
     });
   }
+  return listing;
+}
+
+/* Send a listing back to its realtor with what needs fixing.
+
+   The listing stays unverified and in the queue; its verification row moves
+   to 'corrections' so the queue shows it is waiting on the realtor rather
+   than on Core. Editing the listing resubmits it (resubmitListing). */
+export async function requestListingCorrections(listingId, notes, actorId) {
+  const listing = await one(
+    `UPDATE listings SET corrections_note = $2, corrections_at = now()
+      WHERE id = $1 AND verified = FALSE RETURNING *`,
+    [listingId, notes]
+  );
+  if (!listing) return null;
+
+  await query(
+    `UPDATE verifications SET status = 'corrections', notes = $2, assigned_to = $3,
+            started_at = COALESCE(started_at, now())
+      WHERE listing_id = $1 AND status <> 'verified'`,
+    [listing.id, notes, actorId]
+  );
+  if (listing.submitted_by) {
+    await notify({
+      userId: listing.submitted_by,
+      type: 'verification',
+      title: `Corrections needed on "${listing.title}"`,
+      body: notes,
+    });
+  }
+  await recordAudit(`Listing ${listing.title} sent back for corrections`, actorId, 'listing', listing.id);
+  return listing;
+}
+
+/* The realtor saved a listing that was waiting on their corrections: it goes
+   back into the verification queue as a fresh submission. */
+export async function resubmitListing(listingId, actorId) {
+  const listing = await one(
+    `UPDATE listings SET corrections_note = NULL, resubmitted_at = now()
+      WHERE id = $1 AND corrections_note IS NOT NULL RETURNING *`,
+    [listingId]
+  );
+  if (!listing) return null;
+
+  await query(
+    `UPDATE verifications SET status = 'pending', notes = 'Resubmitted after corrections'
+      WHERE listing_id = $1 AND status = 'corrections'`,
+    [listing.id]
+  );
+  await notify({ role: 'core', type: 'verification', title: `Listing resubmitted: ${listing.title}` });
+  await recordAudit(`Listing ${listing.title} resubmitted after corrections`, actorId, 'listing', listing.id);
   return listing;
 }

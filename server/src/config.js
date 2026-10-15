@@ -58,6 +58,44 @@ export const config = {
   maxInternalAccounts: Number(process.env.MAX_INTERNAL_ACCOUNTS) || 10,
 
 
+  /* Emails. Clients get their site-visit emails; staff and partners get
+     exactly two — welcome and portal access, when their account is created —
+     and everything else as in-app notifications. See src/mailer.js and
+     src/automations.js.
+
+     With no RESEND_API_KEY nothing leaves the server: every email is still
+     written to the email log (Teams -> Email log) marked "logged", so the
+     automations can be tested without mailing real people. */
+  email: {
+    resendApiKey: process.env.RESEND_API_KEY || '',
+    from: process.env.EMAIL_FROM || 'Xspace <onboarding@resend.dev>',
+    replyTo: process.env.EMAIL_REPLY_TO || '',
+    /* This site's own address: the sign-in link in the portal access email,
+       and the client's shortlist / feedback / unsubscribe pages. */
+    portalUrl: (process.env.PORTAL_URL || 'http://localhost:10000').replace(/\/+$/, ''),
+    /* Xspace's phone number, printed in client emails as the contact. */
+    contactPhone: process.env.CONTACT_PHONE || '',
+  },
+
+  /* Client journey timing (src/clientJourney.js). */
+  clients: {
+    /* Days after cold outreach before CL-02, and again before CL-03. */
+    outreachFollowupDays: Number(process.env.OUTREACH_FOLLOWUP_DAYS) || 3,
+    /* Days after handover before asking for feedback (CL-12). */
+    feedbackDelayDays: Number(process.env.FEEDBACK_DELAY_DAYS) || 7,
+  },
+
+  automations: {
+    /* Off switch for the in-process scheduler (reminders, summaries, the
+       daily digest). Notifications posted as things happen are unaffected. */
+    enabled: process.env.AUTOMATIONS_ENABLED !== 'false',
+    /* Days between onboarding reminder 1, reminder 2 and the Core follow-up. */
+    onboardingReminderDays: Number(process.env.ONBOARDING_REMINDER_DAYS) || 2,
+    /* Lets an external cron call POST /api/automations/tick. Render's free
+       tier sleeps when idle and the in-process timer sleeps with it. */
+    cronSecret: process.env.CRON_SECRET || '',
+  },
+
   /* First Founder for a fresh database. See src/bootstrap.js. */
   bootstrap: {
     email: process.env.BOOTSTRAP_EMAIL || '',

@@ -26,7 +26,10 @@ const KINDS = [
   { key: 'doc', label: 'Document' },
 ];
 
-const EMPTY = { title: '', kind: 'reel', url: '', note: '', dueAt: '', priority: 'normal', projectId: '' };
+const EMPTY = { title: '', kind: 'reel', url: '', note: '', dueAt: '', priority: 'normal', projectId: '', assignTo: '' };
+
+/* The project picker's "general content" choice — sent as no project. */
+const NO_PROJECT = 'none';
 
 /* Studio, Founder and Core schedule the queue; everyone else just asks. */
 const SCHEDULERS = ['studio', 'founder', 'core'];
@@ -35,10 +38,13 @@ export default function MediaUpload() {
   const { role } = useDashboard();
   const [params] = useSearchParams();
   const isRequest = params.get('request') === '1';
+  /* "Create a video for this project" on a listing sheet lands here with
+     the project already picked. */
+  const presetProject = params.get('project') || '';
 
   const [mine, setMine] = useState([]);
   const [projects, setProjects] = useState([]);
-  const [form, setForm] = useState(EMPTY);
+  const [form, setForm] = useState({ ...EMPTY, projectId: presetProject });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -47,6 +53,21 @@ export default function MediaUpload() {
   const [attachUrl, setAttachUrl] = useState('');
 
   const schedules = SCHEDULERS.includes(role);
+  const internal = role === 'founder' || role === 'core';
+
+  /* Founder/Core can hand a brief to a creator or a task to a Studio editor;
+     the person is notified in the portal. */
+  const [assignees, setAssignees] = useState([]);
+  useEffect(() => {
+    if (!internal) return;
+    Promise.all([
+      api.users.creators({ status: 'active', limit: 100 }),
+      api.users.studios({ status: 'active', limit: 100 }),
+    ])
+      .then(([c, st]) => setAssignees([...(c.partners || []), ...(st.partners || [])]))
+      .catch(() => setAssignees([]));
+  }, [internal]);
+  const assignee = assignees.find((a) => a.id === form.assignTo);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,13 +85,30 @@ export default function MediaUpload() {
     load();
   }, [load]);
 
-  /* Linking content to a project is what groups Studio's work by project.
-     Realtors do not have the Projects module, so they are not offered it. */
+  /* Every upload names the project it is for, so Studio knows what it is
+     editing and can open that project's listing sheet. Realtors have no
+     Projects page, so they pick from the projects of their own verified
+     listings instead. */
   useEffect(() => {
-    if (!role || !canAccess('projects', role)) return;
-    api.projects
-      .list()
-      .then((out) => setProjects(out.projects || []))
+    if (!role) return;
+    if (canAccess('projects', role)) {
+      api.projects
+        .list()
+        .then((out) => setProjects(out.projects || []))
+        .catch(() => setProjects([]));
+      return;
+    }
+    api.listings
+      .list({ include: 'verified' })
+      .then((out) => {
+        const seen = new Map();
+        for (const l of out.listings || []) {
+          if (l.verified && l.project_id && !seen.has(l.project_id)) {
+            seen.set(l.project_id, { id: l.project_id, name: l.project_name || l.title });
+          }
+        }
+        setProjects([...seen.values()]);
+      })
       .catch(() => setProjects([]));
   }, [role]);
 
@@ -80,8 +118,13 @@ export default function MediaUpload() {
     e.preventDefault();
     setError('');
     if (!form.title.trim()) return setError('Give this a title so Studio knows what it is');
+    if (!form.projectId) {
+      return setError('Pick the project this is for — or "Not for a specific project" for general content');
+    }
     if (!isRequest && !form.url.trim()) {
-      return setError('Upload the file or paste a link — or make this a production request instead');
+      if (!form.assignTo) {
+        return setError('Upload the file or paste a link — or make this a production request instead');
+      }
     }
 
     setBusy(true);
@@ -91,12 +134,19 @@ export default function MediaUpload() {
         kind: form.kind,
         url: form.url.trim() || null,
         note: form.note.trim() || null,
-        projectId: form.projectId || null,
+        projectId: form.projectId === NO_PROJECT ? null : form.projectId,
         dueAt: form.dueAt || null,
         ...(schedules ? { priority: form.priority } : {}),
+        ...(form.assignTo ? { assignTo: form.assignTo } : {}),
       });
       setForm(EMPTY);
-      setSaved(form.url.trim() ? 'Sent to Studio' : 'Request sent — attach the footage when you have it');
+      setSaved(
+        assignee
+          ? `Assigned to ${assignee.name}`
+          : form.url.trim()
+            ? 'Sent to Studio'
+            : 'Request sent — attach the footage when you have it'
+      );
       setTimeout(() => setSaved(''), 4000);
       await load();
     } catch (err) {
@@ -157,21 +207,38 @@ export default function MediaUpload() {
               ))}
             </select>
           </label>
-          {projects.length > 0 && (
-            <label className="mf-field">
-              <span>Project (optional)</span>
-              <select value={form.projectId} onChange={set('projectId')}>
-                <option value="">Not linked to a project</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </label>
-          )}
+          <label className="mf-field">
+            <span>Project</span>
+            <select value={form.projectId} onChange={set('projectId')} required>
+              <option value="" disabled>Choose the project this is for…</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+              <option value={NO_PROJECT}>Not for a specific project (general content)</option>
+            </select>
+          </label>
           <label className="mf-field">
             <span>{schedules ? 'Due' : 'Wanted by (optional)'}</span>
             <input type="datetime-local" value={form.dueAt} onChange={set('dueAt')} />
           </label>
+          {internal && assignees.length > 0 && (
+            <label className="mf-field">
+              <span>Assign to (optional)</span>
+              <select value={form.assignTo} onChange={set('assignTo')}>
+                <option value="">Nobody — open request</option>
+                <optgroup label="Creator partners (content brief)">
+                  {assignees.filter((a) => a.role === 'creator').map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Xspace Studio (production task)">
+                  {assignees.filter((a) => a.role === 'studio').map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </optgroup>
+              </select>
+            </label>
+          )}
           {schedules && (
             <label className="mf-field">
               <span>Priority</span>
@@ -204,7 +271,7 @@ export default function MediaUpload() {
 
         <div className="media-actions">
           <button className="btn" type="submit" disabled={busy}>
-            {busy ? 'Sending…' : isRequest ? 'Send Request' : 'Send to Studio'}
+            {busy ? 'Sending…' : assignee ? `Assign to ${assignee.name}` : isRequest ? 'Send Request' : 'Send to Studio'}
           </button>
           {saved && <span className="media-saved">{saved}</span>}
         </div>
@@ -231,14 +298,20 @@ export default function MediaUpload() {
                       {m.project_name ? ` · ${m.project_name}` : ''}
                       {m.claimed_by_name ? ` · with ${m.claimed_by_name}` : ''}
                     </div>
-                    {!m.url && attaching !== m.id && (
+                    {/* Sent back to you: why, and where to resubmit. */}
+                    {m.blocked_on === 'creator_feedback' && m.review_notes && (
+                      <div className="media-callout">
+                        <strong>Revision requested:</strong> {m.review_notes}
+                      </div>
+                    )}
+                    {(!m.url || m.blocked_on === 'creator_feedback') && attaching !== m.id && (
                       <button
                         type="button"
                         className="btn-ghost"
                         style={{ marginTop: 6 }}
                         onClick={() => { setAttaching(m.id); setAttachUrl(''); }}
                       >
-                        Attach footage
+                        {m.url ? 'Attach revised content' : 'Attach footage'}
                       </button>
                     )}
                     {attaching === m.id && (
@@ -269,7 +342,9 @@ export default function MediaUpload() {
                     )}
                   </div>
                   <span className={`media-badge ${state.tone || ''}`}>
-                    {!m.url && m.status === 'pending' ? 'Waiting for footage' : state.label || m.status}
+                    {m.blocked_on === 'creator_feedback'
+                      ? 'Revision requested'
+                      : !m.url && m.status === 'pending' ? 'Waiting for footage' : state.label || m.status}
                   </span>
                 </div>
               );

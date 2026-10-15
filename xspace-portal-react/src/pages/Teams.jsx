@@ -3,6 +3,7 @@ import { copyText } from '../lib/clipboard';
 import PortalLayout from './dashboard/PortalLayout';
 import api from '../lib/api';
 import { ROLES, creatableRoles, roleLabel } from '../lib/roleConfig';
+import EmailLog from './EmailLog';
 import './teams.css';
 
 /* Every account in the portal, on one screen.
@@ -48,6 +49,21 @@ function statusOf(u) {
   if (p === 'away') return { label: 'Away', tone: 'away' };
   if (p === 'offline') return { label: 'Offline', tone: 'idle' };
   return { label: 'Online', tone: 'on' };
+}
+
+/* Where a partner is in the member lifecycle: account created -> first
+   sign-in -> onboarding (KYC verified + rules acknowledged), with the
+   reminders and Core escalation the automations have sent along the way. */
+function onboardingOf(u) {
+  if (!['realtor', 'creator', 'studio'].includes(u.role)) return null;
+  if (u.onboarding_completed_at) return { label: 'Complete', tone: 'on' };
+  if (u.onboarding_escalated_at) return { label: 'Needs a call — 2 reminders ignored', tone: 'off' };
+  const reminders = u.onboarding_reminders
+    ? ` · ${u.onboarding_reminders} reminder${u.onboarding_reminders > 1 ? 's' : ''} sent`
+    : '';
+  if (!u.first_login_at) return { label: `Not signed in yet${reminders}`, tone: 'idle' };
+  if (u.kyc_status === 'pending' && u.rules_ack_at) return { label: 'KYC waiting on review', tone: 'away' };
+  return { label: `In progress${reminders}`, tone: 'away' };
 }
 
 function Stat({ label, value, sub, tone }) {
@@ -292,6 +308,12 @@ export default function Teams() {
                 {g.label}
               </button>
             ))}
+            <button
+              className={'teams-tab' + (tab === 'emails' ? ' is-active' : '')}
+              onClick={() => setTab('emails')}
+            >
+              Email log
+            </button>
           </div>
           <input
             className="teams-search"
@@ -319,7 +341,9 @@ export default function Teams() {
           </div>
         )}
 
-        {loading ? (
+        {tab === 'emails' ? (
+          <EmailLog search={search} />
+        ) : loading ? (
           <div className="teams-empty">Loading…</div>
         ) : visible.length === 0 ? (
           <div className="teams-empty">
@@ -334,6 +358,7 @@ export default function Teams() {
               const redacted = me?.role === 'core' && u.role === 'founder';
               const mayManage = creatable.includes(u.role);
               const shown = revealed[u.id];
+              const onboarding = onboardingOf(u);
 
               return (
                 <article key={u.id} className={'tcard' + (u.active ? '' : ' is-off')}>
@@ -400,6 +425,13 @@ export default function Teams() {
                       <dt>Phone</dt>
                       <dd>{u.phone || '—'}</dd>
                     </div>
+
+                    {onboarding && (
+                      <div>
+                        <dt>Onboarding</dt>
+                        <dd className={'tcard-onboarding is-' + onboarding.tone}>{onboarding.label}</dd>
+                      </div>
+                    )}
                   </dl>
 
                   {isFounder && u.id !== me?.id && (

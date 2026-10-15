@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../lib/api';
+import ProjectTag from '../components/ProjectTag';
 import { timeAgo } from '../lib/time';
 import { MEDIA_STATES } from '../lib/mediaStatus';
 import './media.css';
@@ -85,6 +86,7 @@ export default function MediaLibrary() {
             {m.revision > 0 ? ` · v${m.revision}` : ''}
             {m.edited_at ? ` · ${timeAgo(m.edited_at)}` : ''}
           </div>
+          <ProjectTag item={m} />
 
           {m.note && <div className="small media-note">Editor: {m.note}</div>}
 

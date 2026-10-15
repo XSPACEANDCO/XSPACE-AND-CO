@@ -53,6 +53,26 @@ services:
       - key: BOOTSTRAP_NAME
         sync: false
 
+      # Emails: welcome + portal access for every new account, and site-visit
+      # emails for clients. Everything else is in-app. Until RESEND_API_KEY is
+      # set nothing is sent, only recorded in Teams -> Email log. PORTAL_URL is
+      # this service's own URL, for the sign-in link. See server/.env.example.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_REPLY_TO
+        sync: false
+      - key: PORTAL_URL
+        sync: false
+      - key: CONTACT_PHONE
+        sync: false
+      # A free instance sleeps, and its reminder timer with it. Point a cron
+      # (cron-job.org, every 15 min) at POST /api/automations/tick with
+      # "Authorization: Bearer <this value>".
+      - key: CRON_SECRET
+        generateValue: true
+
 databases:
   - name: xspace-db
     plan: free

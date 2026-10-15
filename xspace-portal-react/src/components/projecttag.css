@@ -1,0 +1,38 @@
+/* ProjectTag — the project a piece of media is for. Uses the page's own
+   theme tokens, so it sits in both the media pages and the partner panels. */
+.ptag {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 6px 0;
+  font-size: 13px;
+}
+.ptag-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ptag-missing .ptag-name {
+  font-weight: 500;
+  color: #d97706;
+}
+.ptag-open,
+.ptag-select {
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border, rgba(128, 128, 128, 0.35));
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.ptag-select {
+  border-radius: 8px;
+  max-width: 100%;
+  background: var(--panel, transparent);
+}
+.ptag-error {
+  color: var(--danger, #ef4444);
+  font-size: 12px;
+}

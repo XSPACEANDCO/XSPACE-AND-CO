@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../lib/api';
+import { getRole } from '../lib/storage';
 import { propertyFullLabel } from '../lib/leadStatus';
 import { splitAmenity } from '../lib/amenityIcons';
 import { GOV_PORTALS } from '../lib/links';
@@ -49,6 +50,11 @@ export default function ListingView() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(null);
   const [saved, setSaved] = useState('');
+  const internal = ['founder', 'core'].includes(getRole());
+  /* Studio reads verified sheets to make the project's videos. */
+  const studio = getRole() === 'studio';
+  /* Whoever listed it, Founder and Core — decided by the server. */
+  const [canEdit, setCanEdit] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,6 +63,7 @@ export default function ListingView() {
       const out = await api.listings.get(id);
       setListing(out.listing);
       setForm(fromListing(out.listing));
+      setCanEdit(Boolean(out.canEdit));
     } catch (err) {
       setError(err.message || 'Could not load this listing');
     } finally {
@@ -96,6 +103,26 @@ export default function ListingView() {
       navigate('/projects');
     } catch (err) {
       setError(err.message || 'Could not verify this listing');
+      setBusy(false);
+    }
+  }
+
+  /* Send it back to the realtor. Their next save resubmits it for review. */
+  async function requestCorrections() {
+    const notes = window.prompt(
+      `What needs correcting on "${listing.title}"?\n\nThe realtor sees this note in their notifications.`
+    );
+    if (!notes || !notes.trim()) return;
+    setError('');
+    setBusy(true);
+    try {
+      const out = await api.listings.requestCorrections(id, notes.trim());
+      setListing((prev) => ({ ...prev, ...out.listing }));
+      setSaved('Sent back to the realtor');
+      setTimeout(() => setSaved(''), 2500);
+    } catch (err) {
+      setError(err.message || 'Could not send this listing back');
+    } finally {
       setBusy(false);
     }
   }
@@ -160,6 +187,18 @@ Its photos and verification go with it. This cannot be undone.`))
       <div className="container">
         {error && <div className="listing-error">{error}</div>}
 
+        {listing.corrections_note && !listing.verified && (
+          <div className="section lv-corrections">
+            <h3>✏️ Corrections requested</h3>
+            <div className="lv-corrections-note">{listing.corrections_note}</div>
+            <div className="small">
+              {internal
+                ? 'Waiting on the realtor. Their next save resubmits it for review.'
+                : 'Edit the listing and save it — saving resubmits it to Xspace for review.'}
+            </div>
+          </div>
+        )}
+
         {/* HEADER */}
         <div className="section header">
           <div>
@@ -176,9 +215,16 @@ Its photos and verification go with it. This cannot be undone.`))
               {listing.verified ? 'Verified' : 'Unverified'}
             </span>
             {saved && <span className="lv-saved">{saved}</span>}
-            <button onClick={() => { setEditing((v) => !v); setForm(fromListing(listing)); }}>
-              {editing ? 'Cancel' : 'Edit'}
-            </button>
+            {canEdit && (
+              <button onClick={() => { setEditing((v) => !v); setForm(fromListing(listing)); }}>
+                {editing ? 'Cancel' : 'Edit'}
+              </button>
+            )}
+            {studio && listing.project_id && (
+              <button onClick={() => navigate(`/media-upload?request=1&project=${listing.project_id}`)}>
+                🎬 Create a video for this project
+              </button>
+            )}
           </div>
         </div>
 
@@ -351,11 +397,16 @@ Its photos and verification go with it. This cannot be undone.`))
                 </div>
               </div>
 
-              {!listing.verified && (
+              {!listing.verified && internal && (
                 <div className="lv-actions">
                   <button disabled={busy} onClick={verify}>
                     {busy ? 'Verifying…' : 'Mark verified & publish to Projects'}
                   </button>
+                  {internal && (
+                    <button className="ghost" disabled={busy} onClick={requestCorrections}>
+                      Send back for corrections
+                    </button>
+                  )}
                   <span className="small">
                     Only Founder and Core can verify. Verifying publishes this listing to the
                     Projects page.
@@ -373,7 +424,7 @@ Its photos and verification go with it. This cannot be undone.`))
             <div className="section">
               <h3>Photos</h3>
               <div className="small">Elevation, amenities, site images</div>
-              <ListingPhotos listingId={listing.id} />
+              <ListingPhotos listingId={listing.id} readOnly={!canEdit} />
             </div>
 
             <div className="section">
@@ -395,16 +446,22 @@ Its photos and verification go with it. This cannot be undone.`))
               )}
             </div>
 
-            <div className="section">
-              <h3>Internal Notes</h3>
-              <div className="small">{listing.notes || 'No notes yet.'}</div>
-            </div>
+            {!studio && (
+              <div className="section">
+                <h3>Internal Notes</h3>
+                <div className="small">{listing.notes || 'No notes yet.'}</div>
+              </div>
+            )}
           </>
         )}
 
         <div className="lv-actions">
-          <button className="ghost" onClick={() => navigate('/listings')}>Back to Listings</button>
-          <button className="danger" disabled={busy} onClick={remove}>Delete Listing</button>
+          {studio ? (
+            <button className="ghost" onClick={() => navigate('/projects')}>Back to Projects</button>
+          ) : (
+            <button className="ghost" onClick={() => navigate('/listings')}>Back to Listings</button>
+          )}
+          {canEdit && <button className="danger" disabled={busy} onClick={remove}>Delete Listing</button>}
         </div>
       </div>
     </div>
