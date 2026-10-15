@@ -58,15 +58,19 @@ export const config = {
   maxInternalAccounts: Number(process.env.MAX_INTERNAL_ACCOUNTS) || 10,
 
 
-  /* Emails. Clients get their site-visit emails; staff and partners get
+  /* Emails. Clients get the client journey emails; staff and partners get
      exactly two — welcome and portal access, when their account is created —
      and everything else as in-app notifications. See src/mailer.js and
      src/automations.js.
 
-     With no RESEND_API_KEY nothing leaves the server: every email is still
-     written to the email log (Teams -> Email log) marked "logged", so the
-     automations can be tested without mailing real people. */
+     Two providers, both over HTTPS: Brevo when BREVO_API_KEY is set (it can
+     send from a single verified address such as a Gmail, no domain needed),
+     otherwise Resend when RESEND_API_KEY is set (needs a verified domain to
+     mail anyone but the account owner). With neither, nothing leaves the
+     server: every email is still written to the email log (Teams -> Email
+     log) marked "logged", so the automations can be tested safely. */
   email: {
+    brevoApiKey: process.env.BREVO_API_KEY || '',
     resendApiKey: process.env.RESEND_API_KEY || '',
     from: process.env.EMAIL_FROM || 'Xspace <onboarding@resend.dev>',
     replyTo: process.env.EMAIL_REPLY_TO || '',
@@ -123,3 +127,6 @@ if (config.env === 'production' && config.jwtSecret.length < 32) {
   console.error('[config] JWT_SECRET must be at least 32 characters in production.');
   process.exit(1);
 }
+
+/* Which provider sends email: 'brevo', 'resend', or null (logged only). */
+config.email.provider = config.email.brevoApiKey ? 'brevo' : config.email.resendApiKey ? 'resend' : null;

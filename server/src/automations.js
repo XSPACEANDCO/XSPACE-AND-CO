@@ -498,6 +498,6 @@ export function startScheduler() {
   setTimeout(() => tick(), 60_000).unref();
   setInterval(() => tick(), 15 * 60_000).unref();
   console.log(
-    `[automations] scheduler on, every 15 min; client email ${config.email.resendApiKey ? 'via Resend' : 'logged only (RESEND_API_KEY unset)'}`
+    `[automations] scheduler on, every 15 min; email ${config.email.provider ? `via ${config.email.provider}` : 'logged only (no BREVO_API_KEY or RESEND_API_KEY)'}`
   );
 }

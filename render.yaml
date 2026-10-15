@@ -57,6 +57,10 @@ services:
       # emails for clients. Everything else is in-app. Until RESEND_API_KEY is
       # set nothing is sent, only recorded in Teams -> Email log. PORTAL_URL is
       # this service's own URL, for the sign-in link. See server/.env.example.
+      # Brevo (free, sends from a verified Gmail — no domain) or Resend
+      # (verified domain). Set one; Brevo wins if both are set.
+      - key: BREVO_API_KEY
+        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_FROM

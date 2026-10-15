@@ -487,7 +487,7 @@ router.post(
     res.status(201).json({
       user: publicUser(user),
       password: issued,
-      note: config.email.resendApiKey
+      note: config.email.provider
         ? 'These have also been emailed to them. The password is only stored as a hash.'
         : 'Give these to them directly. The password is only stored as a hash.',
     });

@@ -8,7 +8,7 @@ import { EMAIL_NAMES } from './ClientJourney';
    Two kinds: the welcome and portal-access emails every new account gets
    (server/src/automations.js), and the client journey emails CL-01..13
    (server/src/clientJourney.js). Everything
-   else reaches staff and partners as an in-app notification. Without RESEND_API_KEY on the server
+   else reaches staff and partners as an in-app notification. Without BREVO_API_KEY or RESEND_API_KEY on the server
    nothing leaves it, and each row reads "Logged" instead of "Sent". */
 
 const KINDS = {
@@ -79,7 +79,7 @@ export default function EmailLog({ search = '' }) {
 
       {!delivering && (
         <div className="teams-note">
-          Email delivery is off: RESEND_API_KEY is not set on the server, so these are recorded
+          Email delivery is off: neither BREVO_API_KEY nor RESEND_API_KEY is set on the server, so these are recorded
           but nobody receives them.
         </div>
       )}
