@@ -3,7 +3,6 @@ import { many, one } from '../db.js';
 import { asyncHandler, requireAuth, requireModule, requirePermission } from '../middleware.js';
 import { canDo, seesEverything } from '../rbac.js';
 import { newId, notify, recordAudit, safeUrl } from '../helpers.js';
-import * as automations from '../automations.js';
 
 const router = Router();
 
@@ -124,7 +123,6 @@ router.post(
       'media',
       id
     );
-    automations.mediaCreated(id);
     res.status(201).json({ media });
   })
 );
@@ -347,11 +345,9 @@ router.patch(
 
     if (body.url && !existing.url) {
       await notify({ role: 'studio', type: 'media', title: `Raw media attached: ${media.title}` });
-      automations.mediaContentAttached(media.id);
     } else if (resubmitting) {
       await notify({ role: 'core', type: 'media', title: `Revised content submitted: ${media.title}` });
       await notify({ role: 'founder', type: 'media', title: `Revised content submitted: ${media.title}` });
-      automations.mediaContentAttached(media.id, { resubmitted: true });
     }
     await recordAudit(`Media ${media.title} details updated`, req.user.id, 'media', media.id);
     res.json({ media });
@@ -412,7 +408,6 @@ router.post(
       });
     }
     await recordAudit(`Media ${media.title} delivered (v${media.revision})`, req.user.id, 'media', media.id);
-    automations.mediaDelivered(media.id);
     res.json({ media });
   })
 );
@@ -475,7 +470,6 @@ router.post(
       'media',
       media.id
     );
-    automations.mediaReviewed(media.id, decision);
     res.json({ media });
   })
 );
@@ -515,7 +509,6 @@ router.post(
     );
     await notify({ userId: media.uploaded_by, type: 'media', title: `Revision required: ${media.title}`, body: notes });
     await recordAudit(`Media ${media.title} sent back to its creator`, req.user.id, 'media', media.id);
-    automations.creatorRevisionRequested(media.id, notes);
     res.json({ media });
   })
 );

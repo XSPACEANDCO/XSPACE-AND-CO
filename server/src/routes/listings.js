@@ -277,7 +277,6 @@ router.post(
   asyncHandler(async (req, res) => {
     const listing = await publishVerifiedListing(req.params.id, req.user.id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
-    automations.listingApproved(listing);
     res.json({ listing });
   })
 );
@@ -293,7 +292,6 @@ router.post(
     }
     const listing = await requestListingCorrections(req.params.id, notes, req.user.id);
     if (!listing) return res.status(404).json({ error: 'Listing not found, or already verified' });
-    automations.listingCorrections(listing, notes);
     res.json({ listing });
   })
 );

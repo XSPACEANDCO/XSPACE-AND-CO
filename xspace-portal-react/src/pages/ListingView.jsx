@@ -105,7 +105,7 @@ export default function ListingView() {
   /* Send it back to the realtor. Their next save resubmits it for review. */
   async function requestCorrections() {
     const notes = window.prompt(
-      `What needs correcting on "${listing.title}"?\n\nThe realtor gets this note by email and in the portal.`
+      `What needs correcting on "${listing.title}"?\n\nThe realtor sees this note in their notifications.`
     );
     if (!notes || !notes.trim()) return;
     setError('');

@@ -85,7 +85,7 @@ router.post(
     );
     await recordActivity(`${req.user.name} scheduled a site visit`, req.user.id);
     await recordAudit(`Visit ${id} scheduled`, req.user.id, 'visit', id);
-    automations.visitScheduled(id);
+    automations.visitScheduled(id, req.user.id);
     res.status(201).json({ visit });
   })
 );
@@ -157,7 +157,7 @@ router.post(
     );
     if (!visit) return res.status(404).json({ error: 'Visit not found' });
     await recordAudit(`Visit ${visit.id} rescheduled`, req.user.id, 'visit', visit.id);
-    automations.visitRescheduled(visit.id);
+    automations.visitRescheduled(visit.id, req.user.id);
     res.json({ visit });
   })
 );

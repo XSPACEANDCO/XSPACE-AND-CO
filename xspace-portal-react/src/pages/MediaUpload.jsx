@@ -50,7 +50,7 @@ export default function MediaUpload() {
   const internal = role === 'founder' || role === 'core';
 
   /* Founder/Core can hand a brief to a creator or a task to a Studio editor;
-     the person gets it by email and in the portal. */
+     the person is notified in the portal. */
   const [assignees, setAssignees] = useState([]);
   useEffect(() => {
     if (!internal) return;

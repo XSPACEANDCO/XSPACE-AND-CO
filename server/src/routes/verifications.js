@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { many, one } from '../db.js';
 import { asyncHandler, requireModule, requirePermission } from '../middleware.js';
 import { newId, notify, publishVerifiedListing, recordAudit, requestListingCorrections } from '../helpers.js';
-import * as automations from '../automations.js';
 
 const router = Router();
 
@@ -82,10 +81,7 @@ router.post(
     if (!v) return res.status(404).json({ error: 'Verification not found' });
 
     /* Same publish step as the listing sheet — into Projects, submitter told. */
-    if (v.listing_id) {
-      const listing = await publishVerifiedListing(v.listing_id, req.user.id);
-      if (listing) automations.listingApproved(listing);
-    }
+    if (v.listing_id) await publishVerifiedListing(v.listing_id, req.user.id);
     await recordAudit(`Verification of ${await subjectOf(v)} verified`, req.user.id, 'verification', v.id);
     res.json({ verification: v });
   })
@@ -106,7 +102,6 @@ router.post(
 
     const listing = await requestListingCorrections(v.listing_id, notes, req.user.id);
     if (!listing) return res.status(409).json({ error: 'That listing is already verified' });
-    automations.listingCorrections(listing, notes);
     res.json({ verification: await one('SELECT * FROM verifications WHERE id = $1', [v.id]) });
   })
 );

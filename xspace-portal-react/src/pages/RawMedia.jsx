@@ -65,7 +65,7 @@ export default function RawMedia() {
     const notes = window.prompt(
       `What should ${item.uploaded_by_name || 'the creator'} change in "${item.title}"?
 
-They get this note by email.`
+They see this note in their notifications.`
     );
     if (!notes || !notes.trim()) return;
     setError('');

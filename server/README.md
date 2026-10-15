@@ -458,21 +458,24 @@ sends a listing back to its realtor; their next save resubmits it.
 | GET | `/automations/emails` | founder, core — the email log |
 | POST | `/automations/tick` | founder, core, or `Authorization: Bearer $CRON_SECRET` |
 
-Member lifecycle and email automations live in `src/automations.js`; the email
-wording, by code, in `src/emailTemplates.js`. See the "Automated emails" block
-in `.env.example` for setup.
+Member lifecycle automations live in `src/automations.js`. **Every new account
+gets two emails — welcome and portal access (username, password, sign-in
+link). After that, Founder, Core and partners are only notified in the app;
+clients are emailed about their site visits** (`src/emailTemplates.js`). See the "Automations" block in
+`.env.example` for setup.
 
-| Who | Codes | When |
+| Who | How | When |
 |---|---|---|
-| Realtor partner | RP-01…10 | account created, onboarding reminders, listing submitted / approved / corrections, site visit scheduled / reminder (24 h before) / rescheduled / completed |
-| Creator partner | CP-01…10 | account created, onboarding reminders, assignment, content received / approved / revision, deadline (24 h), lead from their content, Monday performance summary |
-| Studio | ST-01…09 | account created, onboarding reminders, new task, deadline (24 h), submitted for review, revision, approved, completed |
-| Client | CL-01…04 | site visit confirmed / reminder / rescheduled / thank-you — only if the lead has an email |
-| Founder & Core | XS-01…02 | 9 am IST daily digest; a partner ignored two onboarding reminders |
+| Realtor partner | in-app | welcome, onboarding reminders, listing received / approved / corrections, site visit scheduled / reminder (24 h before) / rescheduled |
+| Creator partner | in-app | welcome, onboarding reminders, assignment, content approved / revision, deadline (24 h), lead from their content, Monday summary |
+| Studio | in-app | welcome, onboarding reminders, new task, deadline (24 h), revision, approved |
+| Founder & Core | in-app | 9 am IST daily digest, partner ignored two onboarding reminders, items to review |
+| Every new account | **email** EM-01, EM-02 | welcome; portal access with sign-in details |
+| Client | **email** CL-01…04 | site visit confirmed / reminder / rescheduled / thank-you — only if the lead has an email |
 
 Onboarding is complete when KYC is verified and the rules are acknowledged.
 Until then the member gets reminder 1, then reminder 2, then Founder/Core are
-asked (in-app and by email) to follow up, `ONBOARDING_REMINDER_DAYS` apart.
+asked to follow up, `ONBOARDING_REMINDER_DAYS` apart.
 
 ### Partners
 | Method | Path | Who |

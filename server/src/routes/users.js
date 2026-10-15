@@ -477,8 +477,9 @@ router.post(
     );
     await recordAudit(`${role} account created for ${email}`, req.user.id, 'user', id);
 
-    /* Welcome and portal-access emails. Not awaited: the account exists
-       whether or not the email provider answers promptly. */
+    /* Welcome and portal-access emails (and, for partners, a welcome in
+       their notifications). Not awaited: the account exists whether or not
+       the email provider answers promptly. */
     automations.accountCreated(user, issued);
 
     /* Shown once. Only the bcrypt hash is stored, so it cannot be read back —
@@ -486,10 +487,9 @@ router.post(
     res.status(201).json({
       user: publicUser(user),
       password: issued,
-      note:
-        config.email.resendApiKey && !isInternal(role)
-          ? 'Their sign-in details have also been emailed to them. The password is only stored as a hash.'
-          : 'Give these to them directly. The password is only stored as a hash.',
+      note: config.email.resendApiKey
+        ? 'These have also been emailed to them. The password is only stored as a hash.'
+        : 'Give these to them directly. The password is only stored as a hash.',
     });
   })
 );
@@ -522,7 +522,6 @@ router.post(
       [target.id, await hashPassword(issued)]
     );
     await recordAudit(`Password reset for ${target.email}`, req.user.id, 'user', target.id);
-    automations.passwordReset(target.id, issued);
     res.json({ password: issued, note: 'Shown once — only the hash is stored.' });
   })
 );

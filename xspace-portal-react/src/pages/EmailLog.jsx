@@ -2,21 +2,21 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../lib/api';
 import { timeAgo } from '../lib/time';
 
-/* Every automated email, newest first — Founder and Core only.
+/* Every email the portal has sent, newest first — Founder and Core only.
 
-   The automations send these on their own (server/src/automations.js); this
-   is where to check that a partner or client was actually told something.
-   Without RESEND_API_KEY on the server nothing leaves it, and each row reads
-   "Logged" instead of "Sent". */
+   Two kinds (server/src/automations.js): the welcome and portal-access
+   emails every new account gets, and clients' site-visit emails. Everything
+   else reaches staff and partners as an in-app notification. Without RESEND_API_KEY on the server
+   nothing leaves it, and each row reads "Logged" instead of "Sent". */
 
-const AUDIENCES = [
-  { key: '', label: 'Everyone' },
-  { key: 'RP', label: 'Realtor partners' },
-  { key: 'CP', label: 'Creator partners' },
-  { key: 'ST', label: 'Studio' },
-  { key: 'CL', label: 'Clients' },
-  { key: 'XS', label: 'Founder & Core' },
-];
+const KINDS = {
+  'EM-01': 'Welcome',
+  'EM-02': 'Portal access',
+  'CL-01': 'Visit confirmed',
+  'CL-02': 'Visit reminder',
+  'CL-03': 'Visit rescheduled',
+  'CL-04': 'Thank you',
+};
 
 const STATUS = {
   sent: { label: 'Sent', tone: 'on' },
@@ -25,7 +25,6 @@ const STATUS = {
 };
 
 export default function EmailLog({ search = '' }) {
-  const [code, setCode] = useState('');
   const [emails, setEmails] = useState([]);
   const [delivering, setDelivering] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -37,7 +36,7 @@ export default function EmailLog({ search = '' }) {
     setLoading(true);
     setError('');
     try {
-      const out = await api.automations.emails({ code, q: search.trim() || undefined, limit: 200 });
+      const out = await api.automations.emails({ q: search.trim() || undefined, limit: 200 });
       setEmails(out.emails || []);
       setDelivering(Boolean(out.delivering));
     } catch (err) {
@@ -45,7 +44,7 @@ export default function EmailLog({ search = '' }) {
     } finally {
       setLoading(false);
     }
-  }, [code, search]);
+  }, [search]);
 
   useEffect(() => {
     load();
@@ -70,11 +69,9 @@ export default function EmailLog({ search = '' }) {
   return (
     <section className="email-log">
       <div className="email-log-bar">
-        <select value={code} onChange={(e) => setCode(e.target.value)} aria-label="Who the email went to">
-          {AUDIENCES.map((a) => (
-            <option key={a.key} value={a.key}>{a.label}</option>
-          ))}
-        </select>
+        <span className="email-log-note">
+          Welcome and portal-access emails for new accounts, and site-visit emails to clients.
+        </span>
         <button className="teams-link" disabled={busy} onClick={runNow}>
           {busy ? 'Running…' : 'Run reminders now'}
         </button>
@@ -92,14 +89,14 @@ export default function EmailLog({ search = '' }) {
       {loading ? (
         <div className="teams-empty">Loading…</div>
       ) : emails.length === 0 ? (
-        <div className="teams-empty">No automated emails yet.</div>
+        <div className="teams-empty">No emails yet.</div>
       ) : (
         <div className="email-log-rows">
           {emails.map((e) => {
             const status = STATUS[e.status] || { label: e.status, tone: 'idle' };
             return (
               <div className="email-log-row" key={e.id}>
-                <span className="email-log-code">{e.code}</span>
+                <span className="email-log-code">{KINDS[e.code] || e.code}</span>
                 <div className="email-log-main">
                   <div className="email-log-subject">{e.subject}</div>
                   <div className="email-log-meta">

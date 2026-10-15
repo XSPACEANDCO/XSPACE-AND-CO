@@ -89,7 +89,7 @@ export function VerificationPanel() {
                         className="btn-ghost"
                         disabled={busy === v.id}
                         onClick={() => {
-                          const notes = window.prompt('What does the realtor need to correct? They get this note by email.');
+                          const notes = window.prompt('What does the realtor need to correct? They see this note in their notifications.');
                           if (notes && notes.trim()) {
                             run(v.id, () => api.verifications.requestCorrections(v.id, notes.trim()));
                           }

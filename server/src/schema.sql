@@ -512,3 +512,12 @@ CREATE INDEX IF NOT EXISTS email_log_user_idx ON email_log (user_id);
 -- A client's email, optional. When present the client is emailed about their
 -- site visits (CL-01..04); without it they are not contacted by email at all.
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS email TEXT;
+
+-- Staff and partners are told about every lifecycle step in the app, never by
+-- email (only clients are emailed). The scheduled ones — reminders, deadlines,
+-- summaries, the daily digest — claim a key here first so each is only ever
+-- posted once however often the scheduler runs.
+CREATE TABLE IF NOT EXISTS automation_runs (
+  dedupe_key TEXT PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

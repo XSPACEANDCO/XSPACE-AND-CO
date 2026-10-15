@@ -53,13 +53,15 @@ services:
       - key: BOOTSTRAP_NAME
         sync: false
 
-      # Automated emails. Until RESEND_API_KEY is set nothing is sent — every
-      # email is only recorded in Teams -> Email log. PORTAL_URL is this
-      # service's own URL, used in the emails' sign-in buttons. See
-      # server/.env.example.
+      # Emails: welcome + portal access for every new account, and site-visit
+      # emails for clients. Everything else is in-app. Until RESEND_API_KEY is
+      # set nothing is sent, only recorded in Teams -> Email log. PORTAL_URL is
+      # this service's own URL, for the sign-in link. See server/.env.example.
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_REPLY_TO
         sync: false
       - key: PORTAL_URL
         sync: false

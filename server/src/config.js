@@ -58,7 +58,10 @@ export const config = {
   maxInternalAccounts: Number(process.env.MAX_INTERNAL_ACCOUNTS) || 10,
 
 
-  /* Automated member emails. See src/mailer.js and src/automations.js.
+  /* Emails. Clients get their site-visit emails; staff and partners get
+     exactly two — welcome and portal access, when their account is created —
+     and everything else as in-app notifications. See src/mailer.js and
+     src/automations.js.
 
      With no RESEND_API_KEY nothing leaves the server: every email is still
      written to the email log (Teams -> Email log) marked "logged", so the
@@ -67,13 +70,13 @@ export const config = {
     resendApiKey: process.env.RESEND_API_KEY || '',
     from: process.env.EMAIL_FROM || 'Xspace <onboarding@resend.dev>',
     replyTo: process.env.EMAIL_REPLY_TO || '',
-    /* The address in every email's "open the portal" link. */
+    /* The sign-in link in the portal access email. */
     portalUrl: (process.env.PORTAL_URL || 'http://localhost:10000').replace(/\/+$/, ''),
   },
 
   automations: {
-    /* Off switch for the in-process scheduler (reminders and summaries). The
-       event emails — welcome, approvals and so on — are unaffected. */
+    /* Off switch for the in-process scheduler (reminders, summaries, the
+       daily digest). Notifications posted as things happen are unaffected. */
     enabled: process.env.AUTOMATIONS_ENABLED !== 'false',
     /* Days between onboarding reminder 1, reminder 2 and the Core follow-up. */
     onboardingReminderDays: Number(process.env.ONBOARDING_REMINDER_DAYS) || 2,
