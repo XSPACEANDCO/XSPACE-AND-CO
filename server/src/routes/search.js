@@ -41,7 +41,10 @@ router.get(
       const rows = await many(
         `SELECT id, name, phone, status, budget, preferred_area
            FROM leads
-          WHERE (name ILIKE $1 OR phone ILIKE $1 OR preferred_area ILIKE $1 OR notes ILIKE $1)
+          WHERE (name ILIKE $1 OR preferred_area ILIKE $1
+                 -- Contact details and internal notes are Xspace's alone: a
+                 -- partner's search must not even reveal what is in them.
+                 OR ($2::boolean AND (phone ILIKE $1 OR notes ILIKE $1)))
             AND ($2::boolean OR assigned_to = $3 OR created_by = $3)
           ORDER BY created_at DESC
           LIMIT ${LIMIT_PER_GROUP}`,
@@ -54,7 +57,7 @@ router.get(
           items: rows.map((r) => ({
             id: r.id,
             title: r.name,
-            subtitle: [r.phone, r.preferred_area, r.budget].filter(Boolean).join(' · ') || null,
+            subtitle: [all && r.phone, r.preferred_area, r.budget].filter(Boolean).join(' · ') || null,
             badge: r.status,
             to: `/clients/${r.id}`,
           })),

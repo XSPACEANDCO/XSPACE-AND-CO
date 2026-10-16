@@ -39,10 +39,16 @@ export const MODULES = {
      for the internal team and `leadTracker` for partners — so the sidebar
      showed two entries that opened the identical page. The difference was
      never the screen, only which rows the server hands back, and that is
-     exactly what `scope` already expresses. */
+     exactly what `scope` already expresses.
+
+     Xspace owns the customer from first contact to referral. A realtor
+     partner works property and site visits, and reaches the client only
+     through the visits assigned to them — not through the CRM. A creator
+     sees the leads they generated, and only their status (routes/leads.js
+     strips the rest). */
   crm: {
-    roles: [...INTERNAL, 'realtor', 'creator'],
-    scope: { founder: 'all', core: 'all', realtor: 'own', creator: 'own' },
+    roles: [...INTERNAL, 'creator'],
+    scope: { founder: 'all', core: 'all', creator: 'own' },
   },
 
   listings: { roles: ['founder', 'core', 'realtor'], scope: { founder: 'all', core: 'all', realtor: 'own' } },
@@ -63,7 +69,9 @@ export const MODULES = {
   myContent: { roles: ['creator'] },
   contentCalendar: { roles: ['creator'] },
   performance: { roles: ['creator'] },
-  earnings: { roles: ['creator'] },
+  /* Commissions owed to the partner: a creator's for content and leads, a
+     realtor's for the deals a closure names them on. */
+  earnings: { roles: ['creator', 'realtor'] },
 
   areaUpdates: { roles: ['realtor'] },
 
@@ -133,8 +141,15 @@ export const WRITE_RULES = withInternal({
   'projects:write': INTERNAL,
   'listings:write': ['founder', 'core', 'realtor'],
   'listings:verify': INTERNAL,
-  'leads:write': ['founder', 'core', 'realtor', 'creator'],
+  /* Lead generation: a creator hands Xspace a lead. Managing it after that —
+     status, requirement, notes, every journey step — is leads:write. */
+  'leads:submit': ['founder', 'core', 'creator'],
+  'leads:write': INTERNAL,
   'leads:assign': INTERNAL,
+  /* Booking a visit is Xspace's call. The realtor taking it confirms and
+     completes it (visits:write); moving, cancelling or failing it drives the
+     follow-up, so that stays internal (visits:resolve). */
+  'visits:schedule': INTERNAL,
   'visits:write': ['founder', 'core', 'realtor'],
   'visits:resolve': INTERNAL,
   'verifications:write': INTERNAL,

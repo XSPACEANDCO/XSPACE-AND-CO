@@ -3,7 +3,9 @@ import { many, one } from '../db.js';
 import { asyncHandler, requireModule, requirePermission } from '../middleware.js';
 import { seesEverything } from '../rbac.js';
 import { newId, notify, recordAudit } from '../helpers.js';
-import { ALL_STATUSES, canAdvance, isValidPropertyType, isValidSubtype } from '../leadStatus.js';
+import {
+  ALL_STATUSES, FOLLOW_UP_TYPES, canAdvance, isValidPropertyType, isValidSubtype,
+} from '../leadStatus.js';
 import * as automations from '../automations.js';
 import * as journey from '../clientJourney.js';
 
@@ -44,6 +46,34 @@ function scopeClause(user, startIndex = 1) {
   };
 }
 
+/* What a creator partner sees of a lead they generated: who it is, where it
+   came from, what they asked for and how far it has got. Not the client's
+   contact details, the internal notes, the follow-ups or the deal — Xspace
+   owns the relationship from here. Chosen in SQL, so the rest never leaves
+   the server. */
+const PARTNER_LEAD_FIELDS = `
+  l.id, l.name, l.status, l.source, l.source_media_id, l.listing_id,
+  l.budget, l.preferred_area, l.property_type, l.property_subtype, l.configuration,
+  l.created_at, l.closed_at, sm.title AS source_media_title, li.title AS listing_title`;
+
+/* Everything the CRM list shows Founder and Core: the lead, its owner, and
+   when anything last happened to it. */
+const INTERNAL_LEAD_FIELDS = `
+  l.*, u.name AS assigned_to_name, li.title AS listing_title, sm.title AS source_media_title,
+  fo.name AS follow_up_owner_name,
+  GREATEST(l.created_at, l.last_interaction_at,
+           (SELECT max(a.created_at) FROM audit_log a WHERE a.entity = 'lead' AND a.entity_id = l.id)
+  ) AS last_activity_at`;
+
+const LEAD_JOINS = `
+  FROM leads l
+  LEFT JOIN users u ON u.id = l.assigned_to
+  LEFT JOIN users fo ON fo.id = l.follow_up_owner
+  LEFT JOIN listings li ON li.id = l.listing_id
+  LEFT JOIN media sm ON sm.id = l.source_media_id`;
+
+const fieldsFor = (user) => (seesEverything(user.role) ? INTERNAL_LEAD_FIELDS : PARTNER_LEAD_FIELDS);
+
 function parseDate(value) {
   if (!value) return null;
   const d = new Date(value);
@@ -81,12 +111,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const { where, params } = scopeClause(req.user);
     const rows = await many(
-      `SELECT l.*, u.name AS assigned_to_name, li.title AS listing_title,
-              sm.title AS source_media_title
-         FROM leads l
-         LEFT JOIN users u ON u.id = l.assigned_to
-         LEFT JOIN listings li ON li.id = l.listing_id
-         LEFT JOIN media sm ON sm.id = l.source_media_id
+      `SELECT ${fieldsFor(req.user)} ${LEAD_JOINS}
         WHERE 1=1 ${where}
         ORDER BY l.created_at DESC`,
       params
@@ -101,35 +126,33 @@ router.get(
   asyncHandler(async (req, res) => {
     const { where, params } = scopeClause(req.user, 2);
     const lead = await one(
-      `SELECT l.*, u.name AS assigned_to_name, sm.title AS source_media_title
-         FROM leads l
-         LEFT JOIN users u ON u.id = l.assigned_to
-         LEFT JOIN media sm ON sm.id = l.source_media_id
+      `SELECT ${fieldsFor(req.user)} ${LEAD_JOINS}
         WHERE l.id = $1 ${where}`,
       [req.params.id, ...params]
     );
     /* 404 rather than 403 for a lead that exists but isn't theirs — no reason
        to confirm it exists. */
     if (!lead) return res.status(404).json({ error: 'Lead not found' });
-
-    const visits = await many(
-      'SELECT * FROM visits WHERE lead_id = $1 ORDER BY scheduled_at DESC',
-      [lead.id]
-    );
-    res.json({ lead, visits });
+    res.json({ lead });
   })
 );
 
 router.post(
   '/',
   leadModule,
-  requirePermission('leads:write'),
+  requirePermission('leads:submit'),
   asyncHandler(async (req, res) => {
     req.body = req.body || {};
+    const internal = seesEverything(req.user.role);
+    /* A creator hands over who the lead is and what they asked for. How hot
+       it is, where it stands and who follows it up are Xspace's to decide. */
+    const body = internal
+      ? req.body
+      : { ...req.body, status: undefined, temperature: undefined, followUpAt: undefined, notes: undefined, assignedTo: undefined };
     const {
       name, phone, source, budget, listingId, temperature, status,
       propertyType, propertySubtype, configuration, preferredArea, timeline, sourceMediaId, followUpAt,
-    } = req.body;
+    } = body;
     if (!name) return res.status(400).json({ error: 'name is required' });
     if (temperature && !TEMPERATURES.includes(temperature)) {
       return res.status(400).json({ error: 'temperature must be hot, warm or cold' });
@@ -143,42 +166,78 @@ router.post(
     if (status && !ALL_STATUSES.includes(status)) {
       return res.status(400).json({ error: 'Unknown status' });
     }
-    const email = cleanEmail(req.body.email);
+    const email = cleanEmail(body.email);
     if (email === undefined) return res.status(400).json({ error: 'That email address does not look valid' });
     const sourceErr = (await checkSourceMedia(req.user, sourceMediaId)) || (await checkListing(req.user, listingId));
     if (sourceErr) return res.status(400).json({ error: sourceErr });
 
-    /* A partner can only create leads against themselves; assigning to someone
-       else is a Founder/Core action. */
-    let assignedTo = req.user.id;
-    if (req.body.assignedTo && seesEverything(req.user.role)) {
-      const assigneeErr = await checkAssignee(req.body.assignedTo);
+    /* Founder/Core own what they create unless they hand it to a colleague.
+       A creator's lead belongs to Xspace, not to them: it arrives unowned,
+       and the team picks it up. created_by keeps it on the creator's list. */
+    let assignedTo = internal ? req.user.id : null;
+    if (internal && body.assignedTo) {
+      const assigneeErr = await checkAssignee(body.assignedTo);
       if (assigneeErr) return res.status(400).json({ error: assigneeErr });
-      assignedTo = req.body.assignedTo;
+      assignedTo = body.assignedTo;
     }
 
     const id = newId('c');
     const lead = await one(
       `INSERT INTO leads (id, name, phone, source, budget, status, temperature, assigned_to,
                           created_by, listing_id, property_type, configuration, preferred_area, timeline,
-                          source_media_id, follow_up_at, property_subtype, email, purpose)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
+                          source_media_id, follow_up_at, property_subtype, email, purpose,
+                          other_preferences, notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING *`,
       [
         id, name, phone || null, source || null, budget || null,
         status || 'New', temperature || 'warm', assignedTo, req.user.id, listingId || null,
         propertyType || null, configuration || null, preferredArea || null, timeline || null,
         sourceMediaId || null, parseDate(followUpAt), propertySubtype || null, email,
-        String(req.body.purpose || '').trim() || null,
+        String(body.purpose || '').trim() || null,
+        String(body.otherPreferences || '').trim() || null,
+        String(body.notes || '').trim() || null,
       ]
     );
-    if (assignedTo !== req.user.id) {
+    if (assignedTo && assignedTo !== req.user.id) {
       await notify({ userId: assignedTo, type: 'lead', title: `Lead assigned to you: ${name}` });
     }
-    await recordAudit(`Lead ${name} created`, req.user.id, 'lead', id);
+    if (!internal) {
+      for (const role of ['founder', 'core']) {
+        await notify({ role, type: 'lead', title: `New lead from ${req.user.name}: ${name}`, body: 'Unassigned — pick it up in the CRM.' });
+      }
+    }
+    await recordAudit(`Client created${internal ? '' : ` — submitted by ${req.user.name}`}`, req.user.id, 'lead', id);
     automations.leadFromContent(lead);
-    res.status(201).json({ lead });
+    res.status(201).json({ lead: internal ? lead : { id: lead.id, name: lead.name, status: lead.status } });
   })
 );
+
+const REQUIREMENT_KEYS = [
+  'budget', 'preferredArea', 'propertyType', 'propertySubtype', 'configuration',
+  'timeline', 'purpose', 'otherPreferences',
+];
+const STAMP = new Intl.DateTimeFormat('en-IN', {
+  day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
+});
+
+/* What an edit did, in words, for the client's activity history. One line
+   per kind of change rather than a bare "updated". */
+function changeLog(before, after, body) {
+  const out = [];
+  if (after.status !== before.status) out.push(`Status moved to ${after.status}`);
+  if (REQUIREMENT_KEYS.some((k) => k in body)) out.push('Requirement updated');
+  if (after.temperature !== before.temperature) out.push(`Temperature set to ${after.temperature}`);
+  if (after.assigned_to !== before.assigned_to) out.push('Lead owner changed');
+  if ('followUpAt' in body) {
+    out.push(after.follow_up_at
+      ? `Follow-up scheduled for ${STAMP.format(new Date(after.follow_up_at))}${after.follow_up_type ? ` (${after.follow_up_type})` : ''}`
+      : 'Follow-up marked done');
+  }
+  if ('notes' in body && (after.notes || '') !== (before.notes || '')) out.push('Internal notes updated');
+  if ((after.email || '') !== (before.email || '')) out.push('Email address changed');
+  if (['name', 'phone', 'source'].some((k) => k in body && body[k] !== before[k])) out.push('Contact details updated');
+  return out.length ? out : ['Client details updated'];
+}
 
 router.patch(
   '/:id',
@@ -246,6 +305,17 @@ router.patch(
        longer owed — so it is written whenever the key is present, null
        included, rather than through COALESCE like the rest. */
     const setsFollowUp = 'followUpAt' in (req.body || {});
+    if (req.body.followUpType && !FOLLOW_UP_TYPES.includes(req.body.followUpType)) {
+      return res.status(400).json({ error: 'Unknown follow-up type' });
+    }
+    const setsFollowUpOwner = 'followUpOwner' in (req.body || {});
+    if (req.body.followUpOwner) {
+      const owner = await one(
+        "SELECT id FROM users WHERE id = $1 AND active AND role IN ('founder','core')",
+        [req.body.followUpOwner]
+      );
+      if (!owner) return res.status(400).json({ error: 'Follow-ups are made by a Founder or Core member' });
+    }
 
     const lead = await one(
       `UPDATE leads SET
@@ -267,6 +337,10 @@ router.patch(
          property_subtype = NULLIF(COALESCE($18, property_subtype), ''),
          email = CASE WHEN $19::boolean THEN $20 ELSE email END,
          purpose = COALESCE($21, purpose),
+         other_preferences = COALESCE($22, other_preferences),
+         follow_up_type = CASE WHEN $16::boolean THEN $23 ELSE follow_up_type END,
+         follow_up_note = CASE WHEN $16::boolean THEN $24 ELSE follow_up_note END,
+         follow_up_owner = CASE WHEN $25::boolean THEN $26 ELSE follow_up_owner END,
          last_interaction_at = now()
        WHERE id = $1 RETURNING *`,
       [
@@ -277,6 +351,10 @@ router.patch(
         req.body.preferredArea ?? null, req.body.timeline ?? null, req.body.notes ?? null,
         req.body.sourceMediaId || null, setsFollowUp, parseDate(req.body.followUpAt),
         req.body.propertySubtype ?? null, setsEmail, email, req.body.purpose ?? null,
+        req.body.otherPreferences ?? null,
+        String(req.body.followUpType || '').trim() || null,
+        String(req.body.followUpNote || '').trim() || null,
+        setsFollowUpOwner, req.body.followUpOwner || null,
       ]
     );
 
@@ -304,7 +382,9 @@ router.patch(
         }
       }
     }
-    await recordAudit(`Lead ${lead.name} updated`, req.user.id, 'lead', lead.id);
+    for (const text of changeLog(existing, lead, req.body)) {
+      await recordAudit(text, req.user.id, 'lead', lead.id);
+    }
     res.json({ lead });
   })
 );

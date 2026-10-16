@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../lib/api';
 import { timeAgo } from '../../../lib/time';
-import { FUNNEL_BUCKETS, isOpenLead } from '../../../lib/leadStatus';
+import { FUNNEL_BUCKETS, OPEN_VISIT_STATUSES, isOpenLead } from '../../../lib/leadStatus';
 import { ROLES } from '../../../lib/roleConfig';
 import { useDashboard } from '../DashboardStore';
 import {
@@ -50,7 +50,7 @@ export default function FounderDashboard() {
 
   /* ---- Visits ---- */
   const upcomingVisits = visits
-    .filter((v) => v.status === 'Scheduled' || v.status === 'Rescheduled')
+    .filter((v) => OPEN_VISIT_STATUSES.includes(v.status))
     .filter((v) => timeOf(v.scheduledAt) !== null && timeOf(v.scheduledAt) >= startOfToday())
     .sort((a, b) => timeOf(a.scheduledAt) - timeOf(b.scheduledAt));
   const visitsToday = upcomingVisits.filter((v) => dayBucket(v.scheduledAt) === 'today');

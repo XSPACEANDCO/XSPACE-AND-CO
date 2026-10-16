@@ -168,6 +168,10 @@ export const api = {
     complete: (id, feedback) => post(`/visits/${id}/complete`, { feedback }),
     unsuccessful: (id, reason) => post(`/visits/${id}/unsuccessful`, { reason }),
     reschedule: (id, scheduledAt) => post(`/visits/${id}/reschedule`, { scheduledAt }),
+    /* The assigned realtor or Founder/Core. */
+    confirm: (id) => post(`/visits/${id}/confirm`),
+    /* Founder/Core only. */
+    cancel: (id, reason) => post(`/visits/${id}/cancel`, { reason }),
   },
 
   verifications: {
@@ -212,9 +216,22 @@ export const api = {
     addToShortlist: (leadId, listingId, note) => post(`/journey/${leadId}/shortlist`, { listingId, note }),
     removeFromShortlist: (leadId, itemId) => del(`/journey/${leadId}/shortlist/${itemId}`),
     sendShortlist: (leadId) => post(`/journey/${leadId}/shortlist/send`),
-    /* { at, location, instructions } */
+    /* { listingId, why, presentationDate, presentedBy } */
+    addPresentation: (leadId, data) => post(`/journey/${leadId}/presentations`, data),
+    markPresented: (id) => post(`/journey/presentations/${id}/presented`),
+    removePresentation: (leadId, id) => del(`/journey/${leadId}/presentations/${id}`),
+    /* { happenedAt, kind, notes, outcome, nextAction, nextFollowUpAt } */
+    logFollowUp: (leadId, data) => post(`/journey/${leadId}/followups`, data),
+    saveNegotiation: (leadId, data) => request('PUT', `/journey/${leadId}/negotiation`, data),
+    saveToken: (leadId, data) => request('PUT', `/journey/${leadId}/token`, data),
+    closeDeal: (leadId, data) => post(`/journey/${leadId}/deal/close`, data),
+    /* Founder only: 'approved' or 'paid'. */
+    setCommissionStatus: (leadId, id, status) => post(`/journey/${leadId}/commission/${id}/status`, { status }),
+    /* { at, location, instructions, notes } */
     scheduleHandover: (leadId, data) => post(`/journey/${leadId}/handover`, data),
     completeHandover: (leadId) => post(`/journey/${leadId}/handover/complete`),
+    /* { name, phone, email, note } — becomes a new lead credited to this one. */
+    addReferral: (leadId, data) => post(`/journey/${leadId}/referrals`, data),
   },
 
   /* A client's own page, from a link in their email — no login. */

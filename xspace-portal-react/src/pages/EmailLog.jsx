@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import api from '../lib/api';
 import { timeAgo } from '../lib/time';
-import { EMAIL_NAMES } from './ClientJourney';
+import { EMAIL_NAMES } from './JourneyHistory';
 
 /* Every email the portal has sent, newest first — Founder and Core only.
 

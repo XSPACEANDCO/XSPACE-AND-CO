@@ -131,13 +131,16 @@
   color: var(--muted);
 }
 
+/* Transparent rather than a fixed dark fill, so fields read in both themes. */
 .page-leadview textarea,
 .page-leadview input[type='datetime-local'],
 .page-leadview select {
   width: 100%;
-  background: #020617;
-  border: 1px solid var(--border);
-  color: var(--fg);
+  background: transparent;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
   padding: 10px;
   border-radius: 8px;
   box-sizing: border-box;
@@ -290,9 +293,11 @@
   margin: 2px 4px 2px 0;
   white-space: nowrap;
 }
-.page-leadview .journey-chip.scheduled { border-color: rgba(96, 165, 250, 0.6); }
-.page-leadview .journey-chip.completed { border-color: rgba(52, 211, 153, 0.7); }
-.page-leadview .journey-chip.cancelled { border-color: rgba(239, 68, 68, 0.6); }
+/* background: the old status-badge rules (.scheduled, .completed) share
+   these class names and would otherwise paint a solid fill under the text. */
+.page-leadview .journey-chip.scheduled { border-color: rgba(96, 165, 250, 0.6); background: transparent; }
+.page-leadview .journey-chip.completed { border-color: rgba(52, 211, 153, 0.7); background: transparent; }
+.page-leadview .journey-chip.cancelled { border-color: rgba(239, 68, 68, 0.6); background: transparent; }
 .page-leadview .journey-row {
   display: flex;
   justify-content: space-between;
@@ -329,4 +334,265 @@
   align-items: center;
   gap: 6px;
   margin-top: 6px;
+}
+
+/* ---------- CRM master structure: the full client profile ---------- */
+
+/* Errors and confirmations pinned to the top of a long profile, so a save
+   at stage 11 is not reported somewhere off-screen. */
+.page-leadview .lv-toast {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+}
+.page-leadview .lv-toast:empty {
+  display: none;
+}
+.page-leadview .lv-flash {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--panel);
+  border: 1px solid rgba(52, 211, 153, 0.6);
+  color: inherit;
+}
+.page-leadview .lv-block {
+  margin: 0 0 16px;
+}
+
+/* Client information: label / value rows. */
+.page-leadview .lv-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px 24px;
+  margin-bottom: 14px;
+}
+.page-leadview .lv-info-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  min-height: 34px;
+}
+.page-leadview .lv-info-label {
+  flex: 0 0 96px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.page-leadview .lv-info-row select {
+  width: auto;
+  min-width: 160px;
+  padding: 6px 10px;
+  /* Same look as the requirement fields — the page-wide select rule is a
+     fixed dark fill that is unreadable in the light theme. */
+  background: transparent;
+  color: inherit;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  font: inherit;
+  font-size: 14px;
+}
+
+/* The fourteen-step strip. */
+.page-leadview .journey-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+}
+.page-leadview .journey-strip li > a,
+.page-leadview .journey-strip li > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.page-leadview .journey-strip li.done > a,
+.page-leadview .journey-strip li.done > span {
+  color: inherit;
+  border-color: rgba(52, 211, 153, 0.6);
+}
+.page-leadview .journey-strip li.next > a {
+  color: inherit;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.page-leadview .journey-strip-num,
+.page-leadview .stage-num {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--glass);
+  flex: 0 0 auto;
+}
+.page-leadview .journey-strip li.done .journey-strip-num,
+.page-leadview .stage-num.done {
+  background: var(--accent);
+  color: #04120c;
+}
+
+/* One stage. */
+.page-leadview .journey-stage {
+  scroll-margin-top: 70px;
+}
+.page-leadview .journey-stage h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.page-leadview .stage-num {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+}
+.page-leadview .journey-sub {
+  margin: 18px 0 8px;
+  font-size: 14px;
+}
+.page-leadview .journey-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.page-leadview .journey-comms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.page-leadview .journey-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.page-leadview .journey-inline input {
+  width: auto;
+}
+.page-leadview .journey-inline .lv-inline-btn {
+  margin-left: 0;
+}
+.page-leadview .journey-next {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--glass);
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+.page-leadview .journey-next.overdue {
+  border: 1px solid rgba(239, 68, 68, 0.6);
+}
+.page-leadview .journey-quote {
+  margin-top: 8px;
+  font-style: italic;
+}
+.page-leadview a.as-link {
+  display: inline-block;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  color: inherit;
+  padding: 2px 10px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+}
+
+/* Follow-up and email history tables. */
+.page-leadview .journey-table-wrap {
+  overflow-x: auto;
+}
+.page-leadview .journey-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.page-leadview .journey-table th,
+.page-leadview .journey-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.page-leadview .journey-table th {
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Shortlisted project cards. */
+.page-leadview .shortlist-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  margin: 10px 0;
+}
+.page-leadview .shortlist-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.page-leadview .shortlist-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+.page-leadview .shortlist-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 0;
+  font-size: 13px;
+}
+.page-leadview .shortlist-facts dt {
+  color: var(--muted);
+}
+.page-leadview .shortlist-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A long history scrolls in place rather than making the page endless. */
+.page-leadview .journey-activity {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+@media (max-width: 640px) {
+  .page-leadview .lv-info-label {
+    flex-basis: 84px;
+  }
+  .page-leadview .lv-info-row select {
+    min-width: 0;
+    flex: 1;
+  }
+  .page-leadview .journey-strip li > a,
+  .page-leadview .journey-strip li > span {
+    font-size: 11px;
+  }
+  /* Actions go under a row's details, not beside them. */
+  .page-leadview .journey-row {
+    flex-direction: column;
+  }
+  .page-leadview .journey-row > div:first-child {
+    width: 100%;
+  }
 }

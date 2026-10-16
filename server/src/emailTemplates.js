@@ -13,7 +13,8 @@ import { config } from './config.js';
        CL-04  appointment confirmed   CL-11  handover
        CL-05  appointment reminder    CL-12  feedback
        CL-06  shortlisted projects    CL-13  referral
-       CL-07  site visit confirmed
+       CL-07  site visit confirmed    CL-14  post-handover
+                                      CL-15  site visit cancelled
 
    Each template takes a context object and returns a subject, a heading,
    blocks and an optional call to action. Client emails go to people outside
@@ -211,6 +212,18 @@ export const TEMPLATES = {
     ],
     ...(visit.map_link ? { cta: { label: 'Open in Maps', url: visit.map_link } } : {}),
   }),
+  /* The team's reason for cancelling is internal and is not passed in. */
+  'CL-15': ({ client, visit, rep }) => ({
+    subject: `Site visit cancelled — ${visit.listing_title || 'Xspace'}, ${when(visit.scheduled_at)}`,
+    heading: 'Your site visit has been cancelled',
+    blocks: [
+      `Hi ${firstName(client)}, your site visit below will not go ahead. We are sorry for any inconvenience.`,
+      ...(visit.listing_title ? [{ label: 'Project', value: visit.listing_title }] : []),
+      { label: 'Was scheduled for', value: when(visit.scheduled_at) },
+      'We will be in touch to arrange a new time that suits you. If you would like to fix one now, just reply or call us.',
+      ...contactBlocks(rep),
+    ],
+  }),
   'CL-08': ({ client, visit, rep }) => ({
     subject: `Reminder: site visit ${when(visit.scheduled_at)}`,
     heading: 'Your site visit is coming up',
@@ -277,6 +290,24 @@ export const TEMPLATES = {
         : []),
       ...contactBlocks(rep),
       'After the handover, we will check in to make sure everything is as it should be.',
+    ],
+  }),
+
+  'CL-14': ({ client, property, rep }) => ({
+    subject: `Welcome home, ${firstName(client)}`,
+    heading: 'Welcome to your new property',
+    blocks: [
+      `Hi ${firstName(client)}, congratulations once more — the handover${property ? ` of ${property}` : ''} is complete.`,
+      'A few things worth doing in the first weeks:',
+      {
+        list: [
+          'Keep your sale deed, allotment letter and payment receipts together in a safe place.',
+          'Transfer the electricity, water and property tax accounts into your name.',
+          'Note the developer’s warranty and maintenance contacts.',
+        ],
+      },
+      'If anything is not as it should be, tell us — we will take it up with the developer or seller for you.',
+      ...contactBlocks(rep),
     ],
   }),
 

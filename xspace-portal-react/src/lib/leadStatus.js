@@ -126,3 +126,16 @@ export function subtypeLabel(propertyType, subtype) {
 export function propertyFullLabel(propertyType, subtype) {
   return [propertyLabel(propertyType), subtypeLabel(propertyType, subtype)].filter(Boolean).join(' · ');
 }
+
+/* Mirrors the follow-up, token and visit vocab in server/src/leadStatus.js. */
+export const FOLLOW_UP_TYPES = ['Call', 'WhatsApp', 'Email', 'Meeting', 'Site visit', 'SMS'];
+
+export const TOKEN_STATUSES = [
+  { key: 'pending', label: 'Pending' },
+  { key: 'paid', label: 'Paid' },
+  { key: 'confirmed', label: 'Confirmed' },
+  { key: 'cancelled', label: 'Cancelled' },
+];
+
+/* A site visit that has not happened yet. */
+export const OPEN_VISIT_STATUSES = ['Scheduled', 'Confirmed', 'Rescheduled'];
