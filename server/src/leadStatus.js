@@ -104,3 +104,14 @@ export function isValidSubtype(propertyType, subtype) {
   if (!subtype) return true;
   return subtypesFor(propertyType).some((s) => s.key === subtype);
 }
+
+/* How a follow-up happened, or will. */
+export const FOLLOW_UP_TYPES = ['Call', 'WhatsApp', 'Email', 'Meeting', 'Site visit', 'SMS'];
+
+/* Token / EOI. Recording one at all puts the client at the Token/EOI stage;
+   'cancelled' does not. */
+export const TOKEN_STATUSES = ['pending', 'paid', 'confirmed', 'cancelled'];
+
+/* A site visit that has not happened yet, and so can still be confirmed,
+   moved, completed or cancelled. */
+export const OPEN_VISIT_STATUSES = ['Scheduled', 'Confirmed', 'Rescheduled'];

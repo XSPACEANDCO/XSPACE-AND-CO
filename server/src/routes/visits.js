@@ -4,6 +4,8 @@ import { asyncHandler, requireModule, requirePermission } from '../middleware.js
 import { seesEverything } from '../rbac.js';
 import { newId, notify, parseDate, recordActivity, recordAudit, safeUrl } from '../helpers.js';
 import * as automations from '../automations.js';
+import { OPEN_VISIT_STATUSES } from '../leadStatus.js';
+import * as journey from '../clientJourney.js';
 
 const router = Router();
 
@@ -27,14 +29,26 @@ const FOLLOW_UP = {
 const DEFAULT_FOLLOW_UP = 'Manual follow-up in 24–48 hrs';
 
 /* A visit that has not happened yet. */
-const OPEN_VISIT = ['Scheduled', 'Rescheduled'];
+const OPEN_VISIT = OPEN_VISIT_STATUSES;
+
+/* Visit events go on the client's activity history as well as the visit's
+   own audit trail, phrased so they read on the client page. */
+async function logVisit(visit, text, actorId) {
+  const listing = visit.listing_id ? await one('SELECT title FROM listings WHERE id = $1', [visit.listing_id]) : null;
+  const line = `${text}${listing ? ` — ${listing.title}` : ''}`;
+  await recordAudit(line, actorId, 'visit', visit.id);
+  if (visit.lead_id) await recordAudit(line, actorId, 'lead', visit.lead_id);
+}
 
 router.get(
   '/',
   asyncHandler(async (req, res) => {
     const { where, params } = scopeClause(req.user);
+    /* A realtor gets what the visit needs — who and where — not Xspace's
+       read on the client. */
+    const temperature = seesEverything(req.user.role) ? 'l.temperature' : 'NULL AS temperature';
     const rows = await many(
-      `SELECT v.*, l.name AS client_name, l.temperature,
+      `SELECT v.*, l.name AS client_name, ${temperature},
               li.title AS listing_title, u.name AS agent_name
          FROM visits v
          LEFT JOIN leads l ON l.id = v.lead_id
@@ -44,13 +58,17 @@ router.get(
         ORDER BY v.scheduled_at DESC NULLS LAST`,
       params
     );
-    res.json({ visits: rows });
+    /* Founder/Core book visits and pick who takes them. */
+    const realtors = seesEverything(req.user.role)
+      ? await many("SELECT id, name, areas FROM users WHERE role = 'realtor' AND active ORDER BY name")
+      : undefined;
+    res.json({ visits: rows, realtors });
   })
 );
 
 router.post(
   '/',
-  requirePermission('visits:write'),
+  requirePermission('visits:schedule'),
   asyncHandler(async (req, res) => {
     const { leadId, listingId, mode } = req.body || {};
     const scheduledAt = parseDate(req.body?.scheduledAt);
@@ -103,7 +121,7 @@ router.post(
       [id, leadId || null, listingId || null, assignedTo, scheduledAt, mode || 'On-site', meetingPoint, mapLink, repId]
     );
     await recordActivity(`${req.user.name} scheduled a site visit`, req.user.id);
-    await recordAudit(`Visit ${id} scheduled`, req.user.id, 'visit', id);
+    await logVisit(visit, 'Site visit scheduled', req.user.id);
     automations.visitScheduled(id, req.user.id);
     res.status(201).json({ visit });
   })
@@ -134,7 +152,7 @@ router.post(
         WHERE id=$1 RETURNING *`,
       [req.params.id, req.body?.feedback ?? null]
     );
-    await recordAudit(`Visit ${visit.id} completed`, req.user.id, 'visit', visit.id);
+    await logVisit(visit, 'Site visit completed', req.user.id);
     automations.visitCompleted(visit.id);
     res.json({ visit });
   })
@@ -168,7 +186,7 @@ router.post(
         body: followUp,
       });
     }
-    await recordAudit(`Visit ${visit.id} marked unsuccessful: ${reason}`, req.user.id, 'visit', visit.id);
+    await logVisit(visit, `Site visit unsuccessful (${reason})`, req.user.id);
     res.json({ visit, followUp });
   })
 );
@@ -184,18 +202,68 @@ router.post(
        be — "Reschedule Requested" is one of the reasons it ends up there. */
     const existing = await one('SELECT status FROM visits WHERE id = $1', [req.params.id]);
     if (!existing) return res.status(404).json({ error: 'Visit not found' });
-    if (existing.status === 'Completed') {
-      return res.status(409).json({ error: 'This visit is already completed — book a new one instead' });
+    if (existing.status === 'Completed' || existing.status === 'Cancelled') {
+      return res.status(409).json({ error: `This visit is already ${existing.status.toLowerCase()} — book a new one instead` });
     }
 
     const visit = await one(
-      `UPDATE visits SET status='Rescheduled', scheduled_at=$2, ended_at=NULL, reason=NULL
+      `UPDATE visits SET status='Rescheduled', scheduled_at=$2, ended_at=NULL, reason=NULL, confirmed_at=NULL
         WHERE id=$1 RETURNING *`,
       [req.params.id, scheduledAt]
     );
-    await recordAudit(`Visit ${visit.id} rescheduled`, req.user.id, 'visit', visit.id);
+    await logVisit(visit, 'Site visit rescheduled', req.user.id);
     automations.visitRescheduled(visit.id, req.user.id);
     res.json({ visit });
+  })
+);
+
+/* The visit is on: the client has confirmed, or the realtor taking it has.
+   Either the assigned realtor or Founder/Core may mark it. */
+router.post(
+  '/:id/confirm',
+  requirePermission('visits:write'),
+  asyncHandler(async (req, res) => {
+    const { where, params } = scopeClause(req.user, 2);
+    const existing = await one(`SELECT v.* FROM visits v WHERE v.id = $1 ${where}`, [req.params.id, ...params]);
+    if (!existing) return res.status(404).json({ error: 'Visit not found' });
+    if (existing.status !== 'Scheduled' && existing.status !== 'Rescheduled') {
+      return res.status(409).json({ error: `This visit is already ${existing.status.toLowerCase()}` });
+    }
+    const visit = await one(
+      "UPDATE visits SET status='Confirmed', confirmed_at=now() WHERE id=$1 RETURNING *",
+      [existing.id]
+    );
+    await logVisit(visit, 'Site visit confirmed', req.user.id);
+    if (visit.assigned_to && visit.assigned_to !== req.user.id) {
+      await notify({ userId: visit.assigned_to, type: 'visit', title: 'Site visit confirmed', body: 'The client has confirmed — see Site Visits.' });
+    }
+    res.json({ visit });
+  })
+);
+
+/* Called off, not failed: nothing happened, and nothing is followed up
+   automatically. The realtor taking it is told. */
+router.post(
+  '/:id/cancel',
+  requirePermission('visits:resolve'),
+  asyncHandler(async (req, res) => {
+    const existing = await one('SELECT * FROM visits WHERE id = $1', [req.params.id]);
+    if (!existing) return res.status(404).json({ error: 'Visit not found' });
+    if (!OPEN_VISIT.includes(existing.status)) {
+      return res.status(409).json({ error: `This visit is already ${existing.status.toLowerCase()}` });
+    }
+    const reason = String(req.body?.reason || '').trim() || null;
+    const visit = await one(
+      "UPDATE visits SET status='Cancelled', cancelled_at=now(), reason=$2 WHERE id=$1 RETURNING *",
+      [existing.id, reason]
+    );
+    await logVisit(visit, `Site visit cancelled${reason ? ` (${reason})` : ''}`, req.user.id);
+    if (visit.assigned_to && visit.assigned_to !== req.user.id) {
+      await notify({ userId: visit.assigned_to, type: 'visit', title: 'Site visit cancelled', body: reason });
+    }
+    /* The client was emailed a confirmation, so they are told it is off. */
+    const email = await journey.visitCancelled(visit.id);
+    res.json({ visit, emailed: email?.status || null });
   })
 );
 

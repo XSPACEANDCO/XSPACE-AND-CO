@@ -326,7 +326,7 @@ async function onboardingSweep(now) {
 async function visitReminders() {
   const visits = await many(
     `${VISIT_SELECT}
-      WHERE v.status IN ('Scheduled','Rescheduled')
+      WHERE v.status IN ('Scheduled','Confirmed','Rescheduled')
         AND v.scheduled_at > now() AND v.scheduled_at <= now() + interval '24 hours'`
   );
   for (const visit of visits) {
@@ -423,7 +423,7 @@ async function dailyTeamDigest(now) {
        (SELECT COUNT(*) FROM users WHERE role = ANY($1) AND active AND kyc_status = 'pending'
            AND kyc_submitted_at IS NOT NULL)::int AS kyc,
        (SELECT COUNT(*) FROM media WHERE status = 'delivered')::int AS cuts,
-       (SELECT COUNT(*) FROM visits WHERE status IN ('Scheduled','Rescheduled')
+       (SELECT COUNT(*) FROM visits WHERE status IN ('Scheduled','Confirmed','Rescheduled')
            AND (scheduled_at AT TIME ZONE 'Asia/Kolkata')::date = $2::date)::int AS visits,
        (SELECT COUNT(*) FROM users WHERE role = ANY($1) AND active AND onboarding_completed_at IS NULL
            AND onboarding_escalated_at IS NOT NULL)::int AS escalated,

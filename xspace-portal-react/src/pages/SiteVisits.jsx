@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
-import { TEMP_LABELS } from '../lib/leadStatus';
+import { OPEN_VISIT_STATUSES, TEMP_LABELS } from '../lib/leadStatus';
+import { seesEverything } from '../lib/roleConfig';
+import { useDashboard } from './dashboard/DashboardStore';
 import './sitevisits.css';
 
 /* Site visits, on real data.
@@ -12,13 +14,19 @@ import './sitevisits.css';
    at a project that does not exist.
 
    Which visits arrive is the server's decision: Founder and Core see all of
-   them, a partner sees only their own. */
+   them, a realtor partner only the ones assigned to them.
+
+   Xspace books, moves and cancels visits. The realtor taking one confirms
+   it and marks it done — the server refuses anything else from them, and
+   this page does not offer it. */
 
 const COLUMNS = [
   { key: 'Scheduled', label: 'Scheduled' },
+  { key: 'Confirmed', label: 'Confirmed' },
+  { key: 'Rescheduled', label: 'Rescheduled' },
   { key: 'Completed', label: 'Completed' },
   { key: 'Unsuccessful', label: 'Unsuccessful Visit' },
-  { key: 'Rescheduled', label: 'Rescheduled' },
+  { key: 'Cancelled', label: 'Cancelled' },
 ];
 
 const UNSUCCESS_REASONS = [
@@ -44,14 +52,19 @@ const isSoon = (t) => {
   const d = new Date(t) - new Date();
   return d > 0 && d <= 2 * 60 * 60 * 1000;
 };
-const isOverdue = (t, s) => t && new Date(t) < new Date() && s === 'Scheduled';
+const isOverdue = (t, s) => t && new Date(t) < new Date() && OPEN_VISIT_STATUSES.includes(s);
+
+const EMPTY_FORM = { leadId: '', listingId: '', scheduledAt: '', mode: 'On-site', meetingPoint: '', mapLink: '', assignedTo: '' };
 
 export default function SiteVisits() {
   const [params] = useSearchParams();
+  const { role } = useDashboard();
+  const internal = seesEverything(role);
 
   const [visits, setVisits] = useState([]);
   const [leads, setLeads] = useState([]);
   const [listings, setListings] = useState([]);
+  const [realtors, setRealtors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -60,7 +73,7 @@ export default function SiteVisits() {
   const [modeFilter, setModeFilter] = useState('all');
 
   const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [form, setForm] = useState({ leadId: '', listingId: '', scheduledAt: '', mode: 'On-site', meetingPoint: '', mapLink: '' });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const [rescheduleId, setRescheduleId] = useState(null);
   const [rescheduleTime, setRescheduleTime] = useState('');
@@ -79,14 +92,15 @@ export default function SiteVisits() {
     setLoading(true);
     setError('');
     try {
-      /* The pickers are a convenience — if a partner cannot read the full
-         inventory, the visit list still loads. */
+      /* The booking pickers are Founder/Core only — a realtor neither books
+         visits nor reads the CRM. */
       const [visitsOut, leadsOut, listingsOut] = await Promise.all([
         api.visits.list(),
-        api.leads.list().catch(() => ({ leads: [] })),
-        api.listings.list({ include: 'all' }).catch(() => ({ listings: [] })),
+        internal ? api.leads.list().catch(() => ({ leads: [] })) : { leads: [] },
+        internal ? api.listings.list({ include: 'all' }).catch(() => ({ listings: [] })) : { listings: [] },
       ]);
       setVisits(visitsOut.visits || []);
+      setRealtors(visitsOut.realtors || []);
       setLeads(leadsOut.leads || []);
       setListings(listingsOut.listings || []);
     } catch (err) {
@@ -94,7 +108,7 @@ export default function SiteVisits() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [internal]);
 
   useEffect(() => {
     load();
@@ -103,7 +117,7 @@ export default function SiteVisits() {
   /* Deep link from the lead page: /site-visits?dt=<datetime-local value> */
   useEffect(() => {
     const dt = params.get('dt');
-    if (dt) {
+    if (dt && internal) {
       setForm((f) => ({ ...f, scheduledAt: dt }));
       setScheduleOpen(true);
     }
@@ -161,12 +175,21 @@ export default function SiteVisits() {
           mode: form.mode,
           meetingPoint: form.meetingPoint.trim() || null,
           mapLink: form.mapLink.trim() || null,
+          assignedTo: form.assignedTo || undefined,
         }),
       () => {
         setScheduleOpen(false);
-        setForm({ leadId: '', listingId: '', scheduledAt: '', mode: 'On-site', meetingPoint: '', mapLink: '' });
+        setForm(EMPTY_FORM);
       }
     );
+  }
+
+  function cancelVisit(v) {
+    const reason = window.prompt(
+      `Cancel the visit with ${v.client_name || 'this client'}? They are emailed that it is off.\nReason (internal, not sent to the client — optional):`,
+      ''
+    );
+    if (reason !== null) run(() => api.visits.cancel(v.id, reason.trim()));
   }
 
   function confirmReschedule() {
@@ -209,8 +232,13 @@ export default function SiteVisits() {
         {soon && <div className="warm">⏰ Soon</div>}
         {over && <div className="hot">⚠️ Overdue</div>}
 
-        {v.status === 'Scheduled' && (
+        {OPEN_VISIT_STATUSES.includes(v.status) && (
           <div className="visit-actions">
+            {v.status !== 'Confirmed' && (
+              <button className="action-btn" disabled={busy} onClick={() => run(() => api.visits.confirm(v.id))}>
+                Confirm
+              </button>
+            )}
             <button
               className="action-btn"
               disabled={busy}
@@ -218,12 +246,19 @@ export default function SiteVisits() {
             >
               Done
             </button>
-            <button className="action-btn" disabled={busy} onClick={() => setUnsuccessId(v.id)}>
-              Unsuccessful
-            </button>
-            <button className="action-btn" disabled={busy} onClick={() => setRescheduleId(v.id)}>
-              Reschedule
-            </button>
+            {internal && (
+              <>
+                <button className="action-btn" disabled={busy} onClick={() => setUnsuccessId(v.id)}>
+                  Unsuccessful
+                </button>
+                <button className="action-btn" disabled={busy} onClick={() => setRescheduleId(v.id)}>
+                  Reschedule
+                </button>
+                <button className="action-btn" disabled={busy} onClick={() => cancelVisit(v)}>
+                  Cancel
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -251,7 +286,9 @@ export default function SiteVisits() {
               <option value="On-site">On-site</option>
               <option value="VR">VR</option>
             </select>
-            <button onClick={() => { setScheduleOpen(true); setError(''); }}>+ Schedule Visit</button>
+            {internal && (
+              <button onClick={() => { setScheduleOpen(true); setError(''); }}>+ Schedule Visit</button>
+            )}
           </div>
         </div>
 
@@ -280,7 +317,9 @@ export default function SiteVisits() {
 
         {!loading && visits.length === 0 && (
           <p className="subtitle">
-            No site visits booked yet. Use “Schedule Visit” to book one against a client.
+            {internal
+              ? 'No site visits booked yet. Use “Schedule Visit” to book one against a client.'
+              : 'No site visits assigned to you yet. Xspace books them and they appear here.'}
           </p>
         )}
 
@@ -335,6 +374,16 @@ export default function SiteVisits() {
               value={form.scheduledAt}
               onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })}
             />
+
+            <label>Realtor partner</label>
+            <select value={form.assignedTo} onChange={(e) => setForm({ ...form, assignedTo: e.target.value })}>
+              <option value="">None — Xspace takes it</option>
+              {realtors.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}{r.areas ? ` — ${r.areas}` : ''}
+                </option>
+              ))}
+            </select>
 
             <label>Mode</label>
             <select value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}>

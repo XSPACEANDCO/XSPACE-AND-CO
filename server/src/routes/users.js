@@ -139,9 +139,12 @@ router.get(
               (SELECT COUNT(*) FROM leads l
                 WHERE (l.assigned_to = u.id OR l.created_by = u.id)
                   AND l.status = ANY($2))::int AS qualified,
+              /* A realtor's deal is one the closure names them on. */
               (SELECT COUNT(*) FROM leads l
-                WHERE (l.assigned_to = u.id OR l.created_by = u.id)
-                  AND l.status = 'Closed')::int AS deals,
+                WHERE l.status = 'Closed'
+                  AND (l.assigned_to = u.id OR l.created_by = u.id
+                       OR EXISTS (SELECT 1 FROM lead_deals d WHERE d.lead_id = l.id AND d.realtor_partner = u.id))
+              )::int AS deals,
               (SELECT COUNT(*) FROM leads l
                 WHERE l.assigned_to = u.id AND l.status NOT IN ('Closed','Dropped')
                   AND l.follow_up_at < date_trunc('day', now()))::int AS followups_overdue,
@@ -152,7 +155,7 @@ router.get(
               (SELECT COUNT(*) FROM visits v
                 WHERE v.assigned_to = u.id AND v.status = 'Completed')::int AS visits_completed,
               (SELECT COUNT(*) FROM visits v
-                WHERE v.assigned_to = u.id AND v.status IN ('Scheduled','Rescheduled')
+                WHERE v.assigned_to = u.id AND v.status IN ('Scheduled','Confirmed','Rescheduled')
                   AND v.scheduled_at >= date_trunc('day', now()))::int AS visits_upcoming,
               (SELECT COUNT(*) FROM listings li WHERE li.submitted_by = u.id)::int AS listings,
               (SELECT COUNT(*) FROM listings li

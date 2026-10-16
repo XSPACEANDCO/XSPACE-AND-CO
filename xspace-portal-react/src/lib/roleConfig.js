@@ -63,13 +63,15 @@ export const MODULES = [
   /* ---- Shared operational modules ---- */
   /* One CRM for everybody. There were two entries here — CRM and Lead
      Tracker — both opening /clients, differing only in which rows the server
-     returned. That is `scope`, not a second module. */
+     returned. That is `scope`, not a second module.
+     Realtor partners are not on it: they reach a client only through the
+     site visits assigned to them. */
   {
     key: 'crm',
     label: '👥 CRM',
     to: '/clients',
-    roles: [...ALL_INTERNAL, 'realtor', 'creator'],
-    scope: { founder: 'all', core: 'all', realtor: 'own', creator: 'own' },
+    roles: [...ALL_INTERNAL, 'creator'],
+    scope: { founder: 'all', core: 'all', creator: 'own' },
   },
   {
     key: 'listings',
@@ -166,7 +168,7 @@ export const MODULES = [
     key: 'earnings',
     label: '💰 Earnings',
     to: '/earnings',
-    roles: ['creator'],
+    roles: ['creator', 'realtor'],
     navHidden: ALL_INTERNAL,
   },
 

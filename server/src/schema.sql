@@ -628,3 +628,105 @@ CREATE INDEX IF NOT EXISTS email_log_lead_idx ON email_log (lead_id);
 DELETE FROM projects p
  WHERE p.status = 'Verified'
    AND NOT EXISTS (SELECT 1 FROM listings l WHERE l.project_id = p.id);
+
+-- ---------------------------------------------------------------------------
+-- CRM master structure: the stages between the shortlist and the handover
+-- that used to live only in free-text notes — the project presentation, every
+-- follow-up conversation, the negotiation, the token / EOI and the closure.
+--
+-- Xspace owns all of it. These are Founder/Core records (routes/journey.js);
+-- no partner route reads them, and the client's own pages never do.
+
+-- Requirement: anything the fixed fields above do not cover.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS other_preferences TEXT;
+
+-- The next follow-up owed: when (follow_up_at, above), how, about what, and
+-- which team member makes it.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS follow_up_type  TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS follow_up_note  TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS follow_up_owner TEXT REFERENCES users(id) ON DELETE SET NULL;
+
+-- Internal notes about the handover, alongside the instructions the client
+-- is emailed.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS handover_notes TEXT;
+
+-- The Xspace team member who takes the appointment. created_by is only who
+-- booked it.
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS assigned_to TEXT REFERENCES users(id) ON DELETE SET NULL;
+
+-- A visit can now be confirmed before it happens, and cancelled outright.
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMPTZ;
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+ALTER TABLE visits DROP CONSTRAINT IF EXISTS visits_status_check;
+ALTER TABLE visits ADD CONSTRAINT visits_status_check CHECK (
+  status IN ('Scheduled','Confirmed','Completed','Unsuccessful','Rescheduled','Cancelled')
+);
+
+-- Projects presented to the client in a meeting, before anything is
+-- shortlisted and sent. presented_at is set by "Mark as presented".
+CREATE TABLE IF NOT EXISTS lead_presentations (
+  id                TEXT PRIMARY KEY,
+  lead_id           TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  listing_id        TEXT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  why               TEXT,
+  presentation_date TIMESTAMPTZ,
+  presented_by      TEXT REFERENCES users(id) ON DELETE SET NULL,
+  presented_at      TIMESTAMPTZ,
+  created_by        TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS lead_presentations_unique ON lead_presentations (lead_id, listing_id);
+
+-- Every follow-up conversation that happened: "15 Oct — Call — Interested".
+CREATE TABLE IF NOT EXISTS lead_followups (
+  id          TEXT PRIMARY KEY,
+  lead_id     TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  happened_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  kind        TEXT NOT NULL,
+  notes       TEXT,
+  outcome     TEXT,
+  next_action TEXT,
+  created_by  TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS lead_followups_lead_idx ON lead_followups (lead_id, happened_at DESC);
+
+-- Negotiation, token / EOI and closure for a client: one deal at a time.
+-- Amounts are text, like budget and price everywhere else ("₹82 L").
+CREATE TABLE IF NOT EXISTS lead_deals (
+  lead_id                TEXT PRIMARY KEY REFERENCES leads(id) ON DELETE CASCADE,
+  listing_id             TEXT REFERENCES listings(id) ON DELETE SET NULL,
+  unit                   TEXT,
+
+  quoted_price           TEXT,
+  client_offer           TEXT,
+  builder_response       TEXT,
+  current_position       TEXT,
+  next_action            TEXT,
+  negotiation_notes      TEXT,
+  negotiation_updated_at TIMESTAMPTZ,
+
+  token_amount           TEXT,
+  token_date             DATE,
+  token_status           TEXT CHECK (token_status IN ('pending','paid','confirmed','cancelled')),
+  token_documents        TEXT,
+  token_notes            TEXT,
+  token_updated_at       TIMESTAMPTZ,
+
+  final_value            TEXT,
+  closure_date           DATE,
+  xspace_owner           TEXT REFERENCES users(id) ON DELETE SET NULL,
+  realtor_partner        TEXT REFERENCES users(id) ON DELETE SET NULL,
+  commission             TEXT,
+  closure_documents      TEXT,
+  closure_notes          TEXT,
+
+  updated_by             TEXT REFERENCES users(id) ON DELETE SET NULL,
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- A commission recorded by "Mark deal closed" names the client it came from,
+-- so re-saving the closure updates that entry rather than adding another,
+-- and the client's page can show it. One entry per deal per partner.
+ALTER TABLE commissions ADD COLUMN IF NOT EXISTS lead_id TEXT REFERENCES leads(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS commissions_lead_idx ON commissions (lead_id);

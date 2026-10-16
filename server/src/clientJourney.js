@@ -16,7 +16,8 @@ import { INTERNAL_ROLES } from './rbac.js';
      -> shortlisted projects (CL-06) -> client shows interest on their page
      -> site visit confirmed (CL-07) -> reminder (CL-08)
      -> follow-up after the visit (CL-09): interested / not sure / other options
-     -> deal closure (CL-10) -> handover (CL-11)
+     -> negotiation -> token / EOI (recorded, no email)
+     -> deal closure (CL-10) -> handover (CL-11) -> post-handover (CL-14)
      -> feedback (CL-12) -> referral (CL-13) -> long-term relationship
 
    Xspace owns the client relationship, so the steps that start a
@@ -346,6 +347,7 @@ export async function shortlistInterest(leadId, itemId) {
   );
   if (!item) return null;
   const lead = await loadLead(leadId);
+  await recordAudit(`Client selected project: ${item.title}`, null, 'lead', lead.id);
   await tellTeam(lead, `${lead.name} is interested in ${item.title}`, 'From their shortlist — book a site visit.');
   return item;
 }
@@ -383,6 +385,14 @@ export const visitScheduled = safe('visitScheduled', async (visitId, { reschedul
   if (!v) return;
   if (!rescheduled) await advanceLead(v.lead.id, 'Visit Scheduled');
   await emailClient(v.lead, 'CL-07', { visit: v.visit, rep: v.rep, rescheduled }, visitKey(v.visit));
+});
+
+/* CL-15: the visit is off. Keyed on the visit and its time, so cancelling,
+   rebooking and cancelling again tells the client each time, once. */
+export const visitCancelled = safe('visitCancelled', async (visitId) => {
+  const v = await visitForClient(visitId);
+  if (!v) return null;
+  return emailClient(v.lead, 'CL-15', { visit: v.visit, rep: v.rep }, visitKey(v.visit));
 });
 
 export async function visitReminderEmail(visitId) {
@@ -438,10 +448,15 @@ export async function visitAnswer(leadId, visitId, answer) {
    7–8. Deal and handover — two separate events
    -------------------------------------------------------------------------- */
 
+/* The property the deal is for: the one recorded on the deal, else the
+   listing the lead was pinned to. With the unit, when there is one. */
 async function propertyOf(lead) {
-  if (!lead.listing_id) return null;
-  const l = await one('SELECT title FROM listings WHERE id = $1', [lead.listing_id]);
-  return l?.title || null;
+  const deal = await one('SELECT listing_id, unit FROM lead_deals WHERE lead_id = $1', [lead.id]);
+  const listingId = deal?.listing_id || lead.listing_id;
+  if (!listingId) return null;
+  const l = await one('SELECT title FROM listings WHERE id = $1', [listingId]);
+  if (!l) return null;
+  return deal?.unit ? `${l.title}, ${deal.unit}` : l.title;
 }
 
 /* CL-10, when the lead reaches Closed. */
@@ -452,15 +467,15 @@ export const dealClosed = safe('dealClosed', async (leadId, actorId) => {
 });
 
 /* CL-11, when the handover is scheduled, and again if its time changes. */
-export async function scheduleHandover(leadId, { at, location, instructions }, actorId) {
+export async function scheduleHandover(leadId, { at, location, instructions, notes }, actorId) {
   const before = await loadLead(leadId);
   if (!before) return { error: 'Client not found', status: 404 };
   if (before.status !== 'Closed') return { error: 'Close the deal before scheduling the handover', status: 409 };
   const lead = await one(
     `UPDATE leads SET handover_at = $2, handover_location = $3, handover_instructions = $4,
-            handover_completed_at = NULL
+            handover_notes = $5, handover_completed_at = NULL
       WHERE id = $1 RETURNING *`,
-    [leadId, at, location, instructions]
+    [leadId, at, location, instructions, notes ?? null]
   );
   lead.property_type_label = typeLabel(lead.property_type);
   const rescheduled = Boolean(before.handover_at);
@@ -479,13 +494,20 @@ export async function scheduleHandover(leadId, { at, location, instructions }, a
   return { lead };
 }
 
+/* CL-14 once the keys are handed over: welcome home, and who to call. The
+   feedback request (CL-12) follows FEEDBACK_DELAY_DAYS later. */
 export async function completeHandover(leadId, actorId) {
   const lead = await one(
     `UPDATE leads SET handover_completed_at = now()
       WHERE id = $1 AND handover_at IS NOT NULL AND handover_completed_at IS NULL RETURNING *`,
     [leadId]
   );
-  if (lead) await recordAudit(`Handover completed for ${lead.name}`, actorId, 'lead', lead.id);
+  if (!lead) return null;
+  lead.property_type_label = typeLabel(lead.property_type);
+  await recordAudit('Handover completed', actorId, 'lead', lead.id);
+  await safe('postHandover', async () =>
+    emailClient(lead, 'CL-14', { property: await propertyOf(lead), rep: await repFor(lead, actorId) }, lead.id)
+  )();
   return lead;
 }
 
@@ -531,6 +553,7 @@ export async function submitFeedback(leadId, body) {
   if (!saved) return { error: 'Thank you — we already have your feedback' };
 
   const lead = await loadLead(leadId);
+  await recordAudit(`Feedback received: ${r.overall}★ overall`, null, 'lead', lead.id);
   await tellTeam(lead, `${lead.name} rated Xspace ${r.overall}/5`, comment);
   if (r.overall >= 4) {
     const token = await clientLink(lead.id, 'referral', null, 365);
@@ -541,7 +564,9 @@ export async function submitFeedback(leadId, body) {
 
 /* Someone the client introduced. They become a new lead, credited to the
    client who referred them, for the team to contact. */
-export async function submitReferral(leadId, body) {
+/* actorId: a team member recording it from the client page; null when the
+   client sent it from their referral link. */
+export async function submitReferral(leadId, body, actorId = null) {
   const name = String(body?.name || '').trim().slice(0, 120);
   const phone = String(body?.phone || '').trim().slice(0, 30) || null;
   const email = String(body?.email || '').trim().toLowerCase().slice(0, 200) || null;
@@ -551,16 +576,20 @@ export async function submitReferral(leadId, body) {
   if (email && !EMAIL_RE.test(email)) return { error: 'That email address does not look right' };
 
   const referrer = await loadLead(leadId);
+  if (!referrer) return { error: 'Client not found' };
   const lead = await one(
-    `INSERT INTO leads (id, name, phone, email, source, status, temperature, notes, referred_by)
-     VALUES ($1,$2,$3,$4,'Referral','New','warm',$5,$6) RETURNING *`,
-    [newId('c'), name, phone, email, `Referred by ${referrer.name}${note ? `: ${note}` : ''}`, leadId]
+    `INSERT INTO leads (id, name, phone, email, source, status, temperature, notes, referred_by,
+                        assigned_to, created_by)
+     VALUES ($1,$2,$3,$4,'Referral','New','warm',$5,$6,$7,$7) RETURNING *`,
+    [newId('c'), name, phone, email, `Referred by ${referrer.name}${note ? `: ${note}` : ''}`, leadId, actorId]
   );
   for (const role of INTERNAL_ROLES) {
     await notify({ role, type: 'lead', title: `New referral from ${referrer.name}: ${name}`, body: note });
   }
-  await recordAudit(`${referrer.name} referred ${name}`, null, 'lead', lead.id);
-  return { ok: true };
+  /* On both clients: the referral is recorded against the one who made it. */
+  await recordAudit(`Client created — referred by ${referrer.name}`, actorId, 'lead', lead.id);
+  await recordAudit(`Referral generated: ${name}`, actorId, 'lead', referrer.id);
+  return { ok: true, lead };
 }
 
 export async function unsubscribe(leadId) {

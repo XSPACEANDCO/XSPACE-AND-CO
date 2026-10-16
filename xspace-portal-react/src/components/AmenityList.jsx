@@ -44,7 +44,8 @@ export default function AmenityList({ value, onChange }) {
     <div className="amenity-list">
       <div className="al-boxes">
         {rows.map((row, i) => (
-          // eslint-disable-next-line react/no-array-index-key
+          /* Keyed by position on purpose: rows are edited in place and can
+             hold duplicate or empty text, so the text cannot be the key. */
           <div className="al-box" key={i}>
             <input
               value={row}
