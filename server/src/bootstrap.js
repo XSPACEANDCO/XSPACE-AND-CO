@@ -13,7 +13,12 @@ import { newId, recordAudit } from './helpers.js';
    Safe to leave set: it never touches an account that already exists, so a
    redeploy cannot reset a password or re-grant a role you have since changed. */
 export async function bootstrapFounder() {
-  const { email, password, name } = config.bootstrap;
+  /* Trimmed to match login, which trims what is typed. Render's value boxes
+     are textareas, so a stray trailing newline or space is easy to paste in
+     and would otherwise create an account nobody can sign in to. */
+  const email = config.bootstrap.email.trim();
+  const password = config.bootstrap.password.trim();
+  const name = config.bootstrap.name.trim();
 
   /* A database with no users at all is a dead deployment — nobody can log in,
      and every account-creating endpoint needs a Founder token. Say so loudly
