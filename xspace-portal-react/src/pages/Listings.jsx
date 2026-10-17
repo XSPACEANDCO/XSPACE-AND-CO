@@ -7,9 +7,8 @@ import LandForm from './LandForm';
 import { propertyFullLabel } from '../lib/leadStatus';
 import './listings.css';
 
-/* Submitted inventory, from the database, in two tables: what is still
-   waiting on verification, and what has been listed (verified and published
-   to Projects) — so whoever added a listing keeps seeing it after it moves.
+/* Submitted inventory still waiting on verification, from the database. Once
+   a listing is verified it moves to Projects and leaves this page.
 
    Which rows arrive is the server's decision: Founder and Core see every
    listing, a realtor partner sees only what they submitted or were assigned.
@@ -50,7 +49,7 @@ export default function Listings() {
     setLoading(true);
     setError('');
     try {
-      const out = await api.listings.list({ include: 'verified' });
+      const out = await api.listings.list();
       setListings(out.listings || []);
       setCanVerify(Boolean(out.canVerify));
     } catch (err) {
@@ -125,7 +124,6 @@ Its photos and verification go with it. This cannot be undone.`))
 
   const me = getCurrentUserId();
   const pending = listings.filter((l) => !l.verified);
-  const listed = listings.filter((l) => l.verified);
 
   function table(rows) {
     return (
@@ -199,8 +197,7 @@ Its photos and verification go with it. This cannot be undone.`))
           <div>
             <h1>Listings</h1>
             <p className="small">
-              Everything submitted — waiting on verification, and already listed. Verified
-              listings are also published to{' '}
+              Submitted properties waiting on verification. Once verified, a listing moves to{' '}
               <button className="inline-link" onClick={() => navigate('/projects')}>
                 Projects
               </button>
@@ -253,12 +250,6 @@ Its photos and verification go with it. This cannot be undone.`))
             ) : (
               table(pending)
             )}
-
-            <h3 className="list-heading">
-              {canVerify ? 'Listed projects' : 'Your listed projects'} ({listed.length})
-            </h3>
-            <p className="small">Verified and published to Projects.</p>
-            {listed.length === 0 ? <p className="small">Nothing listed yet.</p> : table(listed)}
           </>
         )}
       </div>
