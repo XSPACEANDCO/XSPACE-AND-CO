@@ -3,7 +3,7 @@
   "appName": "Xspace & Co.",
   "webDir": "dist",
   "server": {
-    "url": "https://xspace-portal.onrender.com",
+    "url": "https://xspace-portal-p45g.onrender.com/login",
     "androidScheme": "https",
     "cleartextTrafficPermitted": false
   }
