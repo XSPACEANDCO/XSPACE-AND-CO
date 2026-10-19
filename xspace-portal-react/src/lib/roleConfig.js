@@ -64,14 +64,13 @@ export const MODULES = [
   /* One CRM for everybody. There were two entries here — CRM and Lead
      Tracker — both opening /clients, differing only in which rows the server
      returned. That is `scope`, not a second module.
-     Realtor partners are not on it: they reach a client only through the
-     site visits assigned to them. */
+     Realtor and creator partners see only their own leads, status only. */
   {
     key: 'crm',
     label: '👥 CRM',
     to: '/clients',
-    roles: [...ALL_INTERNAL, 'creator'],
-    scope: { founder: 'all', core: 'all', creator: 'own' },
+    roles: [...ALL_INTERNAL, 'realtor', 'creator'],
+    scope: { founder: 'all', core: 'all', realtor: 'own', creator: 'own' },
   },
   {
     key: 'listings',

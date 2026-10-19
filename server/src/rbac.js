@@ -41,14 +41,12 @@ export const MODULES = {
      never the screen, only which rows the server hands back, and that is
      exactly what `scope` already expresses.
 
-     Xspace owns the customer from first contact to referral. A realtor
-     partner works property and site visits, and reaches the client only
-     through the visits assigned to them — not through the CRM. A creator
-     sees the leads they generated, and only their status (routes/leads.js
-     strips the rest). */
+     Xspace owns the customer from first contact to referral. Realtor and
+     creator partners see only the leads they submitted or are assigned, and
+     of those only the status (routes/leads.js strips the rest). */
   crm: {
-    roles: [...INTERNAL, 'creator'],
-    scope: { founder: 'all', core: 'all', creator: 'own' },
+    roles: [...INTERNAL, 'realtor', 'creator'],
+    scope: { founder: 'all', core: 'all', realtor: 'own', creator: 'own' },
   },
 
   listings: { roles: ['founder', 'core', 'realtor'], scope: { founder: 'all', core: 'all', realtor: 'own' } },
@@ -141,9 +139,10 @@ export const WRITE_RULES = withInternal({
   'projects:write': INTERNAL,
   'listings:write': ['founder', 'core', 'realtor'],
   'listings:verify': INTERNAL,
-  /* Lead generation: a creator hands Xspace a lead. Managing it after that —
-     status, requirement, notes, every journey step — is leads:write. */
-  'leads:submit': ['founder', 'core', 'creator'],
+  /* Lead generation: a realtor or creator partner hands Xspace a lead.
+     Managing it after that — status, requirement, notes, every journey
+     step — is leads:write. */
+  'leads:submit': ['founder', 'core', 'realtor', 'creator'],
   'leads:write': INTERNAL,
   'leads:assign': INTERNAL,
   /* Booking a visit is Xspace's call. The realtor taking it confirms and

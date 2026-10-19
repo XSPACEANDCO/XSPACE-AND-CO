@@ -56,6 +56,9 @@ router.get(
     /* Verified inventory only, and finished media: 'delivered' means a cut is
        still waiting on review, which is not something to show anyone. */
     const listings = await many('SELECT * FROM listings WHERE project_id = $1 AND verified', [project.id]);
+    /* Studio sees the project's inventory to make videos for it, but not
+       what Xspace earns on it. */
+    if (req.user.role === 'studio') for (const l of listings) delete l.commission;
     const media = await many(
       "SELECT * FROM media WHERE project_id = $1 AND status = 'approved'",
       [project.id]
