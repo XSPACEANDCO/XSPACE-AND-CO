@@ -1,5 +1,5 @@
 # Render blueprint: one web service that serves the API *and* the built React
-# app, plus a Postgres database. Import it from the Render dashboard with
+# app. The database is Supabase, not Render. Import it from the Render dashboard with
 # New -> Blueprint, pointed at this repo.
 #
 # One service rather than two keeps it on the free tier and means the browser
@@ -26,10 +26,11 @@ services:
       - key: NODE_ENV
         value: production
 
+      # Supabase Postgres, set by hand in the dashboard. Use the Session
+      # pooler string (aws-0-<region>.pooler.supabase.com:5432): the direct
+      # db.<ref>.supabase.co host is IPv6-only and Render cannot reach it.
       - key: DATABASE_URL
-        fromDatabase:
-          name: xspace-db
-          property: connectionString
+        sync: false
 
       # Generated once and kept. Rotating it signs everyone out.
       - key: JWT_SECRET
@@ -77,8 +78,3 @@ services:
       - key: CRON_SECRET
         generateValue: true
 
-databases:
-  - name: xspace-db
-    plan: free
-    databaseName: xspace
-    user: xspace

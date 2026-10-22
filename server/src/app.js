@@ -21,6 +21,7 @@ import searchRoutes from './routes/search.js';
 import automationRoutes, { cronRouter } from './routes/automations.js';
 import journeyRoutes from './routes/journey.js';
 import publicRoutes from './routes/public.js';
+import enquiryRoutes from './routes/enquiry.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -36,6 +37,11 @@ export function createApp() {
       crossOriginEmbedderPolicy: false,
     })
   );
+
+  /* The public website's enquiry form posts from another origin. Mounted
+     ahead of the CORS allow-list, which would otherwise turn it away, and
+     with its own body parsing and rate limit. See routes/enquiry.js. */
+  app.use('/api/public/enquiry', enquiryRoutes);
 
   if (config.corsOrigins.length) {
     app.use(cors({ origin: config.corsOrigins, credentials: true }));
