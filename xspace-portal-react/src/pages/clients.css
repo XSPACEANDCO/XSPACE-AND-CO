@@ -293,6 +293,26 @@
 .page-clients .crm-tab.on .crm-tab-count {
   background: rgba(0, 0, 0, 0.15);
 }
+/* The "We have a match" filter: set apart from the status tabs, which it
+   combines with rather than replaces. */
+.page-clients .crm-match-toggle {
+  margin-left: 6px;
+  border-color: rgba(52, 211, 153, 0.6);
+}
+
+/* A client whose requirement fits a project in the verified book. */
+.page-clients .match-badge {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.45);
+}
 /* Twelve columns do not fit a laptop screen; the table scrolls inside its
    own box rather than pushing the page sideways. */
 .page-clients .crm-table-wrap {

@@ -235,6 +235,31 @@ Their site visits and history are deleted with them. This cannot be undone.`))
             {lead.referred_by && <div className="muted">🤝 Referred by another client</div>}
           </div>
 
+          {/* "We have this" — only Founder and Core are sent matching_projects. */}
+          {lead.matching_projects?.length > 0 && (
+            <div className="lv-match" role="status">
+              <strong>🏠 We have {lead.matching_projects.length === 1 ? 'a project' : `${lead.matching_projects.length} projects`} matching this requirement</strong>
+              <ul>
+                {lead.matching_projects.map((p) => (
+                  <li key={p.id}>
+                    <b>{p.name}</b> <span className="muted">— matches {p.matched.join(', ')}</span>:{' '}
+                    {p.listings.map((l, i) => (
+                      <span key={l.id}>
+                        {i > 0 && ', '}
+                        <button
+                          type="button" className="lv-inline-btn" title={'Matches ' + l.matched.join(', ')}
+                          onClick={() => navigate('/listings/' + l.id)}
+                        >
+                          {l.title}
+                        </button>
+                      </span>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="lv-info">
             <div className="lv-info-row">
               <span className="lv-info-label">Phone</span>

@@ -145,10 +145,15 @@ Their site visits are deleted with them. This cannot be undone.`))
     return out;
   }, [searched]);
 
-  const visible = useMemo(
-    () => (filter === 'all' ? searched : searched.filter((c) => c.status === filter)),
-    [searched, filter]
-  );
+  /* "We have this": clients whose requirement fits a verified project. The
+     server only sends matching_projects to Founder and Core. */
+  const [matchedOnly, setMatchedOnly] = useState(false);
+  const matchedCount = useMemo(() => searched.filter((c) => c.matching_projects?.length).length, [searched]);
+
+  const visible = useMemo(() => {
+    const rows = filter === 'all' ? searched : searched.filter((c) => c.status === filter);
+    return matchedOnly ? rows.filter((c) => c.matching_projects?.length) : rows;
+  }, [searched, filter, matchedOnly]);
 
   const set = (key) => (e) => {
     const value = e.target.value;
@@ -242,6 +247,18 @@ Their site visits are deleted with them. This cannot be undone.`))
               <span className="crm-tab-count">{counts[t.key] || 0}</span>
             </button>
           ))}
+          {internal && (
+            <button
+              type="button"
+              aria-pressed={matchedOnly}
+              className={'crm-tab crm-match-toggle' + (matchedOnly ? ' on' : '')}
+              onClick={() => setMatchedOnly((m) => !m)}
+              title="Clients whose requirement fits a project we have"
+            >
+              🏠 We have a match
+              <span className="crm-tab-count">{matchedCount}</span>
+            </button>
+          )}
         </div>
 
         {error && <div className="crm-error">{error}</div>}
@@ -414,6 +431,15 @@ Their site visits are deleted with them. This cannot be undone.`))
                     <td>
                       {c.name}
                       {c.source_media_title && <span className="source">from “{c.source_media_title}”</span>}
+                      {c.matching_projects?.length > 0 && (
+                        <span
+                          className="match-badge"
+                          title={c.matching_projects.map((p) => `${p.name} (${p.matched.join(', ')})`).join('\n')}
+                        >
+                          🏠 We have this: {c.matching_projects[0].name} · {c.matching_projects[0].matched.join(', ')}
+                          {c.matching_projects.length > 1 && ` +${c.matching_projects.length - 1} more`}
+                        </span>
+                      )}
                     </td>
                     <td data-label="Phone">{c.phone || '—'}</td>
                     <td data-label="Email" className="crm-email">{c.email || '—'}</td>

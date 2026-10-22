@@ -8,6 +8,7 @@ import {
 } from '../leadStatus.js';
 import * as automations from '../automations.js';
 import * as journey from '../clientJourney.js';
+import { loadBook, matchingProjects } from '../projectMatch.js';
 
 const router = Router();
 
@@ -116,6 +117,11 @@ router.get(
         ORDER BY l.created_at DESC`,
       params
     );
+    /* "We have this" is for Founder and Core: partners never get it. */
+    if (seesEverything(req.user.role)) {
+      const book = await loadBook();
+      for (const row of rows) row.matching_projects = matchingProjects(row, book);
+    }
     res.json({ leads: rows, scope: req.scope });
   })
 );
@@ -133,6 +139,7 @@ router.get(
     /* 404 rather than 403 for a lead that exists but isn't theirs — no reason
        to confirm it exists. */
     if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    if (seesEverything(req.user.role)) lead.matching_projects = matchingProjects(lead, await loadBook());
     res.json({ lead });
   })
 );
