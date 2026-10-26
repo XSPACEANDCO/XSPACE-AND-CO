@@ -255,13 +255,13 @@
   outline: none;
   border-color: var(--accent);
 }
+/* Tabs wrap onto a second line rather than scrolling sideways. */
 .page-clients .crm-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  overflow-x: auto;
   padding-bottom: 6px;
   margin-bottom: 12px;
-  scrollbar-width: thin;
 }
 .page-clients .crm-tab {
   flex: 0 0 auto;
@@ -313,22 +313,67 @@
   background: rgba(52, 211, 153, 0.12);
   border: 1px solid rgba(52, 211, 153, 0.45);
 }
-/* Twelve columns do not fit a laptop screen; the table scrolls inside its
-   own box rather than pushing the page sideways. */
+/* Six stacked columns fit the screen: text wraps inside its cell, and the
+   table never scrolls sideways. */
 .page-clients .crm-table-wrap {
-  overflow-x: auto;
   border-radius: 12px;
+}
+.page-clients .crm-table {
+  width: 100%;
+  table-layout: fixed;
 }
 .page-clients .crm-table th,
 .page-clients .crm-table td {
-  white-space: nowrap;
   font-size: 13px;
   padding: 10px 12px;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.page-clients .crm-table th:nth-child(1) { width: 30%; }
+.page-clients .crm-table th:nth-child(2) { width: 15%; }
+.page-clients .crm-table th:nth-child(3) { width: 22%; }
+.page-clients .crm-table th:nth-child(4) { width: 12%; }
+.page-clients .crm-table th:nth-child(5) { width: 13%; }
+.page-clients .crm-table th:nth-child(6) { width: 8%; }
+.page-clients .crm-name {
+  font-weight: 600;
 }
 .page-clients .crm-table .crm-email {
-  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.page-clients .crm-table .match-badge {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  white-space: normal;
+}
+.page-clients .crm-table .status {
+  display: inline-block;
+}
+.page-clients .crm-table .temp {
+  margin-left: 0;
+}
+.page-clients .crm-table .stamp {
+  white-space: normal;
+}
+.page-clients .crm-table .due .source {
+  display: inline;
+  margin-left: 4px;
+}
+/* On a phone each cell is a "Label  value" line; keep its stacked details
+   together and right-aligned beside the label. */
+@media (max-width: 640px) {
+  .page-clients .crm-table .crm-cell {
+    text-align: right;
+  }
+  .page-clients .crm-table .match-badge {
+    margin-top: 6px;
+  }
+}
+.page-clients .crm-table .delete-btn {
+  max-width: 100%;
 }
 .page-clients .unowned {
   color: #f59e0b;

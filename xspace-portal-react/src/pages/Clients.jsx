@@ -408,29 +408,25 @@ Their site visits are deleted with them. This cannot be undone.`))
         ) : internal ? (
           <div className="crm-table-wrap">
             <table className="stack-table crm-table">
+              {/* Six columns, each stacking related details, so the whole row
+                  fits the screen without scrolling sideways. */}
               <thead>
                 <tr>
                   <th>Client</th>
-                  <th>Phone</th>
-                  <th>Email</th>
-                  <th>Lead Source</th>
-                  <th>Lead Owner</th>
-                  <th>Budget</th>
-                  <th>Preferred Area</th>
-                  <th>Property Type</th>
+                  <th>Source &amp; owner</th>
+                  <th>Requirement</th>
                   <th>Status</th>
-                  <th>Temperature</th>
-                  <th>Last Activity</th>
-                  <th>Next Follow-up</th>
+                  <th>Activity</th>
                   {canDelete && <th aria-label="Actions" />}
                 </tr>
               </thead>
               <tbody>
                 {visible.map((c) => (
                   <tr key={c.id} onClick={() => navigate('/clients/' + c.id)}>
-                    <td>
-                      {c.name}
-                      {c.source_media_title && <span className="source">from “{c.source_media_title}”</span>}
+                    <td className="crm-client">
+                      <span className="crm-name">{c.name}</span>
+                      <span className="source">{c.phone || 'No phone'}</span>
+                      {c.email && <span className="source crm-email">{c.email}</span>}
                       {c.matching_projects?.length > 0 && (
                         <span
                           className="match-badge"
@@ -441,23 +437,35 @@ Their site visits are deleted with them. This cannot be undone.`))
                         </span>
                       )}
                     </td>
-                    <td data-label="Phone">{c.phone || '—'}</td>
-                    <td data-label="Email" className="crm-email">{c.email || '—'}</td>
-                    <td data-label="Lead Source">{c.source || '—'}</td>
-                    <td data-label="Lead Owner">
-                      {c.assigned_to_name || <span className="unowned">Unassigned</span>}
+                    <td data-label="Source & owner">
+                      <div className="crm-cell">
+                        {c.source || '—'}
+                        {c.source_media_title && <span className="source">from “{c.source_media_title}”</span>}
+                        <span className="source">
+                          {c.assigned_to_name || <span className="unowned">Unassigned</span>}
+                        </span>
+                      </div>
                     </td>
-                    <td data-label="Budget">{c.budget || '—'}</td>
-                    <td data-label="Preferred Area">{c.preferred_area || '—'}</td>
-                    <td data-label="Property Type">
-                      {[propertyFullLabel(c.property_type, c.property_subtype), c.configuration].filter(Boolean).join(' · ') || '—'}
+                    <td data-label="Requirement">
+                      <div className="crm-cell">
+                        {[propertyFullLabel(c.property_type, c.property_subtype), c.configuration].filter(Boolean).join(' · ') || '—'}
+                        {(c.preferred_area || c.budget) && (
+                          <span className="source">{[c.preferred_area, c.budget].filter(Boolean).join(' · ')}</span>
+                        )}
+                      </div>
                     </td>
-                    <td data-label="Status"><span className="status">{c.status}</span></td>
-                    <td data-label="Temperature">
-                      <span className={'temp ' + c.temperature}>{TEMP_LABELS[c.temperature] || '—'}</span>
+                    <td data-label="Status">
+                      <div className="crm-cell">
+                        <span className="status">{c.status}</span>
+                        <span className={'source temp ' + c.temperature}>{TEMP_LABELS[c.temperature] || ''}</span>
+                      </div>
                     </td>
-                    <td data-label="Last Activity" className="stamp">{timeAgo(c.last_activity_at || c.created_at)}</td>
-                    <td data-label="Next Follow-up" className="stamp">{followUpCell(c.follow_up_at)}</td>
+                    <td data-label="Activity" className="stamp">
+                      <div className="crm-cell">
+                        {timeAgo(c.last_activity_at || c.created_at)}
+                        <span className="source">Follow-up: {followUpCell(c.follow_up_at)}</span>
+                      </div>
+                    </td>
                     {canDelete && (
                       <td>
                         <button
