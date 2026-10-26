@@ -1010,3 +1010,11 @@
     display: none;
   }
 }
+
+/* Desktop: the top bar already carries the logo and name, so the sidebar
+   does not repeat the name. The phone drawer keeps it. */
+@media (min-width: 1001px) {
+  .page-dashboard .sidebar .brand {
+    display: none;
+  }
+}
