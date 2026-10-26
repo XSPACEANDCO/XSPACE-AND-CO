@@ -1,0 +1,36 @@
+/* My profile page (pages/Profile.jsx). The sections reuse the partner
+   dashboard styles; only the photo header is new. */
+.page-dashboard .pf-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.page-dashboard .pf-avatar {
+  flex: 0 0 auto;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: linear-gradient(120deg, #ccc, #999);
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+  font-size: 32px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+.page-dashboard .pf-id {
+  min-width: 0;
+}
+.page-dashboard .pf-id p {
+  overflow-wrap: anywhere;
+}
+.page-dashboard .pf-photo-btn {
+  margin: 8px 8px 0 0;
+}
+.page-dashboard .pf-logout {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}

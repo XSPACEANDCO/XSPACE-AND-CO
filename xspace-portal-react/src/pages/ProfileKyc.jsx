@@ -38,7 +38,7 @@ function Input({ label, hint, ...props }) {
 }
 
 /* ---------- Profile ---------- */
-function ProfileSection({ me, role, refresh }) {
+export function ProfileSection({ me, role, refresh }) {
   const [form, setForm] = useState({ name: '', phone: '', areas: '', platform: '', handle: '', skill: '' });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');

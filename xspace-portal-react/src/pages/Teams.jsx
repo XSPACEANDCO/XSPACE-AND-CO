@@ -198,6 +198,20 @@ export default function Teams() {
     }
   }
 
+  /* Founder only — the server refuses anyone else. The email is a login, so
+     the person signs in with the new address from now on. */
+  async function changeEmail(user) {
+    const next = window.prompt(`New email for ${user.name}:`, user.email);
+    if (next === null || next.trim().toLowerCase() === user.email) return;
+    try {
+      await api.users.update(user.id, { email: next.trim() });
+      setBanner(`${user.name} now signs in with ${next.trim().toLowerCase()}.`);
+      await refresh();
+    } catch (err) {
+      setError(err.message || 'Could not change that email');
+    }
+  }
+
   async function setActive(user, active) {
     try {
       await api.users.update(user.id, { active });
@@ -418,7 +432,15 @@ export default function Teams() {
 
                     <div>
                       <dt>Email</dt>
-                      <dd>{u.email}</dd>
+                      <dd>
+                        {u.email}
+                        {isFounder && (
+                          <>
+                            {' '}
+                            <button className="teams-link" onClick={() => changeEmail(u)}>Change</button>
+                          </>
+                        )}
+                      </dd>
                     </div>
 
                     <div>

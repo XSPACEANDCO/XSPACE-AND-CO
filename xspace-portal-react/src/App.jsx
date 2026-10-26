@@ -30,6 +30,7 @@ import Earnings from './pages/creator/Earnings';
 import AreaUpdates from './pages/AreaUpdates';
 import Rules from './pages/Rules';
 import ProfileKyc from './pages/ProfileKyc';
+import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import PendingWorks from './pages/PendingWorks';
 import PartnerDashboards from './pages/PartnerDashboards';
@@ -116,6 +117,9 @@ export default function App() {
       {ROUTES.map((to) => (
         <Route key={to} path={to} element={guard(<RequireModule to={to} element={BUILT[to]} />)} />
       ))}
+
+      {/* Your own profile — every role, from the photo in the top bar. */}
+      <Route path="/profile" element={guard(shell(<Profile />))} />
 
       {/* detail views, reached from their list page */}
       <Route path="/clients/:id" element={guard(<RequireModule to="/clients" element={shell(<LeadView />)} />)} />

@@ -541,6 +541,15 @@ router.patch(
   requirePermission('users:write'),
   asyncHandler(async (req, res) => {
     const { role, kycStatus, active } = req.body || {};
+    /* An email is a login, so only a Founder changes it — nobody edits their
+       own, and Core cannot repoint a partner's sign-in either. */
+    const email = req.body?.email === undefined ? null : String(req.body.email).trim().toLowerCase();
+    if (email !== null && req.user.role !== 'founder') {
+      return res.status(403).json({ error: 'Only a Founder can change an email address' });
+    }
+    if (email !== null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'That is not a valid email address' });
+    }
     if (kycStatus !== undefined && !['pending', 'verified', 'rejected'].includes(kycStatus)) {
       return res.status(400).json({ error: 'Unknown KYC status' });
     }
@@ -593,15 +602,26 @@ router.patch(
       }
     }
 
+    if (email !== null && email !== target.email) {
+      const taken = await one('SELECT 1 FROM users WHERE lower(email) = $1 AND id <> $2', [email, target.id]);
+      if (taken) return res.status(409).json({ error: 'Another account already uses that email' });
+    }
+
     const user = await one(
       `UPDATE users SET
          role = COALESCE($2, role),
          kyc_status = COALESCE($3, kyc_status),
-         active = COALESCE($4, active)
+         active = COALESCE($4, active),
+         email = COALESCE($5, email)
        WHERE id = $1 RETURNING *`,
-      [req.params.id, role ?? null, kycStatus ?? null, active ?? null]
+      [req.params.id, role ?? null, kycStatus ?? null, active ?? null, email]
     );
-    await recordAudit(`User ${user.name} updated`, req.user.id, 'user', user.id);
+    await recordAudit(
+      email !== null && email !== target.email
+        ? `Email for ${user.name} changed from ${target.email} to ${email}`
+        : `User ${user.name} updated`,
+      req.user.id, 'user', user.id
+    );
     /* Same onboarding consequences as the KYC review route. */
     if (kycStatus === 'verified') await automations.checkOnboarding(user.id);
     else if (kycStatus === 'rejected') await automations.kycRejected(user.id);

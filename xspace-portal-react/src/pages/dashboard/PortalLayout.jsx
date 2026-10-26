@@ -5,7 +5,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { DashboardProvider } from './DashboardStore';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
-import { NotificationCenter, ProfileModal } from './components/Modals';
+import { NotificationCenter } from './components/Modals';
 import './dashboard.css';
 
 /* The shell every in-portal page shares: role-filtered sidebar, top bar and
@@ -26,7 +26,7 @@ function Shell({ children }) {
   /* Heartbeat while open, sign off on close — so "online" in Teams means
      someone actually has the portal open. */
   usePresence();
-  const [theme, toggleTheme, setTheme] = useTheme('dark');
+  const [theme, , setTheme] = useTheme('dark');
   const themeValue = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
   const [modal, setModal] = useState(null);
   const close = () => setModal(null);
@@ -46,11 +46,8 @@ function Shell({ children }) {
 
       <div className="main">
         <Topbar
-          theme={theme}
-          onToggleTheme={toggleTheme}
           onOpenMenu={() => setNavOpen((v) => !v)}
           onOpenNotifications={() => setModal('notifications')}
-          onOpenProfile={() => setModal('profile')}
         />
         <main className="workspace">
           <ThemeContext.Provider value={themeValue}>{children}</ThemeContext.Provider>
@@ -58,7 +55,6 @@ function Shell({ children }) {
       </div>
 
       {modal === 'notifications' && <NotificationCenter onClose={close} />}
-      {modal === 'profile' && <ProfileModal onClose={close} />}
     </div>
   );
 }

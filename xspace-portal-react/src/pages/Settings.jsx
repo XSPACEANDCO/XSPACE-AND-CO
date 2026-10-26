@@ -112,7 +112,7 @@ export default function Settings() {
               <div className="pd-figure"><div className="pd-figure-label">Role</div><div>{ROLES[role]?.label || role}</div></div>
             </div>
             <div className="pk-actions">
-              <button className="btn-ghost" onClick={() => navigate('/profile-kyc')}>Edit profile →</button>
+              <button className="btn-ghost" onClick={() => navigate('/profile')}>Edit profile →</button>
               <span className="small muted">Your role and login are set by the Xspace team.</span>
             </div>
           </Section>
