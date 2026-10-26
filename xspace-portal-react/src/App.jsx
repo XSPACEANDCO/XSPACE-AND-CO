@@ -34,6 +34,7 @@ import Settings from './pages/Settings';
 import PendingWorks from './pages/PendingWorks';
 import PartnerDashboards from './pages/PartnerDashboards';
 import ClientPage from './pages/ClientPage';
+import PullToRefresh from './components/PullToRefresh';
 
 /* Pages where pressing back exits the app rather than navigating further back. */
 const ROOT_PAGES = new Set(['/dashboard', '/login', '/']);
@@ -105,6 +106,7 @@ export default function App() {
   }, [location.pathname, navigate]);
 
   return (
+    <>
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login" element={<Login />} />
@@ -127,5 +129,7 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
+    <PullToRefresh />
+    </>
   );
 }

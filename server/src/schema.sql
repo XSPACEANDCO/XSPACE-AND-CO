@@ -730,3 +730,6 @@ CREATE TABLE IF NOT EXISTS lead_deals (
 -- and the client's page can show it. One entry per deal per partner.
 ALTER TABLE commissions ADD COLUMN IF NOT EXISTS lead_id TEXT REFERENCES leads(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS commissions_lead_idx ON commissions (lead_id);
+
+-- Profile photo: the /api/files URL of an image the user uploaded themselves.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;

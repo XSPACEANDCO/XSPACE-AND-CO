@@ -6,6 +6,9 @@ html,
 body {
   height: 100%;
   margin: 0;
+  /* Mobile Chrome's own pull-to-refresh off: components/PullToRefresh.jsx
+     does it instead, the same in the browser and the Android app. */
+  overscroll-behavior-y: contain;
 }
 
 body {

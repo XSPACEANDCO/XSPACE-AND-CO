@@ -227,17 +227,23 @@ router.patch(
     }
     /* Presence is derived from activity (requireAuth), never set by hand. */
     if (req.body) delete req.body.presence;
+    /* Only a file uploaded here, never an outside URL: an avatar shows on
+       every screen, and an external one would let its host see who looks. */
+    const avatarUrl = req.body?.avatar_url ?? null;
+    if (avatarUrl !== null && !/^\/api\/files\/[\w-]+\/[a-f0-9]{64}$/.test(avatarUrl)) {
+      return res.status(400).json({ error: 'Upload the photo from this screen' });
+    }
     const user = await one(
       `UPDATE users SET
          name = COALESCE($2, name), phone = COALESCE($3, phone),
          presence = COALESCE($4, presence), areas = COALESCE($5, areas),
          platform = COALESCE($6, platform), handle = COALESCE($7, handle),
-         skill = COALESCE($8, skill)
+         skill = COALESCE($8, skill), avatar_url = COALESCE($9, avatar_url)
        WHERE id = $1 RETURNING *`,
       [
         req.user.id, req.body.name ?? null, req.body.phone ?? null, req.body.presence ?? null,
         req.body.areas ?? null, req.body.platform ?? null, req.body.handle ?? null,
-        req.body.skill ?? null,
+        req.body.skill ?? null, avatarUrl,
       ]
     );
     res.json({ user: publicUser(user) });

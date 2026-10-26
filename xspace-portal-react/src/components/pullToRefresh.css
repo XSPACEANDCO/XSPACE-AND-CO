@@ -1,0 +1,41 @@
+/* Pull-to-refresh indicator: a round chip that follows the finger down from
+   the top edge, with a ring that turns while pulling and spins on release. */
+.ptr {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  z-index: 10000;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #1a1d21;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.ptr-settle {
+  transition: transform 0.2s ease;
+}
+.ptr-spinner {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(16, 185, 129, 0.25);
+  border-top-color: #10b981;
+}
+.ptr-spinning {
+  animation: ptr-spin 0.7s linear infinite;
+}
+@keyframes ptr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-color-scheme: light) {
+  .ptr {
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  }
+}

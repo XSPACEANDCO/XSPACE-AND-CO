@@ -66,7 +66,11 @@ export default function Topbar({
         </button>
 
         <div className="profile-mini" title="Profile (click)" onClick={onOpenProfile}>
-          <div className="avatar" aria-hidden="true" />
+          <div
+            className="avatar"
+            aria-hidden="true"
+            style={currentUser?.avatar_url ? { backgroundImage: `url(${currentUser.avatar_url})` } : undefined}
+          />
           <div className="mini-name">{currentUser ? currentUser.name : 'You'}</div>
         </div>
 

@@ -4,6 +4,31 @@ import { ROLES } from '../../../lib/roleConfig';
 import api from '../../../lib/api';
 import { useDashboard } from '../DashboardStore';
 
+/* Centre-crops an image file to a size×size JPEG data URL. */
+function squareJpeg(file, size) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const side = Math.min(img.naturalWidth, img.naturalHeight);
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = size;
+      canvas.getContext('2d').drawImage(
+        img,
+        (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side,
+        0, 0, size, size
+      );
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error(`${file.name} could not be read as an image`));
+    };
+    img.src = url;
+  });
+}
+
 /* Shared shell: backdrop click closes, same markup the original used. */
 function ModalShell({ onClose, labelledBy, children }) {
   return (
@@ -108,12 +133,27 @@ export function ProfileModal({ onClose }) {
     }
   }
 
-  /* Opens the device gallery / file picker. Storing the image needs somewhere
-     to put it (object storage, not the database), so for now this confirms the
-     pick and leaves the upload itself to that work. */
-  function onPick(e) {
+  /* Opens the device gallery / file picker, then uploads and saves straight
+     away. The photo is shrunk to a small square JPEG first: it is only ever
+     shown as a circle, and a raw phone photo would be megabytes in the
+     database for a 36px avatar. */
+  async function onPick(e) {
     const file = e.target.files?.[0];
-    if (file) setPhotoNote(`${file.name} selected — photo storage is not wired up yet.`);
+    e.target.value = '';
+    if (!file) return;
+    setError('');
+    if (!file.type.startsWith('image/')) return setError('Choose an image file');
+    setPhotoNote('Uploading photo…');
+    try {
+      const dataUrl = await squareJpeg(file, 256);
+      const out = await api.files.upload(dataUrl, 'avatar.jpg');
+      await api.users.updateProfile({ avatar_url: out.url });
+      await refresh();
+      setPhotoNote('Photo updated.');
+    } catch (err) {
+      setPhotoNote('');
+      setError(err.message || 'Could not upload the photo');
+    }
   }
 
   const role = currentUser?.role;
@@ -123,7 +163,10 @@ export function ProfileModal({ onClose }) {
       <h3 id="profileTitle">Profile</h3>
       <div className="profile-body">
         <div className="profile-side">
-          <div className="profile-avatar-large" />
+          <div
+            className="profile-avatar-large"
+            style={currentUser?.avatar_url ? { backgroundImage: `url(${currentUser.avatar_url})` } : undefined}
+          />
           <div style={{ marginTop: 8 }}>
             <button className="btn-ghost" onClick={() => fileRef.current?.click()}>
               Upload
