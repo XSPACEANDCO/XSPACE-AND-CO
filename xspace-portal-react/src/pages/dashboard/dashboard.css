@@ -1018,3 +1018,20 @@
     display: none;
   }
 }
+/* Desktop: a larger logo and name in the top bar. */
+@media (min-width: 1001px) {
+  .page-dashboard .top-brand {
+    gap: 12px;
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .page-dashboard .top-brand-mark {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+  }
+  .page-dashboard .top-brand-mark svg {
+    width: 26px;
+    height: 26px;
+  }
+}
