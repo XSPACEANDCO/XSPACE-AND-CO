@@ -165,7 +165,7 @@ export function ProfileModal({ onClose }) {
         <div className="profile-side">
           <div
             className="profile-avatar-large"
-            style={currentUser?.avatar_url ? { backgroundImage: `url(${currentUser.avatar_url})` } : undefined}
+            style={currentUser?.avatarUrl ? { backgroundImage: `url(${currentUser.avatarUrl})` } : undefined}
           />
           <div style={{ marginTop: 8 }}>
             <button className="btn-ghost" onClick={() => fileRef.current?.click()}>

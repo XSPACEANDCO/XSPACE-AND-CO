@@ -69,7 +69,7 @@ export default function Topbar({
           <div
             className="avatar"
             aria-hidden="true"
-            style={currentUser?.avatar_url ? { backgroundImage: `url(${currentUser.avatar_url})` } : undefined}
+            style={currentUser?.avatarUrl ? { backgroundImage: `url(${currentUser.avatarUrl})` } : undefined}
           />
           <div className="mini-name">{currentUser ? currentUser.name : 'You'}</div>
         </div>
