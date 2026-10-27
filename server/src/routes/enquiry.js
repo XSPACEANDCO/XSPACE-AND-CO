@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { one, query } from '../db.js';
 import { asyncHandler } from '../middleware.js';
 import { newId, notify, recordAudit } from '../helpers.js';
+import { EMAIL_RE } from '../clientJourney.js';
 
 /* The public website's enquiry form.
 
@@ -100,6 +101,10 @@ router.post(
     const budget = text(body.budget, 80);
     const timeline = text(body.timeline, 80);
     const note = text(body.note, 1000);
+    /* Saved as the client's email, which the client-journey emails go to.
+       One that does not look like an address is left out, not refused. */
+    const rawEmail = text(body.email, 200).toLowerCase();
+    const email = EMAIL_RE.test(rawEmail) ? rawEmail : null;
     const page = text(body.page, 300);
 
     /* What the visitor asked for, in words, so nothing the form collected is
@@ -127,8 +132,10 @@ router.post(
 
     if (existing) {
       await query(
-        `UPDATE leads SET notes = $2, last_interaction_at = now() WHERE id = $1`,
-        [existing.id, [existing.notes, summary].filter(Boolean).join('\n\n')]
+        `UPDATE leads SET notes = $2, last_interaction_at = now(),
+                email = CASE WHEN coalesce(email, '') = '' THEN $3 ELSE email END
+          WHERE id = $1`,
+        [existing.id, [existing.notes, summary].filter(Boolean).join('\n\n'), email]
       );
       const title = `Repeat website enquiry: ${existing.name}`;
       if (existing.assigned_to) {
@@ -144,12 +151,12 @@ router.post(
     await query(
       `INSERT INTO leads (id, name, phone, source, budget, status, temperature, property_type,
                           property_subtype, configuration, preferred_area, timeline, notes,
-                          last_interaction_at)
-       VALUES ($1,$2,$3,'Website',$4,'New','warm',$5,$6,$7,$8,$9,$10, now())`,
+                          email, last_interaction_at)
+       VALUES ($1,$2,$3,'Website',$4,'New','warm',$5,$6,$7,$8,$9,$10,$11, now())`,
       [
         id, name, '+91' + phone, budget || null,
         mapped.propertyType || null, mapped.propertySubtype || null, mapped.configuration || null,
-        area || null, timeline || null, summary,
+        area || null, timeline || null, summary, email,
       ]
     );
     for (const role of ['founder', 'core']) {
