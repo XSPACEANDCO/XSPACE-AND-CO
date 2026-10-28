@@ -107,7 +107,16 @@ export const TEMPLATES = {
       ...(password ? [{ label: 'Password', value: password }] : []),
       'Change this password from Settings after you first sign in. Never share it — the Xspace team will never ask you for it.',
       ...(PARTNER.includes(user.role)
-        ? ['After signing in, complete your onboarding: submit your KYC and payout details, and acknowledge the partner rules. Updates from then on appear in your portal notifications.']
+        ? [
+            {
+              important: 'Important: finish these two steps to continue',
+              steps: [
+                'Submit your KYC and payout details in Profile & KYC.',
+                'Read and accept the terms & conditions, on the same page.',
+              ],
+              note: 'Your onboarding stays incomplete until both are done and the Xspace team has verified your KYC. Updates from then on appear in your portal notifications.',
+            },
+          ]
         : []),
     ],
     cta: { label: 'Sign in to the portal', url: `${config.email.portalUrl}/login` },
@@ -362,8 +371,21 @@ function cardHtml(c) {
     </div>`;
 }
 
+/* A must-do notice: { important: heading, steps: [...], note? } in an amber
+   box, so it is not read as one more paragraph. */
+function importantHtml(p) {
+  return `<div style="margin:6px 0 16px;padding:14px 16px;border:2px solid #d97706;border-radius:8px;background:#fff7e6">
+      <div style="font-weight:bold;font-size:15px;color:#9a3412;margin:0 0 8px">&#9888; ${esc(p.important)}</div>
+      <ol style="margin:0 0 8px;padding-left:20px">${p.steps
+        .map((s) => `<li style="margin:0 0 6px;font-weight:bold">${esc(s)}</li>`)
+        .join('')}</ol>
+      ${p.note ? `<div style="font-size:13px;color:#5b4a2e">${esc(p.note)}</div>` : ''}
+    </div>`;
+}
+
 function blockHtml(p) {
   if (typeof p === 'string') return `<p style="margin:0 0 14px">${esc(p)}</p>`;
+  if (p.important) return importantHtml(p);
   if (p.list) {
     return `<ul style="margin:0 0 14px;padding-left:20px">${p.list
       .map((item) => `<li style="margin:0 0 6px">${esc(item)}</li>`)
@@ -381,6 +403,11 @@ function blockHtml(p) {
 
 function blockText(p) {
   if (typeof p === 'string') return p;
+  if (p.important) {
+    return [`*** ${p.important.toUpperCase()} ***`, ...p.steps.map((s, i) => `  ${i + 1}. ${s}`), p.note]
+      .filter(Boolean)
+      .join('\n');
+  }
   if (p.list) return p.list.map((item) => `  - ${item}`).join('\n');
   if ('quote' in p) return `> ${String(p.quote ?? '').replace(/\n/g, '\n> ')}`;
   if (p.card) {

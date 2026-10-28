@@ -15,7 +15,7 @@ import './dashboard/partner/partner.css';
 
 const STAMP = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
-function RuleBlock({ sections }) {
+export function RuleBlock({ sections }) {
   return sections.map((sec) => (
     <div className="rules-block" key={sec.title}>
       <h5>{sec.title}</h5>
@@ -26,15 +26,12 @@ function RuleBlock({ sections }) {
   ));
 }
 
-export default function Rules() {
-  const { role, currentUser, refresh } = useDashboard();
-  const internal = seesEverything(role);
-  const [tab, setTab] = useState('realtor');
+/* A partner's "I have read and agree", recorded against their account. Used
+   here and on Profile & KYC, where new partners finish onboarding. `bare`
+   drops the panel, for when it sits inside another section. */
+export function RulesAck({ currentUser, refresh, bare = false }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-
-  const shownRole = internal ? tab : role;
-  const own = ROLE_RULES[shownRole];
 
   const ackAt = currentUser?.rulesAckAt ? new Date(currentUser.rulesAckAt) : null;
   /* Acknowledging an older version does not count once the rules change. */
@@ -54,35 +51,46 @@ export default function Rules() {
   }
 
   return (
+    <section className={(bare ? '' : 'panel pd-section ') + 'rules-ack' + (current ? ' done' : '')}>
+      {current ? (
+        <div>
+          <Chip tone="green">✓ Acknowledged</Chip>{' '}
+          <span className="small muted">You confirmed these rules on {STAMP.format(ackAt)}.</span>
+        </div>
+      ) : (
+        <>
+          <div>
+            <strong>Please read these rules and confirm.</strong>
+            <div className="small muted">
+              {ackAt ? 'The rules have changed since you last confirmed them.' : 'Your confirmation is recorded with your account.'}
+            </div>
+          </div>
+          <button className="btn" disabled={busy} onClick={acknowledge}>
+            {busy ? 'Saving…' : 'I have read and agree'}
+          </button>
+        </>
+      )}
+      {error && <div className="pd-error">{error}</div>}
+    </section>
+  );
+}
+
+export default function Rules() {
+  const { role, currentUser, refresh } = useDashboard();
+  const internal = seesEverything(role);
+  const [tab, setTab] = useState('realtor');
+
+  const shownRole = internal ? tab : role;
+  const own = ROLE_RULES[shownRole];
+
+  return (
     <div className="pd rules">
       <header className="pd-hero">
         <h1>{internal ? 'Rules & Regulations' : 'Rules & Guidelines'}</h1>
         <p>How we work with clients, inventory and each other. Last updated {STAMP.format(new Date(RULES_VERSION))}.</p>
       </header>
 
-      {!internal && (
-        <section className={'panel pd-section rules-ack' + (current ? ' done' : '')}>
-          {current ? (
-            <div>
-              <Chip tone="green">✓ Acknowledged</Chip>{' '}
-              <span className="small muted">You confirmed these rules on {STAMP.format(ackAt)}.</span>
-            </div>
-          ) : (
-            <>
-              <div>
-                <strong>Please read these rules and confirm.</strong>
-                <div className="small muted">
-                  {ackAt ? 'The rules have changed since you last confirmed them.' : 'Your confirmation is recorded with your account.'}
-                </div>
-              </div>
-              <button className="btn" disabled={busy} onClick={acknowledge}>
-                {busy ? 'Saving…' : 'I have read and agree'}
-              </button>
-            </>
-          )}
-          {error && <div className="pd-error">{error}</div>}
-        </section>
-      )}
+      {!internal && <RulesAck currentUser={currentUser} refresh={refresh} />}
 
       {internal && (
         <div className="pd-actions">

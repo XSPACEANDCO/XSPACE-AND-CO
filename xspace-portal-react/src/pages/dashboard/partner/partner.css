@@ -643,6 +643,23 @@
   margin-top: 4px;
   overflow-wrap: anywhere;
 }
+/* The partner rules on Profile & KYC: scrolls in place above the accept bar. */
+.page-dashboard .pk-terms {
+  max-height: 340px;
+  overflow-y: auto;
+  margin: 10px 0 14px;
+  padding: 4px 14px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.page-dashboard .pk-terms + .rules-ack {
+  padding: 12px 14px;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 10px;
+}
+.page-dashboard .pk-terms + .rules-ack.done {
+  border-color: rgba(16, 185, 129, 0.35);
+}
 /* Wide enough that an account number sits on one line. */
 .page-dashboard .pk-review .pd-figures {
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));

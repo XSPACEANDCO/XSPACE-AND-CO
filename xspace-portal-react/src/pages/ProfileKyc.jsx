@@ -3,7 +3,8 @@ import api from '../lib/api';
 import FileField from '../components/FileField';
 import { ROLES, seesEverything } from '../lib/roleConfig';
 import { timeAgo } from '../lib/time';
-import { RULES_VERSION } from '../lib/rules';
+import { GENERAL_RULES, ROLE_RULES, RULES_VERSION } from '../lib/rules';
+import { RuleBlock, RulesAck } from './Rules';
 import { useDashboard } from './dashboard/DashboardStore';
 import { Chip, Empty, Section } from './dashboard/partner/shared';
 import './dashboard/partner/partner.css';
@@ -12,7 +13,8 @@ import './dashboard/partner/partner.css';
 
    Everyone edits their own profile here. Partners also submit KYC — identity
    documents and where payouts go — which Founder or Core then verify or send
-   back with a reason. Founder and Core get the review queue in place of a
+   back with a reason — and accept the partner terms, so onboarding is done
+   on one page. Founder and Core get the review queue in place of a
    KYC form of their own: Partner compliance, which also shows who has
    acknowledged the rules. */
 
@@ -357,6 +359,24 @@ function ComplianceSection() {
   );
 }
 
+/* ---------- Terms ---------- */
+
+/* The partner rules, accepted here next to KYC so a new partner finishes
+   onboarding on one page. The same rules and acknowledgement as the Rules &
+   Guidelines page. */
+function TermsSection({ me, role, refresh }) {
+  const own = ROLE_RULES[role];
+  return (
+    <Section title="📜 Terms & conditions" subtitle="Read and accept to finish onboarding">
+      <div className="pk-terms">
+        {own && <RuleBlock sections={own.sections} />}
+        <RuleBlock sections={GENERAL_RULES} />
+      </div>
+      <RulesAck currentUser={me} refresh={refresh} bare />
+    </Section>
+  );
+}
+
 export default function ProfileKyc() {
   const { role, currentUser, refresh } = useDashboard();
   const internal = seesEverything(role);
@@ -370,7 +390,14 @@ export default function ProfileKyc() {
 
       <div className="pd-grid pk-grid">
         <div className="pd-col">
-          {internal ? <ComplianceSection /> : <KycSection me={currentUser} role={role} refresh={refresh} />}
+          {internal ? (
+            <ComplianceSection />
+          ) : (
+            <>
+              <KycSection me={currentUser} role={role} refresh={refresh} />
+              <TermsSection me={currentUser} role={role} refresh={refresh} />
+            </>
+          )}
         </div>
         <aside className="pd-col">
           <ProfileSection me={currentUser} role={role} refresh={refresh} />
