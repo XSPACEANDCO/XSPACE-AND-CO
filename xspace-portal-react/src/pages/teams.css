@@ -131,6 +131,20 @@
   font-weight: 600;
 }
 
+/* Open join requests waiting on a decision. */
+.page-dashboard .teams-count {
+  display: inline-block;
+  min-width: 20px;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #f97316;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
 .page-dashboard .teams-search {
   width: 330px;
   max-width: 100%;

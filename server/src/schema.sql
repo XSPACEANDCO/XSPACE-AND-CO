@@ -733,3 +733,23 @@ CREATE INDEX IF NOT EXISTS commissions_lead_idx ON commissions (lead_id);
 
 -- Profile photo: the /api/files URL of an image the user uploaded themselves.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
+-- People who ask on the public website to join as a developer partner,
+-- realtor, creator or Studio editor. They are not clients, so they wait
+-- here rather than in the CRM until Founder or Core add them to the team
+-- (user_id is the account made for them) or decline.
+CREATE TABLE IF NOT EXISTS join_requests (
+  id          TEXT PRIMARY KEY,
+  kind        TEXT NOT NULL CHECK (kind IN ('developer','realtor','creator','studio')),
+  name        TEXT NOT NULL,
+  phone       TEXT,
+  email       TEXT,
+  details     TEXT,
+  page        TEXT,
+  status      TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','added','declined')),
+  user_id     TEXT REFERENCES users(id) ON DELETE SET NULL,
+  handled_by  TEXT REFERENCES users(id) ON DELETE SET NULL,
+  handled_at  TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS join_requests_status_idx ON join_requests (status, created_at DESC);

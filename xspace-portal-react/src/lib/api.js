@@ -261,6 +261,9 @@ export const api = {
     realtors: (opts = {}) => get('/users/realtors' + qs(opts)),
     studios: (opts = {}) => get('/users/studios' + qs(opts)),
     team: () => get('/users/team'),
+    /* Website requests to join the team; "Add" is create() with joinRequestId. */
+    joinRequests: () => get('/users/join-requests'),
+    declineJoin: (id) => post(`/users/join-requests/${id}/decline`),
     partnerDashboards: () => get('/users/partner-dashboards'),
     profile: () => get('/users/me/profile'),
     updateProfile: (data) => patch('/users/me/profile', data),

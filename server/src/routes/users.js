@@ -106,6 +106,42 @@ router.get(
   })
 );
 
+/* People who asked on the website to join the team (routes/enquiry.js).
+   Founder and Core only: the team module is internal. Open ones first, then
+   the last month of decided ones, so a decision stays visible for a while. */
+router.get(
+  '/join-requests',
+  requireModule('team'),
+  asyncHandler(async (req, res) => {
+    const rows = await many(
+      `SELECT j.id, j.kind, j.name, j.phone, j.email, j.details, j.page, j.status,
+              j.created_at, j.handled_at, h.name AS handled_by_name, u.name AS user_name
+         FROM join_requests j
+         LEFT JOIN users h ON h.id = j.handled_by
+         LEFT JOIN users u ON u.id = j.user_id
+        WHERE j.status = 'new' OR j.handled_at > now() - interval '30 days'
+        ORDER BY (j.status = 'new') DESC, j.created_at DESC
+        LIMIT 200`
+    );
+    res.json({ requests: rows });
+  })
+);
+
+router.post(
+  '/join-requests/:id/decline',
+  requireModule('team'),
+  asyncHandler(async (req, res) => {
+    const row = await one(
+      `UPDATE join_requests SET status = 'declined', handled_by = $2, handled_at = now()
+        WHERE id = $1 AND status = 'new' RETURNING id, name`,
+      [req.params.id, req.user.id]
+    );
+    if (!row) return res.status(404).json({ error: 'That request is gone or already decided' });
+    await recordAudit(`Join request from ${row.name} declined`, req.user.id, 'join_request', row.id);
+    res.json({ ok: true });
+  })
+);
+
 /* Every partner's numbers side by side, for Founder and Core.
 
    Each figure is the same thing that partner's own dashboard counts, so the
@@ -485,6 +521,15 @@ router.post(
       ]
     );
     await recordAudit(`${role} account created for ${email}`, req.user.id, 'user', id);
+
+    /* Made from a website join request: close the request against it. */
+    if (req.body?.joinRequestId) {
+      await query(
+        `UPDATE join_requests SET status = 'added', user_id = $2, handled_by = $3, handled_at = now()
+          WHERE id = $1 AND status = 'new'`,
+        [String(req.body.joinRequestId), id, req.user.id]
+      );
+    }
 
     /* Welcome and portal-access emails (and, for partners, a welcome in
        their notifications). Not awaited: the account exists whether or not

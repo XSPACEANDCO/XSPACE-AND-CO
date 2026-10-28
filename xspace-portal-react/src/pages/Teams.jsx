@@ -38,8 +38,25 @@ const ROLE_FIELDS = {
 
 const EMPTY = {
   name: '', username: '', email: '', phone: '', role: '', password: '',
-  areas: '', platform: '', handle: '', skill: '',
+  areas: '', platform: '', handle: '', skill: '', joinRequestId: '',
 };
+
+/* Website join requests (server/src/routes/enquiry.js): who asked to be
+   what, and the role field their free-text answer fills when they are added. */
+const JOIN_KINDS = {
+  developer: { label: 'Developer partner', role: null, field: null },
+  realtor: { label: 'Realtor', role: 'realtor', field: 'areas' },
+  creator: { label: 'Creator', role: 'creator', field: 'handle' },
+  studio: { label: 'Studio editor', role: 'studio', field: 'skill' },
+};
+
+/* The website folds the email into the request's note; it has its own field. */
+const joinDetails = (r) =>
+  (r.details || '').split(' · ').filter((part) => !part.startsWith('Email:')).join(' · ');
+
+/* A starting username from the name: "Priya S. Rao" -> "priya.s.rao". */
+const suggestUsername = (name) =>
+  name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '').slice(0, 32);
 
 /* A deactivated account is off regardless of who is at their desk, so the flag
    wins over the presence field. */
@@ -79,6 +96,7 @@ function Stat({ label, value, sub, tone }) {
 export default function Teams() {
   const [me, setMe] = useState(null);
   const [groups, setGroups] = useState({ core: [], realtor: [], creator: [], studio: [] });
+  const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -107,6 +125,8 @@ export default function Teams() {
         api.users.studios({ limit: 100 }).then((r) => r.partners),
       ]);
       setGroups({ core, realtor, creator, studio });
+      /* Its own catch: a hiccup here should not blank the rosters. */
+      api.users.joinRequests().then((r) => setRequests(r.requests)).catch(() => {});
     } catch (err) {
       setError(err.message || 'Could not load accounts');
     } finally {
@@ -129,6 +149,16 @@ export default function Teams() {
     () => [...groups.core, ...groups.realtor, ...groups.creator, ...groups.studio],
     [groups]
   );
+
+  const openRequests = requests.filter((r) => r.status === 'new');
+
+  const visibleRequests = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return requests;
+    return requests.filter(
+      (r) => r.name.toLowerCase().includes(q) || (r.email || '').toLowerCase().includes(q)
+    );
+  }, [requests, search]);
 
   const visible = useMemo(() => {
     const rows = tab === 'all' ? everyone : groups[tab] || [];
@@ -154,6 +184,35 @@ export default function Teams() {
     setModalOpen(true);
   }
 
+  /* Add Member, filled in from the request. The role and username are only
+     suggestions: whoever adds them can change anything before saving. */
+  function addFromRequest(r) {
+    const kind = JOIN_KINDS[r.kind];
+    const role = creatable.includes(kind.role) ? kind.role : creatable[0] || '';
+    setForm({
+      ...EMPTY,
+      name: r.name,
+      username: suggestUsername(r.name),
+      email: r.email || '',
+      phone: r.phone || '',
+      role,
+      ...(kind.field && role === kind.role ? { [kind.field]: joinDetails(r) } : {}),
+      joinRequestId: r.id,
+    });
+    setFormError('');
+    setModalOpen(true);
+  }
+
+  async function declineRequest(r) {
+    if (!window.confirm(`Decline ${r.name}'s request to join?`)) return;
+    try {
+      await api.users.declineJoin(r.id);
+      await refresh();
+    } catch (err) {
+      setError(err.message || 'Could not decline that request');
+    }
+  }
+
   async function createAccount(e) {
     e.preventDefault();
     setFormError('');
@@ -167,6 +226,7 @@ export default function Teams() {
       };
       if (form.phone.trim()) payload.phone = form.phone.trim();
       if (form.password) payload.password = form.password;
+      if (form.joinRequestId) payload.joinRequestId = form.joinRequestId;
       for (const f of ROLE_FIELDS[form.role] || []) {
         if (form[f.key].trim()) payload[f.key] = form[f.key].trim();
       }
@@ -323,6 +383,13 @@ export default function Teams() {
               </button>
             ))}
             <button
+              className={'teams-tab' + (tab === 'requests' ? ' is-active' : '')}
+              onClick={() => setTab('requests')}
+            >
+              Join requests
+              {openRequests.length > 0 && <span className="teams-count">{openRequests.length}</span>}
+            </button>
+            <button
               className={'teams-tab' + (tab === 'emails' ? ' is-active' : '')}
               onClick={() => setTab('emails')}
             >
@@ -357,6 +424,81 @@ export default function Teams() {
 
         {tab === 'emails' ? (
           <EmailLog search={search} />
+        ) : tab === 'requests' ? (
+          visibleRequests.length === 0 ? (
+            <div className="teams-empty">
+              {search
+                ? 'Nobody matches that search.'
+                : 'No requests yet. They arrive from the partner forms on the website.'}
+            </div>
+          ) : (
+            <div className="teams-grid">
+              {visibleRequests.map((r) => (
+                <article key={r.id} className={'tcard' + (r.status === 'new' ? '' : ' is-off')}>
+                  <div className="tcard-top">
+                    <div className="tcard-avatar">{r.name.trim().charAt(0).toUpperCase()}</div>
+                    <div className="tcard-id">
+                      <div className="tcard-name">{r.name}</div>
+                      <div className="tcard-role">Wants to join as {JOIN_KINDS[r.kind].label.toLowerCase()}</div>
+                    </div>
+                    <div
+                      className={
+                        'tcard-status is-' + (r.status === 'new' ? 'away' : r.status === 'added' ? 'on' : 'off')
+                      }
+                    >
+                      <span className="tcard-dot" />
+                      {r.status === 'new' ? 'New' : r.status === 'added' ? 'Added' : 'Declined'}
+                    </div>
+                  </div>
+
+                  <dl className="tcard-fields">
+                    <div>
+                      <dt>Phone</dt>
+                      <dd>{r.phone || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>Email</dt>
+                      <dd>{r.email || '—'}</dd>
+                    </div>
+                    {joinDetails(r) && (
+                      <div>
+                        <dt>Details</dt>
+                        <dd>{joinDetails(r)}</dd>
+                      </div>
+                    )}
+                    <div>
+                      <dt>Received</dt>
+                      <dd>
+                        {new Date(r.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </dd>
+                    </div>
+                    {r.status !== 'new' && (
+                      <div>
+                        <dt>{r.status === 'added' ? 'Added' : 'Declined'}</dt>
+                        <dd>
+                          {r.handled_by_name ? `by ${r.handled_by_name}` : '—'}
+                          {r.status === 'added' && r.user_name ? ` as ${r.user_name}` : ''}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+
+                  {r.status === 'new' && (
+                    <div className="tcard-actions">
+                      <button className="teams-link danger" onClick={() => declineRequest(r)}>
+                        Decline
+                      </button>
+                      {creatable.length > 0 && (
+                        <button className="teams-link" onClick={() => addFromRequest(r)}>
+                          Add to team
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )
         ) : loading ? (
           <div className="teams-empty">Loading…</div>
         ) : visible.length === 0 ? (
@@ -485,6 +627,11 @@ export default function Teams() {
         >
           <div className="modal">
             <h3>Add Member</h3>
+            {form.joinRequestId && (
+              <p className="teams-form-hint">
+                From a website join request. Check the role and username before adding.
+              </p>
+            )}
             <form onSubmit={createAccount} className="teams-form" autoComplete="off">
               <label>
                 <span>Full name</span>

@@ -18,7 +18,8 @@ import { EMAIL_RE } from '../clientJourney.js';
    trimmed to sane lengths.
 
    A repeat enquiry from a phone number already in the CRM is added to that
-   client's notes instead of creating a duplicate.
+   client's notes instead of creating a duplicate. The "join us" forms are
+   the exception: they become join requests, not leads (JOIN_KINDS).
 
    Mounted in app.js before the CORS allow-list: the website lives on another
    origin (Vercel), and this one route has to answer it. The site sends the
@@ -58,6 +59,17 @@ const TYPE_MAP = {
   'Warehouse / Industrial': { propertyType: 'industrial' },
   Land: { propertyType: 'land' },
 };
+
+/* The website's "join us" forms. These people want to work with Xspace, not
+   buy from it, so they go to the Join requests list on the Teams page
+   instead of the CRM. */
+const JOIN_KINDS = {
+  'Partner with XSPACE': 'developer',
+  'Become a Realtor Partner': 'realtor',
+  'Become a Creator Partner': 'creator',
+  'Join as a Studio Editor': 'studio',
+};
+const JOIN_LABELS = { developer: 'developer partner', realtor: 'realtor', creator: 'creator', studio: 'Studio editor' };
 
 const text = (v, max = 200) => String(v ?? '').trim().slice(0, max);
 
@@ -106,6 +118,25 @@ router.post(
     const rawEmail = text(body.email, 200).toLowerCase();
     const email = EMAIL_RE.test(rawEmail) ? rawEmail : null;
     const page = text(body.page, 300);
+
+    const kind = JOIN_KINDS[intent];
+    if (kind) {
+      const id = newId('j');
+      await query(
+        `INSERT INTO join_requests (id, kind, name, phone, email, details, page)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [id, kind, name, '+91' + phone, email, note || null, page || null]
+      );
+      for (const role of ['founder', 'core']) {
+        await notify({
+          role, type: 'team',
+          title: `Join request: ${name}`,
+          body: `Wants to join as a ${JOIN_LABELS[kind]} — see Teams → Join requests.`,
+        });
+      }
+      await recordAudit(`Join request from the website — ${JOIN_LABELS[kind]}`, null, 'join_request', id);
+      return res.status(201).json({ ok: true });
+    }
 
     /* What the visitor asked for, in words, so nothing the form collected is
        lost even where it has no column of its own. */
