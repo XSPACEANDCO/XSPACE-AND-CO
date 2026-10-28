@@ -185,6 +185,9 @@ export const MODULES = [
     label: '📘 Rules & Regulations',
     to: '/rules',
     roles: ['realtor', 'creator', 'studio'],
+    /* Partners read and accept the rules on Profile & KYC, so the page stays
+       in the Founder/Core sidebar only. Partners can still open /rules. */
+    navHidden: ['realtor', 'creator', 'studio'],
     contents: ['Partner code of conduct', 'Commission and payout rules', 'Escalation policy'],
   },
 
@@ -256,7 +259,6 @@ const NAV = {
     { key: 'projects', label: '🏠 Projects & Listings' },
     { key: 'performance' },
     { key: 'earnings' },
-    { key: 'rules', label: '📘 Rules & Guidelines' },
     { key: 'profileKyc', label: '👤 Profile & KYC' },
     { key: 'settings' },
   ],

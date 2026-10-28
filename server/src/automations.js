@@ -86,7 +86,7 @@ function pendingSteps(user) {
   const steps = [];
   if (!user.kyc_submitted_at) steps.push('submit your KYC and payout details (Profile & KYC)');
   else if (user.kyc_status === 'rejected') steps.push('fix and resubmit your KYC');
-  if (!user.rules_ack_at) steps.push('acknowledge the partner rules (Rules)');
+  if (!user.rules_ack_at) steps.push('accept the terms & conditions (Profile & KYC)');
   return steps;
 }
 
