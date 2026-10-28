@@ -312,7 +312,11 @@ function ComplianceSection() {
                         {p.role === 'realtor' && (
                           <div className="pd-figure"><div className="pd-figure-label">RERA agent no.</div><div>{p.rera_agent_no || '—'}</div></div>
                         )}
-                        <div className="pd-figure"><div className="pd-figure-label">Bank</div><div>{p.bank_holder || '—'}<br />{p.bank_account || ''} {p.bank_ifsc || ''}<br />{p.bank_name || ''}</div></div>
+                        {/* One box per bank detail, so each can be checked against the documents. */}
+                        <div className="pd-figure"><div className="pd-figure-label">Account holder</div><div>{p.bank_holder || '—'}</div></div>
+                        <div className="pd-figure"><div className="pd-figure-label">Account number</div><div className="pk-mono">{p.bank_account || '—'}</div></div>
+                        <div className="pd-figure"><div className="pd-figure-label">IFSC</div><div className="pk-mono">{p.bank_ifsc || '—'}</div></div>
+                        <div className="pd-figure"><div className="pd-figure-label">Bank name</div><div>{p.bank_name || '—'}</div></div>
                         <div className="pd-figure"><div className="pd-figure-label">UPI</div><div>{p.upi_id || '—'}</div></div>
                       </div>
                       <div className="pd-item-meta">Address: {p.address || '—'}</div>

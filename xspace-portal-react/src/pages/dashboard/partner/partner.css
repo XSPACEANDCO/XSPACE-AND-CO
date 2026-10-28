@@ -643,6 +643,16 @@
   margin-top: 4px;
   overflow-wrap: anywhere;
 }
+/* Wide enough that an account number sits on one line. */
+.page-dashboard .pk-review .pd-figures {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+/* Account number and IFSC: even-width digits are easier to check. */
+.page-dashboard .pk-review .pk-mono {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
 .page-dashboard .pk-note {
   margin-top: 10px;
 }
