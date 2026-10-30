@@ -26,7 +26,7 @@ router.use((req, res, next) => {
 
 /* What Studio does not see on a listing: the commercial terms and the
    internal notes. */
-const STUDIO_HIDDEN = ['commission', 'negotiation', 'notes'];
+const STUDIO_HIDDEN = ['commission', 'negotiation', 'notes', 'micro_market'];
 const forStudio = (user, listing) => {
   if (user.role !== 'studio' || !listing) return listing;
   const out = { ...listing };
@@ -56,6 +56,7 @@ const FIELDS = [
   ['carpetArea', 'carpet_area'],
   ['uds', 'uds'],
   ['facing', 'facing'],
+  ['unitDetails', 'unit_details'],
   /* Price & commercials */
   ['basePrice', 'base_price'],
   ['allInclusive', 'all_inclusive'],
@@ -67,13 +68,28 @@ const FIELDS = [
   ['titleStatus', 'title_status'],
   ['bankApproved', 'bank_approved'],
   ['surveyNumber', 'survey_number'],
+  ['reraApprovedDate', 'rera_approved_date'],
+  ['reraValidUpto', 'rera_valid_upto'],
+  ['permitFileNo', 'permit_file_no'],
+  ['permitApprovedDate', 'permit_approved_date'],
+  ['permitValidUpto', 'permit_valid_upto'],
   /* Amenities, media, notes */
   ['amenities', 'amenities'],
   ['videoLink', 'video_link'],
   ['brochureUrl', 'brochure_url'],
   ['floorPlanUrl', 'floor_plan_url'],
   ['priceSheetUrl', 'price_sheet_url'],
+  ['reraCertificateUrl', 'rera_certificate_url'],
+  ['buildingPermitUrl', 'building_permit_url'],
+  ['fireNocUrl', 'fire_noc_url'],
+  ['environmentalCertUrl', 'environmental_cert_url'],
+  ['encumbranceCertUrl', 'encumbrance_cert_url'],
+  ['mortgageDeedsUrl', 'mortgage_deeds_url'],
+  ['supplementaryDeedsUrl', 'supplementary_deeds_url'],
+  ['reraAgreementUrl', 'rera_agreement_url'],
+  ['legalOpinionUrl', 'legal_opinion_url'],
   ['highDemand', 'high_demand'],
+  ['microMarket', 'micro_market'],
   ['notes', 'notes'],
   /* Land — used instead of the unit fields when property_type is 'land' */
   ['landKind', 'land_kind'],
@@ -98,7 +114,11 @@ const FIELDS = [
 
 /* Fields rendered as links. They must be web links or the portal's own
    uploads — see safeUrl in helpers.js. */
-const URL_FIELDS = new Set(['videoLink', 'brochureUrl', 'floorPlanUrl', 'priceSheetUrl', 'layoutPlanUrl']);
+const URL_FIELDS = new Set([
+  'videoLink', 'brochureUrl', 'floorPlanUrl', 'priceSheetUrl', 'layoutPlanUrl',
+  'reraCertificateUrl', 'buildingPermitUrl', 'fireNocUrl', 'environmentalCertUrl', 'encumbranceCertUrl',
+  'mortgageDeedsUrl', 'supplementaryDeedsUrl', 'reraAgreementUrl', 'legalOpinionUrl',
+]);
 
 /* A listing filed against a project that does not exist would fail on the
    foreign key with a 500. Returns an error message or null. */

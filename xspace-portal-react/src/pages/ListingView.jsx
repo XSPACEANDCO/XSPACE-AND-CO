@@ -5,7 +5,7 @@ import { getRole } from '../lib/storage';
 import { propertyFullLabel } from '../lib/leadStatus';
 import { splitAmenity } from '../lib/amenityIcons';
 import { GOV_PORTALS } from '../lib/links';
-import ListingForm, { fromListing, isLand, toPayload } from './ListingForm';
+import ListingForm, { LEGAL_DOCS, fromListing, isLand, parseUnits, toPayload } from './ListingForm';
 import LandForm from './LandForm';
 import ListingPhotos from './ListingPhotos';
 import './listingview.css';
@@ -20,6 +20,15 @@ import './listingview.css';
 const STAMP = new Intl.DateTimeFormat('en-IN', {
   day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
 });
+
+const DAY = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+/* Dates from the form are YYYY-MM-DD; anything else was typed by hand and is
+   shown as it is. */
+function fmtDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return value;
+  return DAY.format(new Date(`${value}T00:00:00`));
+}
 
 /* Where Core actually checks a Telangana property before verifying it —
    the same list the Live Verifications desk shows (lib/links.js). */
@@ -180,7 +189,11 @@ Its photos and verification go with it. This cannot be undone.`))
     ['Floor Plan', listing.floor_plan_url],
     ['Price Sheet', listing.price_sheet_url],
     ['Video', listing.video_link],
+    /* LEGAL_DOCS is keyed by the form's camelCase name; the row is snake_case. */
+    ...LEGAL_DOCS.map(([key, label]) => [label, listing[key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)]]),
   ].filter(([, href]) => href);
+
+  const units = parseUnits(listing);
 
   return (
     <div className="page-listingview">
@@ -299,14 +312,24 @@ Its photos and verification go with it. This cannot be undone.`))
 
                 <div className="section">
                   <h3>Unit Details</h3>
-                  <Grid
-                    rows={[
-                      ['Super Built-up Area', listing.super_built_up],
-                      ['Carpet Area', listing.carpet_area],
-                      ['UDS', listing.uds],
-                      ['Facing', listing.facing],
-                    ]}
-                  />
+                  {units.length === 0 ? (
+                    <div className="small">No units recorded for this listing.</div>
+                  ) : (
+                    units.map((u, i) => (
+                      <div className="lv-unit" key={i}>
+                        {units.length > 1 && <h4>{u.name || `Unit ${i + 1}`}</h4>}
+                        <Grid
+                          rows={[
+                            ...(units.length === 1 && u.name ? [['Unit / Type', u.name]] : []),
+                            ['Super Built-up Area', u.superBuiltUp],
+                            ['Carpet Area', u.carpetArea],
+                            ['UDS', u.uds],
+                            ['Facing', u.facing],
+                          ]}
+                        />
+                      </div>
+                    ))
+                  )}
                 </div>
 
                 <div className="section">
@@ -364,10 +387,15 @@ Its photos and verification go with it. This cannot be undone.`))
                       ]
                     : [
                         ['RERA No.', listing.rera_number],
-                        ['Approval', listing.approval],
-                        ['Title Status', listing.title_status],
+                        ['RERA Approved Date', fmtDate(listing.rera_approved_date)],
+                        ['RERA Valid Up To', fmtDate(listing.rera_valid_upto)],
+                        ['Sy. No.', listing.survey_number],
+                        ['Permit / Layout Approved By', listing.approval],
+                        ['Permit File No.', listing.permit_file_no],
+                        ['Permit Approved Date', fmtDate(listing.permit_approved_date)],
+                        ['Permit Valid Up To', fmtDate(listing.permit_valid_upto)],
                         ['Bank Approved', listing.bank_approved],
-                        ['Survey No.', listing.survey_number],
+                        ['Title Status', listing.title_status],
                       ]
                 }
               />
@@ -445,6 +473,13 @@ Its photos and verification go with it. This cannot be undone.`))
                 </div>
               )}
             </div>
+
+            {!studio && (
+              <div className="section">
+                <h3>Micro Market</h3>
+                <div className="small lv-prewrap">{listing.micro_market || 'No micro market notes yet.'}</div>
+              </div>
+            )}
 
             {!studio && (
               <div className="section">

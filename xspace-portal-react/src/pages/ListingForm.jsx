@@ -19,11 +19,16 @@ import FileField from '../components/FileField';
 export const EMPTY_LISTING = {
   title: '', area: '', propertyType: '', propertySubtype: '', configuration: '', highDemand: false,
   builder: '', possession: '', unitType: '',
-  superBuiltUp: '', carpetArea: '', uds: '', facing: '',
+  superBuiltUp: '', carpetArea: '', uds: '', facing: '', units: [],
   price: '', basePrice: '', allInclusive: '', negotiation: '', commission: '',
   reraNumber: '', approval: '', titleStatus: '', bankApproved: '', surveyNumber: '',
+  reraApprovedDate: '', reraValidUpto: '',
+  permitFileNo: '', permitApprovedDate: '', permitValidUpto: '',
   amenities: '', videoLink: '', brochureUrl: '', floorPlanUrl: '', priceSheetUrl: '',
-  notes: '',
+  reraCertificateUrl: '', buildingPermitUrl: '', fireNocUrl: '', environmentalCertUrl: '',
+  encumbranceCertUrl: '', mortgageDeedsUrl: '', supplementaryDeedsUrl: '', reraAgreementUrl: '',
+  legalOpinionUrl: '',
+  microMarket: '', notes: '',
   /* Land — see LandForm.jsx */
   landKind: '', extent: '', priceBasis: '', village: '', mandal: '', district: '',
   zoning: '', conversion: '', roadAccess: '', frontage: '', boundaries: '', utilities: '',
@@ -39,6 +44,32 @@ export function isLand(listing) {
   return (listing?.propertyType ?? listing?.property_type) === 'land';
 }
 
+/* Several configurations ("2 BHK, 3 BHK") live in the one configuration
+   column, comma-separated, so lead matching and every list that prints it
+   keep working unchanged. */
+export function splitConfigs(text) {
+  return String(text || '').split(',').map((c) => c.trim()).filter(Boolean);
+}
+
+const EMPTY_UNIT = { name: '', superBuiltUp: '', carpetArea: '', uds: '', facing: '' };
+const unitFilled = (u) => Object.values(u).some((v) => String(v || '').trim());
+
+/* One row per unit, stored as JSON in unit_details. A listing entered before
+   that column existed has its single unit in the old columns — read it from
+   there so it opens as the first row. */
+export function parseUnits(l) {
+  try {
+    const rows = JSON.parse(l.unit_details || '[]');
+    if (Array.isArray(rows) && rows.length) return rows.map((u) => ({ ...EMPTY_UNIT, ...u }));
+  } catch { /* fall through to the old columns */ }
+  const legacy = {
+    ...EMPTY_UNIT,
+    superBuiltUp: l.super_built_up || '', carpetArea: l.carpet_area || '',
+    uds: l.uds || '', facing: l.facing || '',
+  };
+  return unitFilled(legacy) ? [legacy] : [];
+}
+
 /* API row (snake_case) -> form state. Nulls become '' so React keeps every
    field controlled. */
 export function fromListing(l) {
@@ -50,15 +81,24 @@ export function fromListing(l) {
     highDemand: Boolean(l.high_demand),
     builder: pick(l.builder), possession: pick(l.possession), unitType: pick(l.unit_type),
     superBuiltUp: pick(l.super_built_up), carpetArea: pick(l.carpet_area),
-    uds: pick(l.uds), facing: pick(l.facing),
+    uds: pick(l.uds), facing: pick(l.facing), units: parseUnits(l),
     price: pick(l.price), basePrice: pick(l.base_price), allInclusive: pick(l.all_inclusive),
     negotiation: pick(l.negotiation), commission: pick(l.commission),
     reraNumber: pick(l.rera_number), approval: pick(l.approval),
     titleStatus: pick(l.title_status), bankApproved: pick(l.bank_approved),
     surveyNumber: pick(l.survey_number),
+    reraApprovedDate: pick(l.rera_approved_date), reraValidUpto: pick(l.rera_valid_upto),
+    permitFileNo: pick(l.permit_file_no), permitApprovedDate: pick(l.permit_approved_date),
+    permitValidUpto: pick(l.permit_valid_upto),
     amenities: pick(l.amenities), videoLink: pick(l.video_link),
     brochureUrl: pick(l.brochure_url), floorPlanUrl: pick(l.floor_plan_url),
-    priceSheetUrl: pick(l.price_sheet_url), notes: pick(l.notes),
+    priceSheetUrl: pick(l.price_sheet_url),
+    reraCertificateUrl: pick(l.rera_certificate_url), buildingPermitUrl: pick(l.building_permit_url),
+    fireNocUrl: pick(l.fire_noc_url), environmentalCertUrl: pick(l.environmental_cert_url),
+    encumbranceCertUrl: pick(l.encumbrance_cert_url), mortgageDeedsUrl: pick(l.mortgage_deeds_url),
+    supplementaryDeedsUrl: pick(l.supplementary_deeds_url), reraAgreementUrl: pick(l.rera_agreement_url),
+    legalOpinionUrl: pick(l.legal_opinion_url),
+    microMarket: pick(l.micro_market), notes: pick(l.notes),
     landKind: pick(l.land_kind), extent: pick(l.extent), priceBasis: pick(l.price_basis),
     village: pick(l.village), mandal: pick(l.mandal), district: pick(l.district),
     zoning: pick(l.zoning), conversion: pick(l.conversion), roadAccess: pick(l.road_access),
@@ -69,8 +109,20 @@ export function fromListing(l) {
 }
 
 export function toPayload(form) {
-  const out = { ...form };
+  const { units = [], ...out } = form;
   out.title = form.title.trim();
+  out.configuration = splitConfigs(form.configuration).join(', ');
+  /* Land has no unit rows — leave its columns alone. */
+  if (isLand(form)) return out;
+  /* The first unit also goes into the old single-unit columns, which the
+     public page and client journey still read. */
+  const filled = units.filter(unitFilled);
+  const first = filled[0] || EMPTY_UNIT;
+  out.unitDetails = filled.length ? JSON.stringify(filled) : '';
+  out.superBuiltUp = first.superBuiltUp;
+  out.carpetArea = first.carpetArea;
+  out.uds = first.uds;
+  out.facing = first.facing;
   return out;
 }
 
@@ -78,6 +130,19 @@ export const FACINGS = ['East', 'West', 'North', 'South', 'North-East', 'North-W
 export const APPROVALS = ['HMDA', 'DTCP', 'GHMC', 'Panchayat', 'RERA only', 'Other'];
 export const TITLE_STATUS = ['Clear', 'Under verification', 'Disputed', 'Not checked'];
 export const NEGOTIATION = ['Open', 'Limited', 'Fixed price'];
+
+/* The legal documents a buyer's lawyer asks for, in the order they ask. */
+export const LEGAL_DOCS = [
+  ['reraCertificateUrl', 'RERA certificate'],
+  ['buildingPermitUrl', 'Building permit / layout permit order'],
+  ['fireNocUrl', 'Fire NOC'],
+  ['environmentalCertUrl', 'Environmental certificate'],
+  ['encumbranceCertUrl', 'Encumbrance certificate'],
+  ['mortgageDeedsUrl', 'Mortgage deeds'],
+  ['supplementaryDeedsUrl', 'Supplementary deeds'],
+  ['reraAgreementUrl', 'Agreement as per RERA'],
+  ['legalOpinionUrl', 'Legal advisory from lawyer'],
+];
 
 export function Field({ label, hint, children }) {
   return (
@@ -131,13 +196,118 @@ export function PropertyTypeFields({ value, onChange }) {
   );
 }
 
+/* Every configuration on offer — a project selling 2 and 3 BHK lists both. */
+function ConfigList({ value, onChange }) {
+  const configKind = configKindFor(value.propertyType);
+  /* Split on the exact separator and untrimmed while editing, so an empty
+     row or a half-typed "2.5 " survives; toPayload tidies it on save. */
+  const rows = String(value.configuration || '').split(/\s*,\s?/);
+  const commit = (next) => onChange((f) => ({ ...f, configuration: next.join(', ') }));
+  const setAt = (i, text) => commit(rows.map((r, n) => (n === i ? text.replace(/,/g, '') : r)));
+
+  return (
+    <Field label={configLabelFor(value.propertyType)}>
+      <div className="lf-multi">
+        {rows.map((row, i) => (
+          /* Keyed by position: rows are edited in place and may repeat. */
+          <div className="lf-multi-row" key={i}>
+            {configKind === 'bhk' ? (
+              <select value={row} onChange={(e) => setAt(i, e.target.value)}>
+                <option value="">Select…</option>
+                {BHK_OPTIONS.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            ) : (
+              <input
+                value={row}
+                onChange={(e) => setAt(i, e.target.value)}
+                placeholder={
+                  configKind === 'acres' ? 'e.g. 2.5 acres'
+                    : configKind === 'sft' ? 'e.g. 1200 sft'
+                      : 'Pick a property type first'
+                }
+                disabled={!configKind}
+              />
+            )}
+            {rows.length > 1 && (
+              <button
+                type="button"
+                className="lf-remove"
+                title="Remove"
+                aria-label="Remove configuration"
+                onClick={() => commit(rows.filter((_, n) => n !== i))}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        ))}
+        {configKind && rows[rows.length - 1] && (
+          <button type="button" className="lf-add" onClick={() => commit([...rows, ''])}>
+            + Add configuration
+          </button>
+        )}
+      </div>
+    </Field>
+  );
+}
+
+/* One row per unit type, each with its own areas and facing. */
+function UnitList({ value, onChange }) {
+  const rows = value.length ? value : [EMPTY_UNIT];
+  const setAt = (i, key, text) => onChange(rows.map((u, n) => (n === i ? { ...u, [key]: text } : u)));
+
+  return (
+    <div className="lf-units">
+      {rows.map((u, i) => (
+        <div className="lf-unit" key={i}>
+          <div className="lf-unit-head">
+            <strong>Unit {i + 1}</strong>
+            {rows.length > 1 && (
+              <button
+                type="button"
+                className="lf-remove"
+                title="Remove unit"
+                aria-label={`Remove unit ${i + 1}`}
+                onClick={() => onChange(rows.filter((_, n) => n !== i))}
+              >
+                ×
+              </button>
+            )}
+          </div>
+          <div className="lf-grid">
+            <Field label="Unit / type">
+              <input value={u.name} onChange={(e) => setAt(i, 'name', e.target.value)} placeholder="e.g. 3 BHK – Type A" />
+            </Field>
+            <Field label="Super built-up area">
+              <input value={u.superBuiltUp} onChange={(e) => setAt(i, 'superBuiltUp', e.target.value)} placeholder="e.g. 2050 sft" />
+            </Field>
+            <Field label="Carpet area">
+              <input value={u.carpetArea} onChange={(e) => setAt(i, 'carpetArea', e.target.value)} placeholder="e.g. 1450 sft" />
+            </Field>
+            <Field label="UDS">
+              <input value={u.uds} onChange={(e) => setAt(i, 'uds', e.target.value)} placeholder="e.g. 65 sq yds" />
+            </Field>
+            <Field label="Facing">
+              <select value={u.facing} onChange={(e) => setAt(i, 'facing', e.target.value)}>
+                <option value="">Select…</option>
+                {FACINGS.map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </Field>
+          </div>
+        </div>
+      ))}
+      <button type="button" className="lf-add" onClick={() => onChange([...rows, { ...EMPTY_UNIT }])}>
+        + Add unit
+      </button>
+    </div>
+  );
+}
+
 export default function ListingForm({ value, onChange }) {
   const set = (key) => (e) => {
     const next = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     onChange((f) => ({ ...f, [key]: next }));
   };
-
-  const configKind = configKindFor(value.propertyType);
 
   return (
     <div className="listing-form">
@@ -156,25 +326,7 @@ export default function ListingForm({ value, onChange }) {
           <PropertyTypeFields value={value} onChange={onChange} />
 
           {/* Bedrooms for a home, acres for land, square feet for a shop. */}
-          <Field label={configLabelFor(value.propertyType)}>
-            {configKind === 'bhk' ? (
-              <select value={value.configuration} onChange={set('configuration')}>
-                <option value="">Select…</option>
-                {BHK_OPTIONS.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
-            ) : (
-              <input
-                value={value.configuration}
-                onChange={set('configuration')}
-                placeholder={
-                  configKind === 'acres' ? 'e.g. 2.5 acres'
-                    : configKind === 'sft' ? 'e.g. 1200 sft'
-                      : 'Pick a property type first'
-                }
-                disabled={!configKind}
-              />
-            )}
-          </Field>
+          <ConfigList value={value} onChange={onChange} />
 
           <Field label="Possession">
             <input value={value.possession} onChange={set('possession')} placeholder="Dec 2027 / Ready to move" />
@@ -189,23 +341,7 @@ export default function ListingForm({ value, onChange }) {
 
       <fieldset>
         <legend>Unit Details</legend>
-        <div className="lf-grid">
-          <Field label="Super built-up area">
-            <input value={value.superBuiltUp} onChange={set('superBuiltUp')} placeholder="e.g. 2050 sft" />
-          </Field>
-          <Field label="Carpet area">
-            <input value={value.carpetArea} onChange={set('carpetArea')} placeholder="e.g. 1450 sft" />
-          </Field>
-          <Field label="UDS">
-            <input value={value.uds} onChange={set('uds')} placeholder="e.g. 65 sq yds" />
-          </Field>
-          <Field label="Facing">
-            <select value={value.facing} onChange={set('facing')}>
-              <option value="">Select…</option>
-              {FACINGS.map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
-          </Field>
-        </div>
+        <UnitList value={value.units || []} onChange={(units) => onChange((f) => ({ ...f, units }))} />
       </fieldset>
 
       <fieldset>
@@ -235,26 +371,48 @@ export default function ListingForm({ value, onChange }) {
       <fieldset>
         <legend>Legal &amp; Verification</legend>
         <div className="lf-grid">
-          <Field label="RERA number">
+          <Field label="RERA No.">
             <input value={value.reraNumber} onChange={set('reraNumber')} placeholder="RERA registration number" />
           </Field>
-          <Field label="Approval">
+          <Field label="Approved date">
+            <input type="date" value={value.reraApprovedDate} onChange={set('reraApprovedDate')} />
+          </Field>
+          <Field label="Valid up to">
+            <input type="date" value={value.reraValidUpto} onChange={set('reraValidUpto')} />
+          </Field>
+          <Field label="Sy. No." hint="Land / plot records">
+            <input value={value.surveyNumber} onChange={set('surveyNumber')} placeholder="e.g. Sy. No. 123/A" />
+          </Field>
+        </div>
+
+        <div className="lf-subhead">Building permit order / layout approval</div>
+        <div className="lf-grid">
+          <Field label="Approved by">
             <select value={value.approval} onChange={set('approval')}>
               <option value="">Select…</option>
               {APPROVALS.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
+          </Field>
+          <Field label="File No.">
+            <input value={value.permitFileNo} onChange={set('permitFileNo')} placeholder="Permit / LP file number" />
+          </Field>
+          <Field label="Approved date">
+            <input type="date" value={value.permitApprovedDate} onChange={set('permitApprovedDate')} />
+          </Field>
+          <Field label="Valid up to">
+            <input type="date" value={value.permitValidUpto} onChange={set('permitValidUpto')} />
+          </Field>
+        </div>
+
+        <div className="lf-grid lf-gap-top">
+          <Field label="Bank approved">
+            <input value={value.bankApproved} onChange={set('bankApproved')} placeholder="Banks offering loans" />
           </Field>
           <Field label="Title status">
             <select value={value.titleStatus} onChange={set('titleStatus')}>
               <option value="">Select…</option>
               {TITLE_STATUS.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
-          </Field>
-          <Field label="Bank approved">
-            <input value={value.bankApproved} onChange={set('bankApproved')} placeholder="Banks offering loans" />
-          </Field>
-          <Field label="Survey number" hint="Land / plot records">
-            <input value={value.surveyNumber} onChange={set('surveyNumber')} placeholder="e.g. Sy. No. 123/A" />
           </Field>
         </div>
       </fieldset>
@@ -301,6 +459,32 @@ export default function ListingForm({ value, onChange }) {
             hint="Walkthrough / drone / reel. Long video belongs on a link — only clips under 8 MB can be uploaded."
           />
         </div>
+
+        <div className="lf-subhead">Legal documents</div>
+        <div className="lf-grid">
+          {LEGAL_DOCS.map(([key, label]) => (
+            <FileField
+              key={key}
+              label={label}
+              value={value[key]}
+              onChange={(url) => onChange((f) => ({ ...f, [key]: url }))}
+              accept="application/pdf,image/*"
+              hint="PDF or image, up to 8 MB"
+            />
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Micro Market</legend>
+        <Field label="Micro market" hint="Visible to the internal team only">
+          <textarea
+            rows={3}
+            value={value.microMarket}
+            onChange={set('microMarket')}
+            placeholder="Locality rates, comparable projects, demand, upcoming infrastructure"
+          />
+        </Field>
       </fieldset>
 
       <fieldset>

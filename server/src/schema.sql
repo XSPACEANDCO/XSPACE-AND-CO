@@ -753,3 +753,34 @@ CREATE TABLE IF NOT EXISTS join_requests (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS join_requests_status_idx ON join_requests (status, created_at DESC);
+
+-- Listing sheet, second pass.
+-- A project rarely sells one unit type, so `configuration` now holds every
+-- configuration on offer ("2 BHK, 3 BHK"), and unit_details holds one row per
+-- unit as JSON: [{ name, superBuiltUp, carpetArea, uds, facing }]. The first
+-- unit is still copied into super_built_up / carpet_area / uds / facing so the
+-- pages that read those columns keep working.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS unit_details        TEXT;
+
+-- Legal & verification: RERA dates, and the building permit / layout approval
+-- (approved by = the existing `approval` column).
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS rera_approved_date  TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS rera_valid_upto     TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS permit_file_no      TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS permit_approved_date TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS permit_valid_upto   TEXT;
+
+-- Legal documents, stored as links like the brochure.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS rera_certificate_url   TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS building_permit_url    TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS fire_noc_url           TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS environmental_cert_url TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS encumbrance_cert_url   TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS mortgage_deeds_url     TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS supplementary_deeds_url TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS rera_agreement_url     TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS legal_opinion_url      TEXT;
+
+-- Micro market: the locality read (comparable prices, demand, upcoming
+-- infrastructure). Internal, like notes.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS micro_market        TEXT;

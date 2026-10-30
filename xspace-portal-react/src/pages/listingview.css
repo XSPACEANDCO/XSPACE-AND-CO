@@ -230,3 +230,15 @@
     margin-left: 0;
   }
 }
+
+/* One block per unit when a listing has several. */
+.page-listingview .lv-unit + .lv-unit {
+  margin-top: 14px;
+}
+.page-listingview .lv-unit h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+.page-listingview .lv-prewrap {
+  white-space: pre-wrap;
+}
