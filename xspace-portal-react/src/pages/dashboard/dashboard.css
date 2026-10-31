@@ -393,6 +393,45 @@
   justify-content: space-between;
   align-items: center;
 }
+.page-dashboard .ver-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* On a phone the name, status and three buttons cannot share one line: the
+   name wrapped a word at a time and the buttons ran off the card. Stack the
+   row — details on top, buttons below in a wrapping row. */
+@media (max-width: 680px) {
+  .page-dashboard .ver-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .page-dashboard .ver-row .grow {
+    min-width: 0;
+  }
+  .page-dashboard .ver-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .page-dashboard .ver-head strong {
+    overflow-wrap: anywhere;
+  }
+  .page-dashboard .ver-row .stack-end {
+    align-items: stretch;
+  }
+  .page-dashboard .ver-actions {
+    flex-wrap: wrap;
+  }
+  .page-dashboard .ver-actions .btn,
+  .page-dashboard .ver-actions .btn-ghost {
+    flex: 1 1 auto;
+    white-space: nowrap;
+  }
+  .page-dashboard .ver-actions .btn {
+    flex-basis: 100%;
+  }
+}
 
 /* Studio Journey */
 .page-dashboard .studio-tiles {

@@ -69,11 +69,11 @@ export function VerificationPanel() {
                   </div>
                   <div className="ver-meta">
                     {proj.builder ? `${proj.builder} • ${proj.rera || 'No RERA'}` : ''}
-                    <span style={{ marginLeft: 8 }}>{v.notes || ''}</span>
+                    <span style={{ marginLeft: proj.builder ? 8 : 0 }}>{v.notes || ''}</span>
                   </div>
                 </div>
                 <div className="stack-end">
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div className="ver-actions">
                     {!['inprogress', 'verified', 'corrections'].includes(v.status) && (
                       <button
                         className="btn"
