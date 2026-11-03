@@ -383,6 +383,10 @@ Other choices worth knowing:
   403 would confirm the record exists.
 - Only a Founder can create Founder or Core accounts.
 - You cannot deactivate your own account.
+- Row-level security is on for every table, with no policies — the block at
+  the end of `schema.sql`. Supabase's REST API runs as its `anon` and
+  `authenticated` roles, so it can read or change nothing; the server owns
+  the tables and is unaffected. The portal never uses that API.
 
 ### Before this handles real data
 

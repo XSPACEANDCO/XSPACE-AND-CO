@@ -784,3 +784,35 @@ ALTER TABLE listings ADD COLUMN IF NOT EXISTS legal_opinion_url      TEXT;
 -- Micro market: the locality read (comparable prices, demand, upcoming
 -- infrastructure). Internal, like notes.
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS micro_market        TEXT;
+
+-- ---------------------------------------------------------------------------
+-- Row-level security. Keep this block at the end of the file.
+--
+-- Supabase publishes every table in this schema through its REST API
+-- (<project>.supabase.co/rest/v1/...) to its `anon` and `authenticated`
+-- roles. The portal never uses that API, but with RLS off anyone holding the
+-- project's anon key could read, change or delete every row: password
+-- hashes, KYC and bank details, uploaded documents, client links.
+--
+-- RLS with no policies denies those roles everything. The server is not
+-- affected: it owns these tables, and RLS does not apply to a table's owner.
+-- Only tables this connection owns are touched, so one created by someone
+-- else (an extension's, say) is skipped rather than failing the boot.
+--
+-- Every table rather than a list, so new ones are covered without anyone
+-- remembering to. Add tables above this block; one added below is still
+-- caught on the next boot.
+DO $$
+DECLARE
+  t RECORD;
+BEGIN
+  FOR t IN
+    SELECT schemaname, tablename
+      FROM pg_tables
+     WHERE schemaname = current_schema()
+       AND tableowner = current_user
+       AND NOT rowsecurity
+  LOOP
+    EXECUTE format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY', t.schemaname, t.tablename);
+  END LOOP;
+END $$;
